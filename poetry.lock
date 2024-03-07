@@ -902,6 +902,16 @@ dev = ["pre-commit", "tox"]
 testing = ["pytest", "pytest-benchmark"]
 
 [[package]]
+name = "py-getch"
+version = "1.0.1"
+description = "Portable getch() for Python."
+optional = false
+python-versions = "*"
+files = [
+    {file = "py-getch-1.0.1.zip", hash = "sha256:1b703d6b049c606df64c7ea76a137888c2e3e800ba5c220bac18804d3a1ed1bd"},
+]
+
+[[package]]
 name = "pyparsing"
 version = "3.1.1"
 description = "pyparsing module - Classes and methods to define and execute parsing grammars"
@@ -1115,4 +1125,4 @@ repair = ["scipy (>=1.6.3)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "e3fd0a31c8d7a195e623587a4308f4f21373d7f713495b37f50b50bdb66d7a14"
+content-hash = "92c2c1bf9f5cc3789bf1de9aea3567131ae82c560d4f4010c4aff3c029db73da"

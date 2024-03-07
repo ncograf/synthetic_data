@@ -18,6 +18,7 @@ beautifulsoup4 = "^4.12.3"
 pytest = "^8.0.2"
 matplotlib = "^3.8.3"
 click = "^8.1.7"
+py-getch = "^1.0.1"
 
 
 [build-system]
