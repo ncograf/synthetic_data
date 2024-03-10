@@ -10,6 +10,7 @@ import base_statistic
 import temporal_statistc
 import outlier_detector
 from tueplots import bundles
+import time
 
 class DataInspector:
     """Class to clean data, visualize it and compute basic statistics
@@ -98,9 +99,6 @@ class DataInspector:
 
         for stat, ax in zip(statistics, ax_stats):
             stat.draw_histogram(axes=ax)
-        
-        for stat, ax in zip(time_statistics, ax_time):
-            stat.draw_and_emph_series(ax=ax, dates=all_outlier_dates, neighbour_points=True)
 
         i : int = 0
         while(i < len(all_outliers)):
@@ -108,14 +106,23 @@ class DataInspector:
             symbol = point[1]
             date = point[0]
 
+        
             for stat, ax in zip(time_statistics, ax_time):
-                stat.cut_window(ax=ax, dates=date, window_size=260)
+                t = time.time()
+                stat.draw_and_emph_series(ax=ax, dates=date, window_size=200, neighbour_points=True)
+                print(time.time() - t, " draw series")
 
             for obj, ax in zip(statistics, ax_stats):
+                t = time.time()
                 obj.draw_point(axes=ax, point=point)
+                print(time.time() - t, " draw point")
             
+            t = time.time()
             fig.canvas.draw()
+            print(time.time() - t, " draw figure")
+            t = time.time()
             fig.canvas.flush_events()
+            print(time.time() - t, " flush figure event")
 
             print((f"Outlier {i+1}/{n_outliers} of {symbol}: {date}\n"
                   "Press y/n to confirm/reject, h to go back, ctrl-c to cancel, any other key to show next."),flush=True)

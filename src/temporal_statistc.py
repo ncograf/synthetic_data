@@ -33,9 +33,12 @@ class TemporalStatistic(base_statistic.BaseStatistic):
             raise ValueError("Statistic name must be string")
         
     
-    def _emphasize_points(self, ax : plt.Axes, dates : List[pd.Timestamp], neighbour_points : bool = True):
+    def _emphasize_points(self, ax : plt.Axes,
+                          dates : List[pd.Timestamp],
+                          neighbour_points : bool = True):
 
-        self._check_statistics()
+        # commented out for performance O(n)
+        # self._check_statistics()
         
         if not isinstance(dates, list):
             raise ValueError("Dates must be a list, consider using singleton list.")
@@ -71,9 +74,14 @@ class TemporalStatistic(base_statistic.BaseStatistic):
             ax.plot(self.statistic.index[dates_before], self.statistic.iloc[dates_before], **style_neighbours)
             ax.plot(self.statistic.index[dates_after], self.statistic.iloc[dates_after], **style_neighbours)
     
-    def _draw_time_series(self, ax : plt.Axes):
+    def _draw_time_series(self,
+                          ax : plt.Axes,
+                          fst_date : pd.Timestamp,
+                          end_date : pd.Timestamp,
+                          ):
 
-        self._check_statistics()
+        # no checks for performance O(n)
+        # self._check_statistics()
 
         style_plot = {
             'color' : "green",
@@ -83,11 +91,18 @@ class TemporalStatistic(base_statistic.BaseStatistic):
         }
         
         # plot the investigated symbol
-        ax.plot(self.statistic.index, self.statistic, **style_plot)
+        statistic_region = self.statistic.loc[fst_date:end_date]
+        ax.plot(statistic_region.index, statistic_region, **style_plot)
 
-    def _draw_context(self, ax : plt.Axes, context : pd.DataFrame):
+    def _draw_context(self,
+                      ax : plt.Axes,
+                      context : pd.DataFrame,
+                      fst_date : pd.Timestamp,
+                      end_date : pd.Timestamp,
+                      ):
 
-        self._check_data_validity(context)
+        # no checks for performance
+        # self._check_data_validity(context)
 
         style_args = {
             'color' : "gray",
@@ -96,22 +111,24 @@ class TemporalStatistic(base_statistic.BaseStatistic):
             'label' : 'context',
         }
 
+        context_region = context.loc[fst_date:end_date]
         for col in context.columns:
-            ax.plot(context.index, context.loc[:,col], **style_args)
+            ax.plot(context_region.index, context_region.loc[:,col], **style_args)
     
     def _plot_labels(self, ax : plt.Axes):
+        
+        # plot only unique labels
         if not ax.get_legend() is None:
             ax.get_legend().remove()
         handles, labels = ax.get_legend_handles_labels()
         unique_labels = dict(zip(labels, handles))
-        ax.legend(unique_labels.values(), unique_labels.keys())
+        # fix position for performance
+        ax.legend(unique_labels.values(), unique_labels.keys(), loc='upper left')
     
-    def _cut_window(self,
-                   ax : plt.Axes,
-                   dates : Union[pd.Timestamp, List[pd.Timestamp]],
-                   window_size : int
-                   ):
-
+    def _get_end_points(self,
+                        dates : Union[pd.Timestamp, List[pd.Timestamp]],
+                        window_size : int) -> Tuple[pd.Timestamp, pd.Timestamp]:
+        
         if window_size < 0:
             raise ValueError("Window size was negative.")
 
@@ -129,32 +146,26 @@ class TemporalStatistic(base_statistic.BaseStatistic):
         fst_date = self.statistic.index[fst_idx]
         end_date = self.statistic.index[end_idx]
 
+        return (fst_date, end_date)
+    
+    def _set_limits(self,
+                    ax : plt.Axes,
+                    fst_date : pd.Timestamp,
+                    end_date : pd.Timestamp,
+                    ):
+
         # adjus the plotted y range to contain all the symbol data and extend the window by context plot
-        low_lim = self.statistic.iloc[fst_idx:end_idx].min()
-        high_lim = self.statistic.iloc[fst_idx:end_idx].max()
+        low_lim = self.statistic.loc[fst_date:end_date].min()
+        high_lim = self.statistic.loc[fst_date:end_date].max()
         context_lim = (high_lim - low_lim) * 0.1
 
         ax.set_ylim((low_lim - context_lim, high_lim + context_lim))
         ax.set_xlim((fst_date, end_date))
     
-    def cut_window(self,
-                   ax : plt.Axes,
-                   dates : Union[pd.Timestamp, List[pd.Timestamp]],
-                   window_size : int
-                   ):
-        """Determines the plotted range using the dates and the window size
-
-        Args:
-            ax (plt.Axes): axes to plot
-            dates (Union[pd.Timestamp, List[pd.Timestamp]]): date(s) which must be included
-            window_size (int): window_size to be plotted
-        """
-        self._cut_window(ax=ax, dates=dates, window_size=window_size)
-        self._plot_labels(ax=ax)
-
     def draw_and_emph_series(self,
                              ax : plt.Axes,
-                             dates : List[pd.Timestamp],
+                             dates : Union[pd.Timestamp, List[pd.Timestamp]],
+                             window_size : int,
                              neighbour_points : bool = True,
                              ):
         """Draws stock prices the given highliging the given symbol at the given date
@@ -164,11 +175,17 @@ class TemporalStatistic(base_statistic.BaseStatistic):
         Args:
             ax (plt.Axes): Axes to draw on 
             dates (List[np.datetime64]]): Dates to emphasized extra
+            window_size (int): Indicates the size of the shown data points
             neighbour_points (bool): Whether or not to draw neighbour points next to the critical points
         """
-        
-        self._draw_time_series(ax)
-        self._emphasize_points(ax, dates, neighbour_points=neighbour_points)
+        if not isinstance(dates, list):
+            dates = [dates]
+
+        ax.clear()
+        fst_date, end_date = self._get_end_points(dates, window_size=window_size)
+        self._draw_time_series(ax, fst_date=fst_date, end_date=end_date)
+        self._emphasize_points(ax, dates=dates, neighbour_points=neighbour_points)
+        self._set_limits(ax=ax, fst_date=fst_date, end_date=end_date)
         self._plot_labels(ax)
     
     def draw_series(self,
@@ -178,7 +195,8 @@ class TemporalStatistic(base_statistic.BaseStatistic):
         Args:
             ax (plt.Axes): axes to plot on
         """
-        self._draw_time_series(ax)
+        fst_date = pd.Series.first_valid_index(self.statistic)
+        self._draw_time_series(ax, fst_date, end_date=self.statistic.index[-1])
         self._plot_labels(ax)
         
     
