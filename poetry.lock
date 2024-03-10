@@ -1056,6 +1056,24 @@ files = [
 ]
 
 [[package]]
+name = "tueplots"
+version = "0.0.13"
+description = "Scientific plotting made easy"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "tueplots-0.0.13-py3-none-any.whl", hash = "sha256:6322c2be4ce635ddb980a2359d2cc611522f66671ab1689717aa53cf3b41e4ee"},
+]
+
+[package.dependencies]
+matplotlib = "*"
+numpy = "*"
+
+[package.extras]
+ci = ["tox"]
+examples = ["jupyter"]
+
+[[package]]
 name = "tzdata"
 version = "2024.1"
 description = "Provider of IANA time zone data"
@@ -1125,4 +1143,4 @@ repair = ["scipy (>=1.6.3)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "92c2c1bf9f5cc3789bf1de9aea3567131ae82c560d4f4010c4aff3c029db73da"
+content-hash = "81b5615cf69e3c982fdd382c3fd8aa76fa48f534f5118fcac31deb648e0af5db"

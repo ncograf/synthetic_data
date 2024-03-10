@@ -3,20 +3,22 @@ import numpy as np
 import numpy.typing as npt
 from typing import Union, Tuple, Dict, Optional
 import quantile_statistic
+import temporal_statistc
 import scipy.linalg as linalg
 
-class LogReturnStatistic(quantile_statistic.QuantileStatistic):
+class LogReturnStatistic(quantile_statistic.QuantileStatistic, temporal_statistc.TemporalStatistic):
     
     def __init__(self):
-        super(quantile_statistic.QuantileStatistic, self).__init__()
-        
-        self._name = "Log Returns"
+        super(LogReturnStatistic, self).__init__()
+        self._name = r"Log Returns $R_t = \displaystyle\log\left(\frac{X_t}{X_{t-1}}\right)$"
+        self._sample_name = "S\&P 500 Log Returns"
+        self._figure_name = "sp500_log_returns"
 
     def set_statistics(self, data: Union[pd.DataFrame, pd.Series]):
-        """Computes the wavelet statistic from the data
+        """Computes the log returns from the stock prices
 
         Args:
-            data (Union[pd.DataFrame, pd.Series]): data
+            data (Union[pd.DataFrame, pd.Series]): stock prices
         """
         self._check_data_validity(data)
         self.statistic = self._get_log_returns(data)

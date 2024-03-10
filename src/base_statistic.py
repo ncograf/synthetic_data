@@ -11,16 +11,22 @@ class BaseStatistic:
         self.statistic = None # initialize as not but make
         self.point = None # store the last point in the drawn statistics
         self._name = "No Name Given"
-        
-    @abstractmethod
-    def _get_mask(self, **kwargs) -> npt.NDArray:
-        raise NotImplementedError("This function must be overwritten!")
+        self._sample_name = "No Name Given"
+        self._figure_name = "No Name Given"
 
     @property
     def name(self):
         return self._name
 
     def _check_data_validity(self, data : Union[pd.DataFrame, pd.Series]):
+        """Checks data to be time in the index and columns to be string if dataframe
+
+        Args:
+            data (Union[pd.DataFrame, pd.Series]): data to be checked
+
+        Raises:
+            ValueError: If any of the checks does not pass
+        """
 
         # check data on validity
         if (not isinstance(data, pd.DataFrame)) and (not isinstance(data, pd.Series)):
@@ -36,6 +42,11 @@ class BaseStatistic:
             raise ValueError("Series name must be string")
     
     def _check_statistics(self):
+        """Check whether statistics
+
+        Raises:
+            ValueError: If statistics is None
+        """
         
         if self.statistic is None:
             raise ValueError("Statistics must be computed before calling this function.")
@@ -45,43 +56,11 @@ class BaseStatistic:
         raise NotImplementedError("This function must be overwritten!")
 
     @abstractmethod
-    def draw_distribution(self,
-                          axes : plt.Axes,
-                          **kwargs):
-        raise NotImplementedError("This function must be overwritten!")
-
-    @abstractmethod
     def draw_point(self,
                    axes : plt.Axes,
-                   index: Tuple[pd.Timestamp, str],
-                   point_array: List[Tuple[pd.Timestamp, str]],
+                   point: Tuple[pd.Timestamp, str],
                    **kwargs):
         raise NotImplementedError("This function must be overwritten!")
-
-    def _get_index(self, mask : npt.ArrayLike) -> Set[Tuple[any, any]]:
-        """ Compute a list of indices and columns from mask
-
-        Args:
-            mask (npt.ArrayLike): mask of which to get the indices
-
-        Returns:
-            List[Tuple[any, any]]: List with indices where the mask is true
-        """
-        
-        self._check_statistics()
-
-        if isinstance(self.statistic, pd.DataFrame):
-            np_indices = np.where(mask)
-            indices = self.statistic.index[np_indices[0]]
-            columns = self.statistic.columns[np_indices[1]]
-        elif isinstance(self.statistic, pd.Series):
-            np_indices = np.where(mask) # transfrom mask to list
-            indices = self.statistic.index[np_indices]
-            columns = [self.statistic.name] * len(indices)
-        else:
-            raise ValueError("Unsuported type in statistics. Required to be DataFrame or Series")
-
-        return set(zip(indices, columns))
     
     def get_statistic(self, point : Tuple[pd.Timestamp, str]) -> float:
         """Get data value at the given point
@@ -104,16 +83,30 @@ class BaseStatistic:
         else:
             ValueError("Statistic must be series or DataFrame.")
         
-    def get_outliers(self, **kwargs) -> Set[Tuple[pd.Timestamp, str]]:
-        """Computes a list of outlier points in the dataframe / series
-
-        If dataframe a list of tuples is returned, otherwise a list of indices
+    def draw_histogram(self,
+                          axes : plt.Axes,
+                          color : str = "green",
+                          density : bool = True,
+                          **kwargs):
+        """Plot histogram of distribution
 
         Args:
-            **kwargs (any): arguments which will be passed down to the mask
+            axes (plt.Axes): axes to plot onto
+            color (str): color in which to plot the histogram
+            density (bool): indicator whether desity is t be plotted instead of values
 
-        Returns:
-            List[Tuple[pd.Timestamp, str]]: List with indices where the mask is true
+        Raises:
+            NotImplementedError: The function currently only works for Series
         """
-        mask = self._get_mask(**kwargs)
-        return self._get_index(mask=mask)
+        
+        self._check_statistics()
+        
+        if not isinstance(self.statistic, pd.Series):
+            raise NotImplementedError("Drawing currently only works with series")
+
+        # plot as histogram
+        n_bins = np.minimum(self.statistic.shape[0], 150)
+        axes.hist(x=self.statistic, bins=n_bins, color=color, density=density)
+        axes.set_label("Distribution")
+        axes.set_xlabel(self._name)
+        axes.set_ylabel("Density" if density else self._sample_name)

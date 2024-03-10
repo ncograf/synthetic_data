@@ -41,7 +41,7 @@ class RealDataLoader():
         symbol_path = Path(data_path) / "symbols.csv"
         
         if not update_all and symbol_path.exists() and symbol_path.is_file():
-            symbols = list(pd.read_csv(symbol_path))
+            symbols = list(pd.read_csv(symbol_path, header=0).iloc[:,1])
         else:
             # Download stocks names from S&P500 page on wikipedia
             resp = requests.get('http://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
@@ -57,7 +57,7 @@ class RealDataLoader():
             # Fix wrong names (BF.B, BRK.B)
             symbols = [s.replace('.', "-") for s in symbols]
             
-            pd.Series(symbols).to_csv(symbol_path, index=False)
+            pd.Series(symbols).to_csv(symbol_path)
 
         return symbols
 
