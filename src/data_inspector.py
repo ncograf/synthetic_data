@@ -8,9 +8,11 @@ from typing import List, Optional, Dict, Union, Set
 import shutil
 import base_statistic
 import temporal_statistc
-import outlier_detector
+import base_outlier_set
+import cached_outlier_set
 from tueplots import bundles
 import time
+from tick import Tick
 
 class DataInspector:
     """Class to clean data, visualize it and compute basic statistics
@@ -43,6 +45,7 @@ class DataInspector:
 
     def plot_histogram(self,
                        statistic : base_statistic.BaseStatistic,
+                       symbol : str, 
                        rc_params : Optional[Dict[str, any]] = None,
                        copy : Optional[Path] = None,
                        density : bool = True):
@@ -50,6 +53,7 @@ class DataInspector:
 
         Args:
             statistic (base_statistic.BaseStatistic): statistic to be plotted
+            symbol (str): stock symbol to plot histogram of
             rc_params (Optional[Dict[str, any]], optional): matplotlib parameter for figure. Defaults to ICML 2024.
             copy (Optional[Path]): path to copy the file to other than the cache directory
             density (bool, optional): Whether to show the density instead of the values. Defaults to True.
@@ -57,87 +61,83 @@ class DataInspector:
         if rc_params is None:
             rc_params = bundles.icml2024()
         
-        fig_path = self.cache / f"{statistic._figure_name}_hist.png"
+        fig_path = self.cache / f"{statistic._figure_name}_{symbol}_hist.png"
 
         with plt.rc_context(rc=rc_params):
             fig, ax = plt.subplots()
-            statistic.draw_distribution(ax, color="green", density=density)
+            statistic.draw_histogram(ax, symbol=symbol, color="green", y_label="Denstiy" )
             fig.savefig(fig_path)
         
         if not copy is None:
-            copy_path = copy / f"{statistic._figure_name}_hist.png"
+            copy_path = copy / f"{statistic._figure_name}_{symbol}_hist.png"
             shutil.copy(fig_path, copy_path)
 
         plt.show()
 
-    def _check_outliers_manually(self,
-                                 statistics : Set[base_statistic.BaseStatistic],
-                                 time_statistics : Set[temporal_statistc.TemporalStatistic],
-                                 outlier_detectors : Set[outlier_detector.OutlierDetector],
-                                 fig : plt.Figure,
-                                 ax_time : List[plt.Axes],
-                                 ax_stats : List[plt.Axes],
-                                 **kwargs
-                                 ) -> Dict[str, Set[pd.Timestamp]]:
-        
+    def _iterate_outliers(self,
+                          statistics : Set[base_statistic.BaseStatistic], 
+                          time_statistics : Set[temporal_statistc.TemporalStatistic], 
+                          outlier_sets : Set[base_outlier_set.BaseOutlierSet], 
+                          outlier_path : str | Path, 
+                          fig : plt.Figure, 
+                          ax_time : List[plt.Axes], 
+                          ax_stats : List[plt.Axes], 
+                          **kwargs
+                          ) -> cached_outlier_set.CachedOutlierSet:
+                                 
         if len(statistics) != len(ax_stats):
             raise ValueError("For each statistic there must extactly one statistic axis")
 
         if len(time_statistics) != len(ax_time):
             raise ValueError("For each time statistic there must extactly one time axis")
 
-        outliers = [out_set.get_outliers(**kwargs) for out_set in outlier_detectors]
-        all_outliers = set.union(*outliers) # collect all outliers in one set to avoid duplicates
+        outliers = [out_set.get_outlier() for out_set in outlier_sets]
+        all_outliers : Set[Tick] = set.union(*outliers) # collect all outliers in one set to avoid duplicates
         
-        n_outliers = len(all_outliers)
-        all_outliers = list(all_outliers)
-        all_outliers.sort(key=lambda x : (x[1],x[0])) # sort the outliers inplace
-        all_outlier_dates, _ = list(zip(*all_outliers))
-        all_outlier_dates = list(all_outlier_dates)
-
-        dict_outlier : Dict[str, Set[pd.Timestamp]]= {}
-
-        for stat, ax in zip(statistics, ax_stats):
-            stat.draw_histogram(axes=ax)
+        outlier_cache = cached_outlier_set.CachedOutlierSet(outlier_path)
+        if len(outlier_sets) >= 0:
+            outlier_cache.set_outlier(all_outliers)
+        
+        fig.canvas.flush_events()
+        fig.canvas.draw()
 
         i : int = 0
-        while(i < len(all_outliers)):
-            point = all_outliers[i]
-            symbol = point[1]
-            date = point[0]
+        last_symbol : str = None
+        while(i < len(outlier_cache)):
+            point = outlier_cache[i]
 
-        
+            if last_symbol != point.symbol:
+                for stat, ax in zip(statistics, ax_stats):
+                    stat.draw_histogram(axes=ax, symbol=point.symbol)
+                
+                for stat, ax in zip(time_statistics, ax_time):
+                    stat.restore_time_plot(ax)
+
+                outlier_cache.store_outliers(outlier_path)
+
+            t = time.time()
+            for obj, ax in zip(statistics, ax_stats):
+                obj.draw_point(axes=ax, point=point)
+
             for stat, ax in zip(time_statistics, ax_time):
                 t = time.time()
-                stat.draw_and_emph_series(ax=ax, dates=date, window_size=200, neighbour_points=True)
-                print(time.time() - t, " draw series")
-
-            for obj, ax in zip(statistics, ax_stats):
-                t = time.time()
-                obj.draw_point(axes=ax, point=point)
-                print(time.time() - t, " draw point")
+                stat.draw_and_emph_series(ax=ax, ticks=point, window_size=200, neighbour_points=True)
             
-            t = time.time()
-            fig.canvas.draw()
-            print(time.time() - t, " draw figure")
-            t = time.time()
             fig.canvas.flush_events()
-            print(time.time() - t, " flush figure event")
-
-            print((f"Outlier {i+1}/{n_outliers} of {symbol}: {date}\n"
-                  "Press y/n to confirm/reject, h to go back, ctrl-c to cancel, any other key to show next."),flush=True)
+            
+            print((f"Outlier {i+1}/{len(outlier_cache)} of {point.symbol}: {point.date}\n"
+                  "Press y/n to confirm/reject glitch, h to go back, ctrl-c to cancel, any other key to show next."), flush=True)
+            print(time.time() - t, " time all")
             key = getch()
 
             if key == 'y':
-                if not (symbol in dict_outlier.keys()):
-                    dict_outlier[symbol] = {}
-                dict_outlier[symbol].add(date)
-                print(f"Added outlier {len(dict_outlier)} {symbol}, {date}", flush=True)
+                point.real = False
+                print(f"MARKED GLITCH {point.symbol}, {point.date}", flush=True)
                 i += 1 # show next element
-            if key == 'n':
-                if symbol in dict_outlier.keys() and date in dict_outlier[symbol]:
-                    dict_outlier[symbol].remove(date)
-                    print(f"Removed outlier from {symbol}: {date}", flush=True)
+            elif key == 'n':
+                if point.real == False:
+                    point.real = True
+                    print(f"REMOVED MARK from {point.symbol}: {point.date}", flush=True)
                 i += 1 # show next element
             elif key == '\x03':# ctrl-c
                 plt.close()
@@ -145,16 +145,16 @@ class DataInspector:
             elif key == 'h': # go back
                 if(i > 0):
                     i -= 1 # show previous element
-                    print(f"Removed outlier from {symbol}: {date}", flush=True)
+                    print(f"Go one back from {point.symbol}: {point.date}", flush=True)
             else:
                 i += 1 # show next element
 
-        return dict_outlier
+        return outlier_cache
                 
     def check_outliers_manually(self,
                                 statistics : Set[base_statistic.BaseStatistic],
                                 time_statistics : Set[temporal_statistc.TemporalStatistic],
-                                outlier_detectors : Set[outlier_detector.OutlierDetector],
+                                outlier_detectors : Set[base_outlier_set.BaseOutlierSet],
                                 outlier_path : Union[str, Path],
                                 **kwargs):
 
@@ -164,6 +164,7 @@ class DataInspector:
         outlier_detectors = set(outlier_detectors)
         
         all_statistics : Set[base_statistic.BaseStatistic] = statistics.union(time_statistics)
+        pure_outlier_detectors : Set[base_outlier_set.BaseOutlierSet] = outlier_detectors - set.intersection(all_statistics, outlier_detectors)
 
         n_stats = len(statistics)
         n_time_stats = len(time_statistics)
@@ -176,7 +177,13 @@ class DataInspector:
         if  n_stats > 0:
             n_col += n_col_stat # used to get ratio 2:1
 
-        n_rows = np.lcm(n_stats, n_time_stats)
+        if n_time_stats <= 0:
+            raise ValueError("There must be at least one time statistic for the visual inspection")
+
+        if n_stats > 0:
+            n_rows = np.lcm(n_stats, n_time_stats)
+        else:
+            n_rows = n_time_stats
         
         fig = plt.figure(layout="constrained")
         gs = GridSpec(n_rows, n_col, figure=fig)
@@ -185,8 +192,11 @@ class DataInspector:
         for i in range(n_time_stats):
             row_s = i * (n_rows // n_time_stats)
             row_e = (i+1) * (n_rows // n_time_stats)
-            ax_time.append(fig.add_subplot(gs[row_s:row_e,:n_col_time]))
-            
+            ax = fig.add_subplot(gs[row_s:row_e,:n_col_time])
+            ax.set_ylim(auto=True)
+            ax.set_xlim(auto=True)
+            ax_time.append(ax)
+
         ax_stats = []
         for i in range(n_stats):
             row_s = i * (n_rows // n_stats)
@@ -196,27 +206,24 @@ class DataInspector:
         plt.ion()
         plt.show()
             
-        outlier_dict = {}
-        if outlier_path.exists():
-            outlier_dict = self._load_outliers(outlier_path)
+        for stat in all_statistics:
+            stat.set_statistics(data=self.data)
 
-        for i, col in enumerate(self.data.columns):
-        
-            for stat in all_statistics:
-                stat.set_statistics(data=self.data.loc[:,col])
+        # some outlier might depend on the statistic so this needs to be after set statstics
+        for out in pure_outlier_detectors:
+            out.set_outlier(data=self.data)
+            
+        fig.axes.clear()
 
-            # the join of the dictionaries here will be realtively smooth
-            print(f"------- CHECK outliers for symbol {col}, {i+1}/{len(self.data.columns)} --------")
-            new_outliers = self._check_outliers_manually(statistics=statistics,
-                                                         time_statistics=time_statistics,
-                                                         outlier_detectors=outlier_detectors,
-                                                         fig=fig,
-                                                         ax_stats=ax_stats,
-                                                         ax_time=ax_time,
-                                                         **kwargs)
-            outlier_dict = outlier_dict | new_outliers
-            self._store_outliers(outlier_dict, outlier_path)
-        
+        # the join of the dictionaries here will be realtively smooth
+        outlier_cache = self._iterate_outliers(statistics=statistics, 
+                                              time_statistics=time_statistics, 
+                                              outlier_sets=outlier_detectors, 
+                                              outlier_path=outlier_path,
+                                              fig=fig, 
+                                              ax_stats=ax_stats, 
+                                              ax_time=ax_time, 
+                                              **kwargs)
         plt.close() 
         
     
@@ -229,7 +236,6 @@ class DataInspector:
         for symbol in outlier_dict.keys():
 
             self._draw_and_emph_series(symbol=symbol, ax_price=ax_price, ax_log=ax_log, date=outlier_dict[symbol], n_context=0)
-            fig.canvas.draw()
             fig.canvas.flush_events()
 
             print("Press any key to continue.")
@@ -241,30 +247,3 @@ class DataInspector:
             ax_price.clear()
         
         plt.close()
-    
-    def _store_outliers(self, dict_outlier : Dict[str, Set[pd.Timestamp]], path : Union[Path, str]):
-        path = Path(path)
-        if not path.parent.exists():
-            raise FileExistsError("The path to the parent must already exists.")
-
-        for k in dict_outlier:
-            temp_ = dict_outlier[k]
-            dict_outlier[k] = set([e.floor('d') for e in temp_])
-
-        df = pd.DataFrame.from_dict(dict_outlier, orient="index")
-        df.to_json(path, orient='index', date_format='iso')
-    
-    def _load_outliers(self, path : Union[Path | str]) -> Dict[str, List[pd.Timestamp]]:
-
-        path = Path(path)
-        if not path.exists():
-            raise FileExistsError(f"The path {str(path)} does not exist.")
-
-        df = pd.read_json(path, orient='index')
-        dict_outlier = df.to_dict(orient='index')
-
-        for k in dict_outlier.keys():
-            temp_ = dict_outlier[k]
-            dict_outlier[k] = set([pd.Timestamp(temp_[e]).floor('d') for e in temp_])
-
-        return dict_outlier 

@@ -1,129 +1,135 @@
 import base_statistic
-import outlier_detector
+import base_outlier_set
 import matplotlib.pyplot as plt
-from typing import Dict, Union, Tuple, Optional, List, Set
+from matplotlib.lines import Line2D
+from matplotlib.text import Text
+from matplotlib.legend import Legend
+from typing import Union, Tuple, Set, Callable, Dict
 import pandas as pd
 import numpy as np
 import numpy.typing as npt
+from tick import Tick
 
-
-class QuantileStatistic(base_statistic.BaseStatistic, outlier_detector.OutlierDetector):
+class QuantileStatistic(base_statistic.BaseStatistic, base_outlier_set.BaseOutlierSet):
     """Statistic with additional qualitative and quantitative measures
     to find outliers.
     """
     
-    def __init__(self):
-        super(QuantileStatistic, self).__init__()
-        self._outlier = None
+    def __init__(self, quantile : float):
+        """Quantile Statistic collecting outliers
+
+        Args:
+            quantile (float): One sided quantile to be cosidered as outlier
+            metric (Callable[[npt.ArrayLike], float] | None, optional): 
+                Metric used on higher dimensional statistic to determine outliers. Defaults to np.array.
+
+        Raises:
+            ValueError: _description_
+        """
+
+        base_statistic.BaseStatistic.__init__(self)
+        base_outlier_set.BaseOutlierSet.__init__(self)
+
+        self.point_artist : Line2D = None
+        self.histogram_legend_artist : Legend = None
+        self.quantile = quantile
+        
+        # check argument
+        if self.quantile <= 0 or self.quantile >= 1:
+            raise ValueError("The quantile must be within 0 and 1")
     
     @property
-    def data(self):
+    def data(self) -> npt.ArrayLike:
         return self.statistic
 
-    def _get_index(self, mask : npt.ArrayLike) -> Set[Tuple[any, any]]:
+    def _get_index(self, mask : npt.ArrayLike) -> Set[Tick]:
         """ Compute a list of indices and columns from mask
 
         Args:
             mask (npt.ArrayLike): mask of which to get the indices
 
         Returns:
-            List[Tuple[any, any]]: List with indices where the mask is true
+            List[Tuple[pd.Timestamp, str]]: List with indices where the mask is true
         """
         
-        self._check_statistics()
+        self.check_statistic()
 
-        if isinstance(self.statistic, pd.DataFrame):
-            np_indices = np.where(mask)
-            indices = self.statistic.index[np_indices[0]]
-            columns = self.statistic.columns[np_indices[1]]
-        elif isinstance(self.statistic, pd.Series):
-            np_indices = np.where(mask) # transfrom mask to list
-            indices = self.statistic.index[np_indices]
-            columns = [self.statistic.name] * len(indices)
-        else:
-            raise ValueError("Unsuported type in statistics. Required to be DataFrame or Series")
+        np_indices = np.where(mask)
+        if len(np_indices) == 0:
+            return set()
+        dates = np.array(self.dates)[np_indices[0]]
+        symbols = np.array(self.symbols)[np_indices[1]]
 
-        return set(zip(indices, columns))
+        return Tick.zip(dates=dates, symbols=symbols)
         
-    def _get_mask(self, quantile : float, **kwargs) -> npt.NDArray:
-        """Compute outliers based on the value
-
-        Args:
-            quantile (float): number of outliers on each side
-
-        Raises:
-            ValueError: Data must have datetime indices, quantile must be in (0,1) and
-                columns, if existent, must be of type string
+    def _get_mask(self) -> npt.NDArray:
+        """Compute outliers based on the quanitle set by the class
 
         Returns:
             Union[List[Tuple[str, np.datetime64]], List[str]]: List containing the index (and column depending on the data)of outliers
         """
         
-        self._check_statistics()
-        
-        # check argument
-        if quantile <= 0 or quantile >= 1:
-            raise ValueError("The quantile must be within 0 and 1")
+        self.check_statistic()
 
         # compute thesholds
-        np_data = self.statistic.to_numpy()
-        bot_thresh = np.nanpercentile(np_data.flatten(), quantile * 100)
-        top_thresh = np.nanpercentile(np_data.flatten(), 100 * (1 - quantile))
+        assert self.statistic.ndim == 2
+        thresh_low = np.nanpercentile(self.statistic, self.quantile / 2 * 100, axis=0)
+        thresh_high = np.nanpercentile(self.statistic, (1 - self.quantile / 2) * 100, axis=0)
         
-        # get indices of outliers
-        mask = (self.statistic < bot_thresh) | (self.statistic > top_thresh)
-
+        mask = (self.statistic > thresh_high) | (self.statistic < thresh_low)
         return mask
     
-    def get_outliers(self, **kwargs) -> Set[Tuple[pd.Timestamp, str]]:
+    def get_outlier(self) -> Set[Tick]:
         """Computes a list of outlier points in the dataframe / series
 
         If dataframe a list of tuples is returned, otherwise a list of indices
 
-        Args:
-            **kwargs (any): arguments which will be passed down to the mask
-
         Returns:
             List[Tuple[pd.Timestamp, str]]: List with indices where the mask is true
         """
-        if self._outlier is None:
-            mask = self._get_mask(**kwargs)
-            self._outlier = self._get_index(mask=mask)
+        self.check_outlier()
         return self._outlier
-    
-    def is_outlier(self, point: Tuple[pd.Timestamp | str]) -> bool:
-        """Check whether point is in the outlier array
 
-        Args:
-            point (Tuple[pd.Timestamp  |  str]): point to check
-
-        Raises:
-            IndexError: Outlier not yet computed
-
-        Returns:
-            bool: Point is in outliers of this statistic
-        """
-        if self._outlier is None:
-            raise IndexError("Outlier must be computed wiht get_outlier before checking for outlier")
-        return point in self._outlier
+    def _compute_outlier(self):
+        """Computes the outliers based on the given statistics, qunatile and metric"""
+        mask = self._get_mask()
+        self._outlier = self._get_index(mask=mask)
         
-    def set_statistics(self, data: Union[pd.DataFrame, pd.Series]):
+        
+    def set_statistics(self, data: pd.DataFrame | pd.Series):
         """Sets the statistic to given data
 
         Args:
-            data (Union[pd.DataFrame, pd.Series]): statistic samples
+            data (pd.DataFrame | pd.Series): statistic samples
         """
+        self.check_data_validity(data)
+        if isinstance(data, pd.Series):
+            data = data.to_frame()
+        self._dates = data.index.to_list()
+        self._symbols = data.columns.to_list()
+        self._statistic = data.to_numpy()
+        self._compute_outlier()
+        
+    
+    def set_outlier(self, data: pd.Series | pd.DataFrame):
+        """Alias for set statistic
 
-        self._check_data_validity(data)
-        self.statistic = data
+        Args:
+            data (pd.Series | pd.DataFrame): data to set the statistic
+        """
+        self.set_statistics(data)
         
     def draw_point(self,
                    axes : plt.Axes,
-                   point: Tuple[pd.Timestamp, str],
-                   outlier_color : str = "red",
-                   normal_color : str = "green",
-                   outlier_alpha : float = 1,
-                   normal_alpha : float = 1,
+                   point: Tick,
+                   outlier_style = {
+                      "color" : "red",  
+                      "alpha" : 1,
+                   },
+                   normal_style = {
+                      "color" : "green",  
+                      "alpha" : 1,
+                   },
                    ):
         """Draws a single datapoint as a vertical line
 
@@ -131,47 +137,58 @@ class QuantileStatistic(base_statistic.BaseStatistic, outlier_detector.OutlierDe
 
         Args:
             axes (plt.Axes): Plot to draw the line into
-            point (Tuple[pd.Timestamp, str]): datapoint (date, symbol) to be plotted
-            outlier_array (List[Tuple[pd.Timestamp, str]]): list of points to be considered outliers
-            outlier_color (str): Color to emphazise point if it is in the outlier array
-            normal_color (str): Color to draw point in if it is not in outlier array
-            outlier_alpha (float): Alpha in case point is in outlier array
-            normal_alpha (flaot): Alpha in case point is not in outlier array
+            point (Tick): datapoint (date, symbol, ...) to be plotted
+            symbol (str): Symbol to be plotted
+            outlier_style (Dict[str, any]): Keyword arguments to plot funciton for points
+            normal_style (Dict[str, any]): Keyword arguments to plot funciton for points
 
         Raises:
             NotImplementedError: Only (time)Series data is supported
         """
                    
-        self._check_statistics()
+        self.check_statistic()
 
-        if not isinstance(self.statistic, pd.Series):
-            raise NotImplementedError("Drawing currently only works with series")
-        
         # get bin containing the index
-        if self.point in axes.lines:
-            x = self.statistic.at[point[0]]
-            self.point.set_xdata(x=x)
-        else:
-            x = self.statistic.at[point[0]]
-            self.point = axes.axvline(x = x, color=outlier_color, alpha=outlier_alpha, label=f"{point[1]} at {point[0].strftime('%Y-%m-%d')}")
-            ylim = axes.get_ylim()
-            self.text = axes.text(x,0.5 * (ylim[1] + ylim[0]), s="")
+        if self.point_artist is None:
+            self.point_artist = axes.axvline()
 
-        if self.is_outlier(point=point):
-            self.text.set_text("Outlier")
-            self.text.set_color(outlier_color)
-            self.text.set_alpha(outlier_alpha)
-            self.point.set_color(outlier_color)
-            self.point.set_alpha(outlier_alpha)
-            self.text.set_x(x)
+        x = self.get_statistic(point)
+        self.point_artist.set_xdata(x)
+        self.point_artist.set_label(f"{point.symbol} at {point.date.strftime('%Y-%m-%d')}")
+
+        if self.is_outlier(tick=point):
+            self.point_artist.set(**outlier_style)
         else:
-            self.text.set_text("No Outlier")
-            self.text.set_color(normal_color)
-            self.text.set_alpha(normal_alpha)
-            self.point.set_color(normal_color)
-            self.point.set_alpha(normal_alpha)
-            self.text.set_x(x)
+            self.point_artist.set(**normal_style)
 
         handles, labels = axes.get_legend_handles_labels()
         unique_labels = dict(zip(labels, handles))
-        axes.legend(unique_labels.values(), unique_labels.keys())
+        axes.legend(unique_labels.values(), unique_labels.keys(), loc='upper right')
+    
+    def draw_histogram(self,
+                       axes : plt.Axes,
+                       symbol : str,
+                       style : Dict[str, any] = {
+                           "color" : "green",
+                           "density" : True,
+                       },
+                       y_label : str = "Density",
+                       y_log_scale : bool = True,
+                       **kwargs):
+        """Plot histogram of distribution and cleans old histogram
+
+        Args:
+            axes (plt.Axes): axes to plot onto
+            symbol (str): stock to plot histogram
+            style (Dict[str, any]): styles for plotting
+            y_label (bool, optional): Label used for plot. Defaults to 'Density'.
+            y_loc_scale (bool, optional): Whether to scale y axis by lograrithmus. Default to True.
+
+        Raises:
+            NotImplementedError: The function currently only works for Series
+        """
+        # restore points and label
+        self.point_artist = None
+        self.point_text_artist = None
+        axes.clear()
+        base_statistic.BaseStatistic.draw_histogram(self, axes, symbol, style, y_label, y_log_scale, **kwargs)

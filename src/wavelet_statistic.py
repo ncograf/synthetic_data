@@ -38,8 +38,10 @@ class Wavelet:
 
 class WaveletStatistic(quantile_statistic.QuantileStatistic, temporal_statistc.TemporalStatistic):
     
-    def __init__(self, wavelet : Wavelet, normalize : bool, name : Optional[str] = None):
-        super(WaveletStatistic, self).__init__()
+    def __init__(self, wavelet : Wavelet, normalize : bool, quantile : float, name : Optional[str] = None):
+        
+        quantile_statistic.QuantileStatistic.__init__(self, quantile)
+        temporal_statistc.TemporalStatistic.__init__(self)
 
         self.normalize = normalize
         self.wavelet = wavelet
@@ -49,37 +51,39 @@ class WaveletStatistic(quantile_statistic.QuantileStatistic, temporal_statistc.T
         else:
             self._name = name
 
-    def set_statistics(self, data: Union[pd.DataFrame, pd.Series]):
+    def set_statistics(self, data: pd.DataFrame | pd.Series):
         """Computes the wavelet statistic from the stock prices
 
         Args:
             data (Union[pd.DataFrame, pd.Series]): stock prices
         """
-        self._check_data_validity(data)
+        self.check_data_validity(data)
 
-        if isinstance(data, pd.DataFrame):
-            NotImplementedError("There is only Data Series Support at the moment.")
-        elif isinstance(data, pd.Series):
-            self.statistic = self._wavelet_transform(data)
+        if isinstance(data, pd.Series):
+            data = data.to_frame()
+
+        self._symbols = data.columns.to_list()
+        self._dates = data.index.to_list()
+        self.statistic = self._wavelet_transform(data.to_numpy())
     
-    def _wavelet_transform(self, series : pd.Series) -> pd.Series:
+    def _wavelet_transform(self, series : npt.NDArray) -> npt.NDArray:
         """Wavlet transform applied on the given series
 
         Runtime O(n log(n)) by exploiting fft and a compact representation
         of the toepliz matrix.
 
         Args:
-            series (pd.Series): Data to be transformed
+            series (npt.NDArray): Data to be transformed
 
         Raises:
             ValueError: Only Series are supported at the moment
 
         Returns:
-            pd.Series: Transformed values
+            npt.NDArray: Transformed values
         """
 
-        if not isinstance(series,pd.Series):
-            raise ValueError("Transform is only supported for series")
+        if not isinstance(series, npt.NDArray) and series.ndim == 2:
+            raise ValueError("Transform only works for numpy matrices")
 
         n_series = series.shape[0]
 
@@ -96,11 +100,12 @@ class WaveletStatistic(quantile_statistic.QuantileStatistic, temporal_statistc.T
         toepliz_r[:n_wave_left] = np.flip(self.wavelet.pattern[:n_wave_left])
         
         # compute transformation with toepliz transform
-        trans_series = linalg.matmul_toeplitz((toepliz_c, toepliz_r), series.to_numpy())
+        trans_series = linalg.matmul_toeplitz((toepliz_c, toepliz_r), series)
         
         if self.normalize:
+            raise NotImplementedError("This function is depricated and needs serious revision")
             # padding by COPY the EDGE VALUE to get a variance for the whole series
-            padded_array = np.pad(series.to_numpy(), (n_wave_left, n_wave_right), mode='edge')
+            padded_array = np.pad(series, (n_wave_left, n_wave_right), mode='edge')
             rolling_std = pd.Series(padded_array).rolling(window=n_wavelet).std() # comupute rolling stds
             rolling_std = rolling_std.to_numpy()[n_wavelet + 1:]
             rolling_mean = pd.Series(padded_array).rolling(window=n_wavelet).mean() # comupute rolling stds
@@ -110,8 +115,6 @@ class WaveletStatistic(quantile_statistic.QuantileStatistic, temporal_statistc.T
             trans_series = trans_series / series.abs() # normalize
             trans_series[:n_wave_left + 1] = 0
             trans_series[-n_wave_right - 1:] = 0 # add zero padding to avoid problems at the borders
-        
-        trans_series = pd.Series(data=trans_series, name=series.name, index=series.index)
 
         return trans_series
         
