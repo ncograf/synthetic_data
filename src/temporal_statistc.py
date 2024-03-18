@@ -1,5 +1,6 @@
 import base_statistic
 import matplotlib.pyplot as plt
+import matplotlib.dates as plt_dates
 from typing import Dict, Union, Tuple, Optional, List, Set
 import pandas as pd
 import numpy as np
@@ -10,10 +11,12 @@ from tick import Tick
 class TemporalStatistic(base_statistic.BaseStatistic):
     """Statistic with additional time series plotting functions"""
 
-    def __init__(self):
+    def __init__(self, legend_postfix : str = '', color : str = 'green'):
         super(TemporalStatistic, self).__init__()
         self._statistic : npt.NDArray | None = None # initialize as not but make
         self.series_artists = {}
+        self._legend_postfix = legend_postfix
+        self._plot_color = color
         
     def restore_time_plot(self, ax : plt.Axes):
         """Clears the axis and the artist series
@@ -104,18 +107,16 @@ class TemporalStatistic(base_statistic.BaseStatistic):
                           symbol : str,
                           fst_date : pd.Timestamp,
                           end_date : pd.Timestamp,
+                          style_plot : Dict[str, any] = {
+                              'color' : "green",
+                              'linestyle' : '-',
+                              'linewidth' : 1,
+                          }
                           ):
-
-        # no checks for performance O(n)
-        # self._check_statistics()
-
-        style_plot = {
-            'color' : "green",
-            'label' : symbol,
-            'linestyle' : '-',
-            'linewidth' : 1,
-        }
         
+        if not 'label' in style_plot.keys():
+            style_plot['label'] = symbol + self._legend_postfix
+
         # plot the investigated symbol
         fst_idx = self.get_date_index(fst_date)
         end_idx = self.get_date_index(end_date)
@@ -156,15 +157,12 @@ class TemporalStatistic(base_statistic.BaseStatistic):
             self.series_artists[f'context_{symbol}'].set_xdata(time_region)
             self.series_artists[f'context_{symbol}'].set_ydata(self.statistic[fst_idx:end_idx, symbol_idx])
     
-    def _plot_labels(self, ax : plt.Axes):
+    def _draw_legend(self, ax : plt.Axes):
         
         # plot only unique labels
         handles, labels = ax.get_legend_handles_labels()
         unique_labels = dict(zip(labels, handles))
-
-        if not 'time_legend' in self.series_artists.keys():
-            # fix position for performance
-            self.series_artists['time_legend'] = ax.legend(unique_labels.values(), unique_labels.keys(), loc='upper left')
+        self.series_artists['time_legend'] = ax.legend(unique_labels.values(), unique_labels.keys(), loc='upper left')
     
     def _get_end_points(self,
                         ticks : Tick | List[Tick],
@@ -194,7 +192,8 @@ class TemporalStatistic(base_statistic.BaseStatistic):
                     symbols : List[str],
                     fst_date : pd.Timestamp,
                     end_date : pd.Timestamp,
-                    ):
+                    grow_only : bool = False
+                    ) -> Tuple[npt.NDArray, npt.NDArray]:
 
         fst_idx = self.get_date_index(fst_date)
         end_idx = self.get_date_index(end_date)
@@ -204,9 +203,22 @@ class TemporalStatistic(base_statistic.BaseStatistic):
         low_lim = np.nanmin(self.statistic[fst_idx:end_idx, sym_idxs])
         high_lim = np.nanmax(self.statistic[fst_idx:end_idx, sym_idxs])
         context_lim = (high_lim - low_lim) * 0.1
+        
+        y_lim = (low_lim - context_lim, high_lim + context_lim)
+        x_lim = (fst_date, end_date)
+        if grow_only:
+            old_ylim = ax.get_ylim()
+            y_lim = (np.minimum(low_lim - context_lim, old_ylim[0]), np.maximum(high_lim + context_lim, old_ylim[1]))
 
-        ax.set_ylim((low_lim - context_lim, high_lim + context_lim), emit=False)
-        ax.set_xlim((fst_date, end_date), emit=False)
+            old_xlim = ax.get_xlim()
+
+            fst = plt_dates.date2num(fst_date)
+            end = plt_dates.date2num(end_date)
+            x_lim = (np.minimum(fst, old_xlim[0]), np.maximum(end, old_xlim[1]))
+            
+                
+        ax.set_ylim(y_lim, emit=False)
+        ax.set_xlim(x_lim, emit=False)
     
     def _draw_labels(self, ax : plt.Axes):
         """Computes the labels and adds them to the axes
@@ -222,6 +234,7 @@ class TemporalStatistic(base_statistic.BaseStatistic):
                              ticks : Tick | List[Tick],
                              window_size : int,
                              neighbour_points : bool = True,
+                             grow_only : bool = False
                              ):
         """Draws stock prices the given highliging the given symbol at the given date
         
@@ -229,32 +242,58 @@ class TemporalStatistic(base_statistic.BaseStatistic):
 
         Args:
             ax (plt.Axes): Axes to draw on 
-            dates (List[np.datetime64]]): Dates to emphasized extra
+            ticks (Tick | List[Tick]): Tick / Ticks to emphasized extra
             window_size (int): Indicates the size of the shown data points
-            neighbour_points (bool): Whether or not to draw neighbour points next to the critical points
+            neighbour_points (bool, optional): Whether or not to draw neighbour points next to the critical points. Defaults to True.
+            grow_only (bool, optional): Wheter or not only to let the limit grow. Defaults to False.
         """
         if not isinstance(ticks, list):
             ticks = [ticks]
 
         symbols = set([tick.symbol for tick in ticks]) 
 
+        style_plot : Dict[str, any] = { 'color' : self._plot_color, 'linestyle' : '-', 'linewidth' : 1,}
+
         fst_date, end_date = self._get_end_points(ticks, window_size=window_size)
-        self._set_limits(ax=ax, symbols=symbols, fst_date=fst_date, end_date=end_date)
+        self._set_limits(ax=ax, symbols=symbols, fst_date=fst_date, end_date=end_date, grow_only=grow_only)
         for symbol in symbols:
-            self._draw_time_series(ax, symbol, fst_date=fst_date, end_date=end_date)
+            self._draw_time_series(ax, symbol, style_plot=style_plot, fst_date=fst_date, end_date=end_date)
         self._emphasize_ticks(ax, ticks=ticks, neighbour_points=neighbour_points)
-        self._plot_labels(ax)
+        self._draw_legend(ax)
         self._draw_labels(ax)
     
     def draw_series(self,
-                    ax : plt.Axes):
+                    ax : plt.Axes,
+                    symbol : str, 
+                    style_plot : Dict[str, any] = { 
+                        'color' : "green", 
+                        'linestyle' : '-', 
+                        'linewidth' : 1, 
+                        },
+                    grow_only : bool = False
+                    ):
         """Draw the time series
 
         Args:
             ax (plt.Axes): axes to plot on
+            symbol (str): symbol name to be plotted
+            style_plot (Dict[str, any], optional): Style to plot series as. Defaults to green line.
+            grow_only (bool): If true, the limits of the plot only get expanded
         """
-        fst_date = pd.Series.first_valid_index(self.statistic)
-        self._draw_time_series(ax, fst_date, end_date=self.statistic.index[-1])
-        self._plot_labels(ax)
-        
+        symbol_idx = self.get_symbol_index(symbol)
+        mask = ~np.isnan(self.statistic[:,symbol_idx])
+        dates = np.array(self.dates)[mask]
+        fst_date = dates[0]
+        end_date = dates[-1]
+        self._draw_time_series(ax, 
+                               style_plot = style_plot,
+                               symbol=symbol,
+                               fst_date=fst_date, end_date=end_date)
+        self._set_limits(ax,
+                         symbols=[symbol], 
+                         fst_date=fst_date, 
+                         end_date=end_date,
+                         grow_only=grow_only)
+        self._draw_legend(ax)
+        self._draw_labels(ax)
     

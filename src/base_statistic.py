@@ -10,11 +10,18 @@ class BaseStatistic:
 
     def __init__(self):
         self._statistic : npt.NDArray | None = None # initialize as not but make
-        self._name = "No Name Given"
-        self._dates : List[pd.Timestamp] | None = None
-        self._symbols : List[str] | None = None
-        self._sample_name = "No Name Given"
-        self._figure_name = "No Name Given"
+        if not hasattr(self, '_name'):
+            self._name = "No Name Given"
+        if not hasattr(self, '_dates'):
+            self._dates : List[pd.Timestamp] | None = None
+        if not hasattr(self, '_symbols'):
+            self._symbols : List[str] | None = None
+        if not hasattr(self, '_sample_name'):
+            self._sample_name = "No Name Given"
+        if not hasattr(self, '_figure_name'):
+            self._figure_name = "No Name Given"
+        if not hasattr(self, '_figure_name'):
+            self._plot_color = "green"
     
     @property
     def name(self) -> str:
@@ -140,10 +147,7 @@ class BaseStatistic:
         col = self.get_symbol_index(symbol)
 
         _data = self.statistic[:,col]
-        _data = _data[~np.isnan(_data) & (_data > 0)]
-
-        if y_log_scale:
-            _data = np.log(_data)
+        _data = _data[~np.isnan(_data)]
 
         n_bins = np.minimum(_data.shape[0], 150)
         axes.hist(x=_data, bins=n_bins, **style)

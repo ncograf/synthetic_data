@@ -41,7 +41,7 @@ class SP500Statistic(base_statistic.BaseStatistic):
             data (Union[pd.DataFrame, pd.Series]): data
         """
         self._check_data_validity(data)
-        self.statistic = data.notna().sum(axis=0) # compute number of valid datapoints in each symbol
+        self._statistic = data.notna().sum(axis=0) # compute number of valid datapoints in each symbol
         self.start_series : pd.Series = data.apply(pd.Series.first_valid_index, axis=0)
 
         def _start_clean_series(col : pd.Series):

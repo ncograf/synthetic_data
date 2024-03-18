@@ -6,9 +6,9 @@ import temporal_statistc
 
 class LogReturnStatistic(quantile_statistic.QuantileStatistic, temporal_statistc.TemporalStatistic):
     
-    def __init__(self, quantile : float):
+    def __init__(self, quantile : float, legend_postfix : str = '', color = 'green'):
 
-        temporal_statistc.TemporalStatistic.__init__(self)
+        temporal_statistc.TemporalStatistic.__init__(self, legend_postfix=legend_postfix, color=color)
         quantile_statistic.QuantileStatistic.__init__(self, quantile)
 
         self._name = r"Log Returns $R_t = \displaystyle\log\left(\frac{X_t}{X_{t-1}}\right)$"
@@ -43,6 +43,6 @@ class LogReturnStatistic(quantile_statistic.QuantileStatistic, temporal_statistc
         else:
             raise ValueError("Data must be either dataframe or Series")
 
-        _log_returns = np.log(data.iloc[1:,:].to_numpy() / data.iloc[:-1,:].to_numpy())
+        _log_returns = np.log(data.iloc[1:,:].to_numpy() / (data.iloc[:-1,:].to_numpy()) + 1e-12)
 
         return _log_returns

@@ -8,10 +8,10 @@ import scipy.linalg as linalg
 
 class StockPriceStatistic(quantile_statistic.QuantileStatistic, temporal_statistc.TemporalStatistic):
     
-    def __init__(self, quantile : float):
+    def __init__(self, quantile : float, legend_postfix : str = '', color : str = 'green'):
         super(quantile_statistic.QuantileStatistic, self).__init__()
 
-        temporal_statistc.TemporalStatistic.__init__(self)
+        temporal_statistc.TemporalStatistic.__init__(self, legend_postfix=legend_postfix, color=color)
         quantile_statistic.QuantileStatistic.__init__(self, quantile)
         
         self._name = r"Stock Prices $X_t$ in \$"

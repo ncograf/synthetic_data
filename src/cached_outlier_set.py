@@ -50,7 +50,11 @@ class CachedOutlierSet(base_outlier_set.BaseOutlierSet):
         """
         if not isinstance(data, set):
             raise ValueError("Only sets are allowd as data")
-        self.outlier = data
+        if self.outlier is None or len(self.outlier) == 0:
+            self.outlier = data
+        else:
+            self.outlier = set(self.outlier) | data
+        
     
     def get_outlier(self) -> List[Tick]:
         """Computes a list of outlier points
