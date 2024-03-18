@@ -150,7 +150,7 @@ class BaseStatistic:
         _data = _data[~np.isnan(_data)]
 
         n_bins = np.minimum(_data.shape[0], 150)
-        axes.hist(x=_data, bins=n_bins, **style)
+        axes.hist(x=_data, bins=n_bins, **style, log=y_log_scale)
         axes.set_xlabel(self._name)
         axes.set_ylabel(y_label)
             

@@ -9,6 +9,7 @@ import sp500_statistic
 import base_statistic
 import base_outlier_set
 import log_return_statistic
+import scaled_log_return_statistic
 import wavelet_statistic
 import stock_price_statistic
 import spike_statistic
@@ -44,22 +45,27 @@ def outlier():
     
 
     log_stats = [log_return_statistic.LogReturnStatistic(quantile=quantile, legend_postfix=p, color=c) for p, c  in zip(postfixes, colors)]
+    scaled_log_stats = [scaled_log_return_statistic.ScaledLogReturnStatistic(quantile=quantile, window=100, legend_postfix=p, color=c) for p, c  in zip(postfixes, colors)]
     price_stats = [stock_price_statistic.StockPriceStatistic(quantile=quantile, legend_postfix=p, color=c) for p, c in zip(postfixes, colors)]
 
     #spike_stat = spike_statistic.SpikeStatistic(denomiator_scaling=np.exp, quantile=quantile, function_name='exp')
     #forest_outlier = isolation_forest_set.IsolationForestStatisticSet(quantile=quantile, statistic=log_stat)
 
     statistics.append(log_stats[0])
+    statistics.append(scaled_log_stats[0])
     #statistics.append(spike_stat)
     #statistics.append(wave_stat_3)
     
     time_statistics.append(log_stats)
     time_statistics.append(price_stats)
+    time_statistics.append(scaled_log_stats)
 
     #outlier_detectors.add(cached_det)
     #outlier_detectors.add(wave_stat_3)
-    for log_stat in log_stats:
-        outlier_detectors.add(log_stat)
+    outlier_detectors.add(log_stats[0])
+    outlier_detectors.add(log_stats[1])
+    outlier_detectors.add(scaled_log_stats[0])
+    outlier_detectors.add(scaled_log_stats[1])
     #outlier_detectors.add(spike_stat)
     #outlier_detectors.add(forest_outlier)
         

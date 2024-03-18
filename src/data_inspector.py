@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import click
 from matplotlib.gridspec import GridSpec
 from getch import getch
 from pathlib import Path
@@ -177,7 +178,7 @@ class DataInspector:
             
             print((f"Outlier {i+1}/{len(outlier_cache)} of {point.symbol}: {point.date}\n"
                   "Press y/n to confirm/reject glitch, h to go back, ctrl-c to cancel, "
-                   "e to edit/add event, s to add current symbol to event, any other key to show next."), flush=True)
+                   "e to edit/add event, s to add current symbol to an event, i to open search about the day, any other key to show next."), flush=True)
             print(time.time() - t, " time all")
             key = getch()
 
@@ -188,13 +189,25 @@ class DataInspector:
             elif key == 'e':
                 historic_events.cmd_edit_event(date=point.date, symbol=point.symbol)
                 historic_events.draw_events(ax_time[0], point.date)
-                fig.canvas.flush_events()
                 historic_events.store_events(path=historic_events._init_path)
+                fig.canvas.flush_events()
             elif key == 'i':
                 historic_events.open_event_links(point.date, point.symbol)
             elif key == 's':
                 historic_events.cmd_add_symbol(date=point.date, symbol=point.symbol)
                 historic_events.store_events(path=historic_events._init_path)
+            elif key == 'f':
+                # Fly to the index
+                try:
+                    start = click.prompt('Choose your starting point', type=int)
+                    if start < 0 or start >= len(outlier_cache):
+                        click.echo(f'{start} is an invalid index, stay within {0} and {len(outlier_cache)}')
+                    i = start
+                except click.BadParameter:
+                        click.echo(f'The input was invalid...')
+                except:
+                        click.echo(f'An error occured')
+                    
             elif key == 'n':
                 if point.real == False:
                     point.real = True

@@ -1,4 +1,7 @@
 from __future__ import annotations
+import pyperclip as pc
+import bs4 as bs
+import requests
 from abc import abstractmethod, abstractproperty
 import matplotlib.pyplot as plt
 from schema import Schema, Optional as schopt
@@ -146,6 +149,7 @@ class HistoricEventSet(base_outlier_set.BaseOutlierSet):
         self._events : Dict[pd.Timestamp, List[HistoricEvent]] = {}
         self._text_element = None
         self._init_path = Path(path)
+        self._cache = Path(self._init_path.parent)
     
     def __len__(self):
         if self._events is None:
@@ -238,15 +242,15 @@ class HistoricEventSet(base_outlier_set.BaseOutlierSet):
             symbol (str | None, optional): Symbol to be investigated. Defaults to None.
         """
         wallstreet_journal = f'https://www.wsj.com/news/archive/{date.strftime("%Y/%m/%d")}'
-        list_of_crashes = f'https://en.wikipedia.org/wiki/List_of_stock_market_crashes_and_bear_markets'
-        if not symbol is None:
-            google_search = f'https://www.google.com/search?client=firefox-b-d&q=what+happend+on+{date.strftime("%Y+%m+%d")}+with+the+stock+market+symbol+{symbol}'
-        else:
-            google_search = f'https://www.google.com/search?client=firefox-b-d&q=what+happend+on+{date.strftime("%Y+%m+%d")}+with+the+stock+market'
-        
-        webbrowser.open_new_tab(list_of_crashes)
-        webbrowser.open_new_tab(google_search)
         webbrowser.open_new_tab(wallstreet_journal)
+
+        date_str = date.strftime("%Y-%m-%d")
+        pc.copy(date_str)
+        if not symbol is None:
+            symbol_name = self.get_stock_name(symbol)
+            google_search = f'https://www.google.com/search?client=firefox-b-d&q={date_str}+{symbol_name}'
+            webbrowser.open_new_tab(google_search)
+            pc.copy(f'{date_str} {symbol_name}')
     
     def cmd_add_symbol(self, date : pd.Timestamp, symbol : str):
         date = date.floor('d')
@@ -279,6 +283,35 @@ class HistoricEventSet(base_outlier_set.BaseOutlierSet):
             except Exception as e:
                 click.echo(f"Error occurred during add event, previous state was restored. {e}")
                 return
+
+    def get_stock_name(self, symbol : str):
+
+        symbols_path = self._cache / f"symbol_name_map.csv"
+        if symbols_path.exists():
+            symbol_df = pd.read_csv(symbols_path)
+        else:
+            # Download stocks names from S&P500 page on wikipedia
+            resp = requests.get('http://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
+            soup = bs.BeautifulSoup(resp.text, 'lxml')
+            table = soup.find('table', {'class': 'wikitable sortable'})
+            symbols = []
+            names = []
+            for row in table.findAll('tr')[1:]:
+                sym = row.findAll('td')[0].text
+                name = row.findAll('td')[1].text
+                symbols.append(sym)
+                names.append(name)
+            symbols = [s.replace('\n', '') for s in symbols]
+            symbols = symbols + ["SPY"]
+            names = names + ["S&P 500 Index"]
+
+            # Fix wrong names (BF.B, BRK.B)
+            symbols = [s.replace('.', "-") for s in symbols]
+            symbol_df = pd.DataFrame.from_dict({'symbols' : symbols, 'names' : names})
+            symbol_df.to_csv(symbols_path, index=False)
+        
+        symbol_df = symbol_df.set_index('symbols')
+        return symbol_df.loc[symbol,'names']
 
     def cmd_edit_event(self, date : pd.Timestamp, symbol : str | None = None):
         

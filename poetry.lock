@@ -1276,6 +1276,16 @@ files = [
 diagrams = ["jinja2", "railroad-diagrams"]
 
 [[package]]
+name = "pyperclip"
+version = "1.8.2"
+description = "A cross-platform clipboard module for Python. (Only handles plain text for now.)"
+optional = false
+python-versions = "*"
+files = [
+    {file = "pyperclip-1.8.2.tar.gz", hash = "sha256:105254a8b04934f0bc84e9c24eb360a591aaf6535c9def5f29d92af107a9bf57"},
+]
+
+[[package]]
 name = "pyproj"
 version = "3.6.1"
 description = "Python interface to PROJ (cartographic projections and coordinate transformations library)"
@@ -1800,4 +1810,4 @@ repair = ["scipy (>=1.6.3)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "3.11.7"
-content-hash = "cbcc6537e6f4ae8bb88e770c5504e5ef0ad852a4799be35a032e90c7fa969255"
+content-hash = "0c01d78147529beb158ef7484efb12b5ea0a1d84e78cc7406cdaf5d5af380bd4"

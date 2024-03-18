@@ -24,6 +24,7 @@ scikit-learn = "^1.4.1.post1"
 matplotcheck = "^0.1.4"
 arch = "^6.3.0"
 schema = "^0.7.5"
+pyperclip = "^1.8.2"
 
 
 [build-system]

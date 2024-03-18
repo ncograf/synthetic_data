@@ -54,8 +54,22 @@ class TestHistoricEventSet:
         for k, elem in histset._events.items():
             for ev in elem:
                 print(ev)
+    
+    def test_get_snp500(self):
+        
+        now = pd.Timestamp.now().floor('d')
+        before = pd.Timestamp('1999-12-18 21:00:00').floor('d')
+        recently = pd.Timestamp('2023-12-18 21:00:00').floor('d')
+        e1 = HistoricEvent(now, "e1", "Test e1", "test")
+        e2 = HistoricEvent(before, "e2", "Test e2", "link")
+        e3 = HistoricEvent(recently, "e3", "Test e3", "link")
 
-TestHistoricEventSet().test_edit_event()
+        # make sure the test runs smoothly
+        path = "tests/testdata/cache/test_hist_event_cache.json"
+        _set = HistoricEventSet(path)
+        print(_set.get_stock_name("MMM"))
+
+TestHistoricEventSet().test_get_snp500()
 
 class TestHistoricEvent:
     
