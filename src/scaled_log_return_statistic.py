@@ -46,15 +46,19 @@ class ScaledLogReturnStatistic(quantile_statistic.QuantileStatistic, temporal_st
             raise ValueError("Data must be either dataframe or Series")
     
         data[data == 0] = np.nan
-        _log_returns = np.log(data.iloc[1:,:].to_numpy() / (data.iloc[:-1,:].to_numpy()) + 1e-12)
-        
-        _padded_log_returns = np.pad(_log_returns,
-                                     ((self._padding, self._padding),(0,0)), # only pad the rows
-                                      mode='constant',
-                                      constant_values=0,
-                                      )
+        _returns = np.log(data.iloc[1:,:].to_numpy() / (data.iloc[:-1,:].to_numpy() + 1e-12))
+        nan_mask = np.isnan(_returns)
+        _returns[nan_mask] = 0
+
+        _padded_log_returns = np.pad(
+            _returns, 
+            ((self._padding, self._padding),(0,0)), # only pad the rows 
+            mode='constant', 
+            constant_values=0,
+            )
         _sliding_window_log_retunrs = np.lib.stride_tricks.sliding_window_view(_padded_log_returns, self._window, axis=0)
         _moving_std = np.std(_sliding_window_log_retunrs, axis=-1)
-        _log_returns = _log_returns / (_moving_std + 1e-10)
+        _log_returns = _returns / (_moving_std + 1e-12)
+        _log_returns[nan_mask] = np.nan
 
         return _log_returns

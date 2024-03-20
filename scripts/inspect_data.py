@@ -18,7 +18,7 @@ import outlier_summary
 import cached_outlier_set
 import garch_generator
 import index_generator
-import historic_events
+import illiquidity_filter
 
 @click.group()
 def inspect():
@@ -111,6 +111,27 @@ def inspect_raw_data(copy : Optional[Path] = None):
     inspector = data_inspector.DataInspector(data=real_stock_data)
     inspector.plot_histogram(data_statistic, rc_params=figure_params, density=True, copy=copy)
 
+@click.command()
+@click.option('-c','--copy', type=click.Path(exists=True,file_okay=False,dir_okay=True,writable=True), required=False)
+def summarize_liquid_data(copy : Optional[Path] = None):
+    figure_params = {"figure.figsize" : (16, 10),
+             "font.size" : 24,
+             "figure.dpi" : 96,
+             "figure.constrained_layout.use" : True,
+             "figure.constrained_layout.h_pad" : 0.1,
+             "figure.constrained_layout.hspace" : 0,
+             "figure.constrained_layout.w_pad" : 0.1,
+             "figure.constrained_layout.wspace" : 0,
+            }
+    data_loader = real_data_loader.RealDataLoader()
+    real_stock_data = data_loader.get_timeseries(col_name="Adj Close", data_path="data/raw_yahoo_data", update_all=False)
+    filter = illiquidity_filter.IlliquidityFilter(window=5, min_jumps=1, min_points=1000)
+    liquid_data = filter.get_data(real_stock_data)
+    data_statistic = sp500_statistic.SP500Statistic()
+    data_statistic.set_statistics(liquid_data)
+    data_statistic.print_distribution_properties() # TODO move the function to the inspector
+    inspector = data_inspector.DataInspector()
+    inspector.plot_histogram(data_statistic, rc_params=figure_params, symbol='num_data', density=False, copy=copy)
 
 @click.command()
 def sumarize_outliers():
@@ -125,6 +146,27 @@ def sumarize_outliers():
 
     summary = outlier_summary.OutlierSummary(data=real_stock_data, detectors=[cache_det])
     summary.print_outlier_distribution()
+
+def visualize_data(symbol):
+
+    data_loader = real_data_loader.RealDataLoader()
+    real_stock_data = data_loader.get_timeseries(col_name="Adj Close", data_path="data/raw_yahoo_data", update_all=False)
+    real_stock_data = real_stock_data.loc[:,real_stock_data.columns[:20]]
+
+    real_data = stock_price_statistic.StockPriceStatistic(quantile=0.1)
+    real_data.set_statistics(real_stock_data)
+    figure_params = {"figure.figsize" : (16, 10),
+             "font.size" : 24,
+             "figure.dpi" : 96,
+             "figure.constrained_layout.use" : True,
+             "figure.constrained_layout.h_pad" : 0.1,
+             "figure.constrained_layout.hspace" : 0,
+             "figure.constrained_layout.w_pad" : 0.1,
+             "figure.constrained_layout.wspace" : 0,
+            }
+
+    inspector = data_inspector.DataInspector()
+    inspector.plot_time_series(statistics=[{real_data}], symbols=[symbol], rc_params=figure_params)
 
 @click.command()
 def visualize_garch_data():
@@ -167,7 +209,10 @@ def visualize_garch_data():
 if __name__ == "__main__":
     #sumarize_outliers()
 
-    outlier()
+    summarize_liquid_data()
+    visualize_data("MMM")
+
+    #outlier()
     #visualize_garch_data()
 
     #runner = CliRunner()

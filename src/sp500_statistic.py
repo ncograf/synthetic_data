@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from typing import Dict
 import base_statistic
 
@@ -10,6 +11,7 @@ class SP500Statistic(base_statistic.BaseStatistic):
         self._name = "Number of days"
         self._sample_name = "S\&P 500 Stocks"
         self._figure_name = "sp500_stocks"
+        self._plot_color = 'green'
 
     def _check_data_validity(self, data : pd.DataFrame):
         """Check whether the data is a dataframe and has the right types
@@ -42,6 +44,8 @@ class SP500Statistic(base_statistic.BaseStatistic):
         """
         self._check_data_validity(data)
         self._statistic = data.notna().sum(axis=0) # compute number of valid datapoints in each symbol
+        self._statistic = self.statistic.T.to_numpy().reshape((-1,1))
+        self._symbols = ['num_data']
         self.start_series : pd.Series = data.apply(pd.Series.first_valid_index, axis=0)
 
         def _start_clean_series(col : pd.Series):
@@ -49,7 +53,8 @@ class SP500Statistic(base_statistic.BaseStatistic):
             if not col.hasnans:
                 return col.index[0]
             last_nan_date = col.loc[col.isna()].index.max()
-            return col.index[col.index.get_loc(last_nan_date) + 1]
+            last_idx = np.minimum(col.index.get_loc(last_nan_date) + 1, len(col) - 1)
+            return col.index[last_idx]
         self.start_clean_series : pd.Series = data.apply(_start_clean_series)
 
         def _nan_after_start(col : pd.Series):
@@ -57,9 +62,6 @@ class SP500Statistic(base_statistic.BaseStatistic):
             start = self.start_series[col.name]
             return col.loc[start:].isna().sum()
         self.nan_after_start : pd.Series = data.apply(_nan_after_start)
-        
-        # sanity check for the above computations
-        assert ((self.nan_after_start != 0) == (self.start_clean_series != self.start_series)).all()
         
         self.dict_messy_series = {}
         for key in data.columns[self.nan_after_start != 0]:
@@ -81,6 +83,8 @@ class SP500Statistic(base_statistic.BaseStatistic):
             raise ValueError("Statistic must be set before calling this function")
         
         properties = {
+            "Number of symbols" : self.statistic.shape[0],
+            "Number of symbols avove 1000 points": np.sum(self.statistic >= 1000),
             "Last clean start date" : self.start_clean_series.max(),
             "Last clean start date symbol" : self.start_clean_series.index[self.start_clean_series.argmax()],
             "Last start date" : self.start_series.max(),
@@ -94,7 +98,7 @@ class SP500Statistic(base_statistic.BaseStatistic):
             "Mean data points" : self.statistic.mean(),
             "Max data points" : self.statistic.max(),
             "Min data Points" : self.statistic.min(),
-            "Median data Points" : self.statistic.median(),
+            "Median data Points" : np.median(self.statistic),
             "Stocks with NAN values after the first valid value:\n" : self.dict_messy_series
         }
         

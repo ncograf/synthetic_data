@@ -3,12 +3,13 @@ from arch.univariate.base import ARCHModelResult
 from typing import Tuple
 import numpy.typing as npt
 import numpy as np
+from pathlib import Path
 import base_generator
 
 class GarchGenerator(base_generator.BaseGenerator):
     # TODO Make this more efficient
 
-    def __init__(self, p : int = 1, q : int = 1, distribution : Distribution = Normal(), name = "GARCH"):
+    def __init__(self, p : int = 1, q : int = 1, distribution : Distribution = Normal(), name = "GARCH", cache : str | Path = 'data/cache'):
         
         base_generator.BaseGenerator.__init__(self, name)
         

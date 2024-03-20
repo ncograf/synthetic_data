@@ -67,7 +67,10 @@ class DataInspector:
                             'linestyle' : '-', 
                             'linewidth' : 1, 
                             }
-                        statistic.draw_series(axes[idx], symbol=symbol, style_plot=style_plot, grow_only=grow_only)
+                        if n_subplots == 1:
+                            statistic.draw_series(axes, symbol=symbol, style_plot=style_plot, grow_only=grow_only)
+                        else:
+                            statistic.draw_series(axes[idx], symbol=symbol, style_plot=style_plot, grow_only=grow_only)
                         grow_only = True
             fig.savefig(fig_path)
         if not copy is None:
@@ -78,7 +81,7 @@ class DataInspector:
 
     def plot_histogram(self,
                        statistic : base_statistic.BaseStatistic,
-                       symbol : str, 
+                       symbol : str | None, 
                        rc_params : Optional[Dict[str, any]] = None,
                        copy : Optional[Path] = None,
                        density : bool = True):
@@ -101,7 +104,7 @@ class DataInspector:
             style : Dict[str, any] = {
                 "color" : statistic._plot_color,
                 "density" : True,
-            },
+            }
             statistic.draw_histogram(ax, symbol=symbol, style=style, y_label="Denstiy" )
             fig.savefig(fig_path)
         
