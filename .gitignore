@@ -1,6 +1,8 @@
 # do not include the datafoder, as it would be too much
 data
 __pycache__
+build
+eigen*
 
 .environment
 .env
