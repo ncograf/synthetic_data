@@ -45,27 +45,27 @@ def outlier():
     
 
     log_stats = [log_return_statistic.LogReturnStatistic(quantile=quantile, legend_postfix=p, color=c) for p, c  in zip(postfixes, colors)]
-    scaled_log_stats = [scaled_log_return_statistic.ScaledLogReturnStatistic(quantile=quantile, window=100, legend_postfix=p, color=c) for p, c  in zip(postfixes, colors)]
+    #scaled_log_stats = [scaled_log_return_statistic.ScaledLogReturnStatistic(quantile=quantile, window=100, legend_postfix=p, color=c) for p, c  in zip(postfixes, colors)]
     price_stats = [stock_price_statistic.StockPriceStatistic(quantile=quantile, legend_postfix=p, color=c) for p, c in zip(postfixes, colors)]
 
     #spike_stat = spike_statistic.SpikeStatistic(denomiator_scaling=np.exp, quantile=quantile, function_name='exp')
     #forest_outlier = isolation_forest_set.IsolationForestStatisticSet(quantile=quantile, statistic=log_stat)
 
     statistics.append(log_stats[0])
-    statistics.append(scaled_log_stats[0])
+    #statistics.append(scaled_log_stats[0])
     #statistics.append(spike_stat)
     #statistics.append(wave_stat_3)
     
     time_statistics.append(log_stats)
     time_statistics.append(price_stats)
-    time_statistics.append(scaled_log_stats)
+    #time_statistics.append(scaled_log_stats)
 
     #outlier_detectors.add(cached_det)
     #outlier_detectors.add(wave_stat_3)
     outlier_detectors.add(log_stats[0])
     outlier_detectors.add(log_stats[1])
-    outlier_detectors.add(scaled_log_stats[0])
-    outlier_detectors.add(scaled_log_stats[1])
+    #outlier_detectors.add(scaled_log_stats[0])
+    #outlier_detectors.add(scaled_log_stats[1])
     #outlier_detectors.add(spike_stat)
     #outlier_detectors.add(forest_outlier)
         
@@ -125,7 +125,7 @@ def summarize_liquid_data(copy : Optional[Path] = None):
             }
     data_loader = real_data_loader.RealDataLoader()
     real_stock_data = data_loader.get_timeseries(col_name="Adj Close", data_path="data/raw_yahoo_data", update_all=False)
-    filter = illiquidity_filter.IlliquidityFilter(window=5, min_jumps=1, min_points=1000)
+    filter = illiquidity_filter.IlliquidityFilter(window=5, min_jumps=1)
     liquid_data = filter.get_data(real_stock_data)
     data_statistic = sp500_statistic.SP500Statistic()
     data_statistic.set_statistics(liquid_data)
@@ -209,10 +209,10 @@ def visualize_garch_data():
 if __name__ == "__main__":
     #sumarize_outliers()
 
-    summarize_liquid_data()
-    visualize_data("MMM")
+    #summarize_liquid_data()
+    #visualize_data("MMM")
 
-    #outlier()
+    outlier()
     #visualize_garch_data()
 
     #runner = CliRunner()
