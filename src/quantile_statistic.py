@@ -73,8 +73,8 @@ class QuantileStatistic(base_statistic.BaseStatistic, base_outlier_set.BaseOutli
 
         # compute thesholds
         assert self.statistic.ndim == 2
-        thresh_low = np.nanpercentile(self.statistic, self.quantile / 2 * 100, axis=0)
-        thresh_high = np.nanpercentile(self.statistic, (1 - self.quantile / 2) * 100, axis=0)
+        thresh_low = np.percentile(self.statistic, self.quantile / 2 * 100, axis=0)
+        thresh_high = np.percentile(self.statistic, (1 - self.quantile / 2) * 100, axis=0)
         
         mask = (self.statistic > thresh_high) | (self.statistic < thresh_low)
         return mask

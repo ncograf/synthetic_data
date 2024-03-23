@@ -22,6 +22,8 @@ class LogReturnStatistic(quantile_statistic.QuantileStatistic, temporal_statistc
             data (pd.DataFrame | pd.Series): stock prices
         """
         self.check_data_validity(data)
+        if isinstance(data, pd.Series):
+            data = data.to_frame()
         self._outlier = None
         self._dates = data.index.to_list()[1:]
         self._symbols = data.columns.to_list()
