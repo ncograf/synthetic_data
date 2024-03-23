@@ -19,32 +19,30 @@ np::ndarray lag_prod_mean(np::ndarray arr, int max_lag) {
   // RowMajor Layout because it is given in numpy and we use if for faster
   // computation
   auto t1 = std::chrono::high_resolution_clock::now();
-  Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> mat =
+  Eigen::Array<Scalar, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor> mat =
       Eigen::Map<Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic,
-                               Eigen::RowMajor>,
+                               Eigen::ColMajor>,
                  0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(
           data, n_row, n_col,
-          Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>(n_col, 1));
+          Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>(1, n_col));
   auto t2 = std::chrono::high_resolution_clock::now();
   auto d1 = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
   std::cout << "Map Time :" << d1.count() << "ms\n";
 
   // Count non nan entries
   t1 = std::chrono::high_resolution_clock::now();
-  Eigen::Array<Scalar, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-      zero_mat = Eigen::Array<Scalar, Eigen::Dynamic, Eigen::Dynamic,
-                              Eigen::RowMajor>::Zero(n_row, n_col);
+  Eigen::Array<Scalar, Eigen::Dynamic, Eigen::Dynamic> zero_mat =
+      Eigen::Array<Scalar, Eigen::Dynamic, Eigen::Dynamic>::Zero(n_row, n_col);
 
-  Eigen::Array<Scalar, 1, Eigen::Dynamic, Eigen::RowMajor> count =
+  Eigen::Array<Scalar, 1, Eigen::Dynamic> count =
       (mat.array() == mat.array()).select(1, zero_mat).colwise().sum();
-  Eigen::Array<Scalar, 1, Eigen::Dynamic, Eigen::RowMajor> ones =
-      Eigen::Array<Scalar, 1, Eigen::Dynamic, Eigen::RowMajor>::Ones(n_col);
+  Eigen::Array<Scalar, 1, Eigen::Dynamic> ones =
+      Eigen::Array<Scalar, 1, Eigen::Dynamic>::Ones(n_col);
 
-  mat = (mat.array() == mat.array()).select(mat, 0).matrix();
+  mat = (mat == mat).select(mat, 0);
   data = mat.data();
 
-  Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> out(
-      max_lag, n_col);
+  Eigen::Array<Scalar, Eigen::Dynamic, Eigen::Dynamic> out(max_lag, n_col);
   out.setZero();
 
   t2 = std::chrono::high_resolution_clock::now();
@@ -55,11 +53,10 @@ np::ndarray lag_prod_mean(np::ndarray arr, int max_lag) {
   for (int lag = 1; lag <= max_lag; lag++) {
 
     // r_t * r_{t-lag}
-    out.row(lag - 1) =
-        (mat.bottomRows(n_row - lag).array() * mat.topRows(n_row - lag).array())
-            .colwise()
-            .sum() /
-        (count - ones * lag);
+    out.row(lag - 1) = (mat.bottomRows(n_row - lag) * mat.topRows(n_row - lag))
+                           .colwise()
+                           .sum() /
+                       (count - ones * lag);
   }
   t2 = std::chrono::high_resolution_clock::now();
   d1 = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);

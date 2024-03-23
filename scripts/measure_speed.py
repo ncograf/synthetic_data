@@ -35,7 +35,7 @@ def measure_abs_log_return():
     python_loop_times = []
     boosted_times = []
     python_strides_time = []
-    max_lag = 501
+    max_lag = 1001
     lags = range(1, max_lag + 1)
     for i in lags:
         start = time.time()
