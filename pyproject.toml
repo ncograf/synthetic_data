@@ -6,6 +6,7 @@ authors = ["Nico Graf <ncograf@gmail.com>"]
 readme = "README.md"
 packages = [
     {include = "*", from = "src"},
+    {include = "*.so", from = "boosted/boost_modules", format = "wheel"},
 ]
 
 [tool.poetry.dependencies]

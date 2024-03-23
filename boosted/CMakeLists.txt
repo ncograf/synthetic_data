@@ -27,8 +27,26 @@ set(CMAKE_STATIC_LIBRARY_PREFIX "")
 include_directories(SYSTEM eigen-3.4.0)
 include_directories(${PYTHON3_INCLUDE_DIRS})
 
+# GoogleTests
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+include(FetchContent)
+FetchContent_Declare(
+  googletest
+  URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
+)
+
 # create file for LSP (make sure vscode finds eigen)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif()
+
+set(CMAKE_CXX_FLAGS "-Wall -Wextra")
+set(CMAKE_CXX_FLAGS_DEBUG "-g")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
 # Make sure cmake finds the code section
 add_subdirectory(src)
