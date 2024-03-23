@@ -30,8 +30,9 @@ class TestGarchGenerator:
         except:
             assert False, "No error should be raised as the model is set"
 
-        gen_data = model.generate_data(600, 200)
-        assert gen_data.shape[0] == 600
-        print(gen_data)
+        gen_price, gen_ret = model.generate_data(600, 200)
+        assert gen_price.shape[0] == 600
+        assert gen_ret.shape[0] == 600
     
-TestGarchGenerator().test_fit_model()
+if __name__ == '__main__':
+    TestGarchGenerator().test_fit_model()

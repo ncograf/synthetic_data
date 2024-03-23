@@ -5,7 +5,7 @@ import matplotcheck.base as mpc
 import matplotlib.pyplot as plt
 from tick import Tick
 
-class TestBaseStatistic:
+class TestQuantileStatistic:
     
     def test_set_statistic(self):
         
@@ -21,7 +21,7 @@ class TestBaseStatistic:
         base_stat.set_statistics(data=base_df)
         assert np.all(base_stat.statistic == base_df)
         
-        outliers = base_stat.get_outliers()
+        outliers = base_stat.get_outlier()
         outlier_check = {
             Tick(now, "a"), Tick(never, "a"),
             Tick(now, "b"), Tick(never, "b"),
