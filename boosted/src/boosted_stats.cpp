@@ -14,6 +14,9 @@ np::ndarray lag_prod_mean(np::ndarray arr, int max_lag) {
 
   int n_col = arr.shape(1);
   int n_row = arr.shape(0);
+  int scalar_size = sizeof(Scalar);
+  int col_stride = arr.strides(1) / scalar_size;
+  int row_stride = arr.strides(0) / scalar_size;
   Scalar *data = (Scalar *)arr.get_data();
 
   // RowMajor Layout because it is given in numpy and we use if for faster
@@ -24,7 +27,8 @@ np::ndarray lag_prod_mean(np::ndarray arr, int max_lag) {
                                Eigen::ColMajor>,
                  0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(
           data, n_row, n_col,
-          Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>(1, n_col));
+          Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>(col_stride,
+                                                        row_stride));
   auto t2 = std::chrono::high_resolution_clock::now();
   auto d1 = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
   std::cout << "Map Time :" << d1.count() << "ms\n";
@@ -39,10 +43,12 @@ np::ndarray lag_prod_mean(np::ndarray arr, int max_lag) {
   Eigen::Array<Scalar, 1, Eigen::Dynamic> ones =
       Eigen::Array<Scalar, 1, Eigen::Dynamic>::Ones(n_col);
 
-  mat = (mat == mat).select(mat, 0);
+  // std::cout << "Matrix \n" << mat << std::endl;
+  mat = (mat.isNaN()).select(0, mat);
   data = mat.data();
 
-  Eigen::Array<Scalar, Eigen::Dynamic, Eigen::Dynamic> out(max_lag, n_col);
+  Eigen::Array<Scalar, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> out(
+      max_lag, n_col);
   out.setZero();
 
   t2 = std::chrono::high_resolution_clock::now();
