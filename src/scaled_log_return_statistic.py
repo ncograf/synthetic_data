@@ -45,6 +45,7 @@ class ScaledLogReturnStatistic(quantile_statistic.QuantileStatistic, temporal_st
         else:
             raise ValueError("Data must be either dataframe or Series")
     
+        data = data.to_numpy()
         data[data == 0] = np.nan
         _returns = np.log(data[1:,:] / (data[:-1,:] + 1e-12))
         nan_mask = np.isnan(_returns)

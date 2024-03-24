@@ -112,3 +112,4 @@ if __name__ == '__main__':
     TestAutoCorrStatistic().test_get_statistic_simple()
     TestAutoCorrStatistic().test_get_statistic_simple_boosted()
     TestAutoCorrStatistic().test_get_statistic_python_loop()
+    TestAutoCorrStatistic().test_get_statistic_boosted()
