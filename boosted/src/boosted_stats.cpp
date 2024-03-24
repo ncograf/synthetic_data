@@ -39,11 +39,12 @@ np::ndarray lag_prod_mean(np::ndarray arr, int max_lag) {
       Eigen::Array<Scalar, Eigen::Dynamic, Eigen::Dynamic>::Zero(n_row, n_col);
 
   Eigen::Array<Scalar, 1, Eigen::Dynamic> count =
-      (mat.array() == mat.array()).select(1, zero_mat).colwise().sum();
+      (mat.isNaN()).select(zero_mat, 1).colwise().sum();
   Eigen::Array<Scalar, 1, Eigen::Dynamic> ones =
       Eigen::Array<Scalar, 1, Eigen::Dynamic>::Ones(n_col);
 
-  // std::cout << "Matrix \n" << mat << std::endl;
+  std::cout << "Matrix \n" << mat << std::endl;
+  std::cout << "Count \n" << count << std::endl;
   mat = (mat.isNaN()).select(0, mat);
   data = mat.data();
 
