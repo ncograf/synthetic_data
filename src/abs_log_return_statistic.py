@@ -7,7 +7,7 @@ class AbsLogReturnStatistic(log_return_statistic.LogReturnStatistic):
     
     def __init__(self, quantile : float, legend_postfix : str = '', color = 'green'):
 
-        log_return_statistic.LogReturnStatistic(quantile=quantile, legend_postfix=legend_postfix, color=color)
+        log_return_statistic.LogReturnStatistic.__init__(self, quantile=quantile, legend_postfix=legend_postfix, color=color)
 
         self._name = r"Abs Log Returns $|R_t| = \left|\displaystyle\log\left(\frac{X_t}{X_{t-1}}\right)\right|$"
         self._sample_name = "S\&P 500 Abs Log Returns"

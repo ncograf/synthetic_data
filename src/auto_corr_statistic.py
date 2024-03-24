@@ -108,10 +108,11 @@ class AutoCorrStatistic(stylized_fact.StylizedFact):
         var = np.nanvar(base, axis=0)
         
         # compute the (r_{t+k} - mu) part of the correlation and the (r_t - mu) part separately
+        in_matrix = base - mu
         if base.dtype.name == 'float32':
-            stat = boosted_stats.lag_prod_mean_float(base - mu, self._max_lag)
+            stat = boosted_stats.lag_prod_mean_float(in_matrix, self._max_lag)
         elif base.dtype.name == 'float64':
-            stat = boosted_stats.lag_prod_mean_double(base - mu, self._max_lag)
+            stat = boosted_stats.lag_prod_mean_double(in_matrix, self._max_lag)
 
         stat /= var
         self._statistic = stat

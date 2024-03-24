@@ -154,3 +154,25 @@ class BaseStatistic:
         axes.set_xlabel(self._name)
         axes.set_ylabel(y_label)
             
+    def draw_flipted_cfd(
+            self,
+            ax : plt.Axes,
+            style : Dict[str, any] = {
+                'alpha' : 1,
+                'marker' : 'o',
+                'markersize' : 1,
+                'linestyle' : 'None'
+            },
+            ):
+        """Draws the 1 - cfd(X) where X is over all axes all symbols on the given axes
+
+        Args:
+            ax (plt.Axes): Axis to draw onto
+        """
+        
+        if not 'color' in style.keys():
+            style['color'] = self._plot_color
+            
+        self.check_statistic()
+        data = self.normalized_stat()
+        ax.plot(data[:,0], data[:,1], **style)

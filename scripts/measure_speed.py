@@ -45,6 +45,7 @@ def measure_abs_log_return():
         python_strides_time.append(stop - start)
         print(f"Time stride for {i} lags: {stop - start}") 
 
+    for i in lags:
         start = time.time()
         log_corr_stat = auto_corr_statistic.AutoCorrStatistic(max_lag=i, underlaying=log_stat, implementation='boosted')
         log_corr_stat.set_statistics(None)
@@ -52,6 +53,7 @@ def measure_abs_log_return():
         boosted_times.append(stop - start)
         print(f"Time boosted for {i} lags: {stop - start}") 
 
+    for i in lags:
         start = time.time()
         log_corr_stat = auto_corr_statistic.AutoCorrStatistic(max_lag=i, underlaying=log_stat, implementation='python_loop')
         log_corr_stat.set_statistics(None)
