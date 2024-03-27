@@ -8,6 +8,7 @@ class StylizedFact(base_statistic.BaseStatistic):
     def __init__(self):
         self.color = 'blue'
         self.y_label = 'None'
+        self.x_ticks = None
 
     def draw_stylized_fact(
             self,
@@ -56,5 +57,9 @@ class StylizedFact(base_statistic.BaseStatistic):
         
         self.check_statistic()
         data = np.mean(self.statistic, axis=1)
-        ax.plot(data, **style)
+        
+        if self.x_ticks is None:
+            ax.plot(data, **style)
+        else:
+            ax.plot(self.x_ticks, data, **style)
     

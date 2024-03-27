@@ -39,9 +39,10 @@ class NormalizedPriceReturn(stylized_fact.StylizedFact):
         data_pos = self._underlaying.statistic[ge_0 & (~nan_mask)].flatten()
         data_neg = np.abs(self._underlaying.statistic[(~ge_0) & (~nan_mask)].flatten())
 
-        k = 5000
         
         m_pos = data_pos.shape[0]
+        m_neg = data_neg.shape[0]
+        k = np.min((5000, m_pos, m_neg))
         if m_pos > 0:
             data_pos = np.sort(data_pos)
             std_pos = np.var(data_pos)
@@ -54,7 +55,6 @@ class NormalizedPriceReturn(stylized_fact.StylizedFact):
             disp_data_pos = np.array([])
             P_r_pos =  1 - np.array([])
 
-        m_neg = data_neg.shape[0]
         if m_neg > 0:
             data_neg = np.sort(data_neg)
             std_neg = np.var(data_neg)

@@ -36,6 +36,7 @@ class StatisticInspector:
             stylized_fact : stylized_fact.StylizedFact,
             rc_params : Optional[Dict[str, any]] = None, 
             ax_params : Optional[Dict[str, any]] = None,
+            style : Optional[Dict[str, any]] = None,
             copy : Optional[Path] = None, 
             ):
         """Plots a histogram of the given samples statistic
@@ -64,15 +65,16 @@ class StatisticInspector:
 
         with plt.rc_context(rc=rc_params):
             fig, ax = plt.subplots()
-            style : Dict[str, any] = {
-                'alpha' : 1,
-                'marker' : 'o',
-                'markersize' : 1,
-                'linestyle' : 'None',
-                'color' : 'blue',
-                'color_neg' : 'red',
-                'color_pos' : 'blue',
-            }
+            if style is None:
+                style : Dict[str, any] = {
+                    'alpha' : 1,
+                    'marker' : 'o',
+                    'markersize' : 1,
+                    'linestyle' : 'None',
+                    'color' : 'blue',
+                    'color_neg' : 'red',
+                    'color_pos' : 'blue',
+                }
             stylized_fact.draw_stylized_fact_averaged(ax, style=style)
             self.draw_axis(ax=ax, ax_style=ax_params)
             fig.savefig(fig_path)
