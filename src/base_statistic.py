@@ -5,6 +5,7 @@ import numpy as np
 import numpy.typing as npt
 import matplotlib.pyplot as plt
 from tick import Tick
+import scipy.stats as ss
 
 class BaseStatistic:
 
@@ -114,6 +115,11 @@ class BaseStatistic:
             return self._dates.index(date)
         raise RuntimeError("Date must be either timestamp or Tick")
 
+    def get_kde_all(self) -> ss.gaussian_kde:
+        
+        self.check_statistic()
+        kde = ss.gaussian_kde(self.statistic[~np.isnan(self.statistic)])
+        return kde
         
     def draw_histogram(self,
                        axes : plt.Axes,
