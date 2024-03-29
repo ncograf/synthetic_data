@@ -26,7 +26,8 @@ class TestCoarseFineVolatility:
         # compute statistics
         log_stat.set_statistics(df)
         base_stat.set_statistics()
-        assert np.array_equal(base_stat.statistic.round(8),np.array([[-1,1],[-1,1],[-1,1]]).round(8).T, equal_nan=True)
+        assert np.array_equal(base_stat.statistic[:2,:].round(8),-np.array([[-1,1],[-1,1],[-1,1]]).round(8).T, equal_nan=True)
+        assert np.array_equal(base_stat.statistic[2:,:].round(8),np.array([[-1,1],[-1,1],[-1,1]]).round(8).T, equal_nan=True)
 
 if __name__ == '__main__':
     TestCoarseFineVolatility().test_get_statistic_simple_boosted()

@@ -12,7 +12,7 @@ namespace np = boost::python::numpy;
 namespace boosted_stats {
 
 template <typename Scalar>
-np::ndarray leverage_effect(np::ndarray arr, int max_lag) {
+np::ndarray leverage_effect(np::ndarray arr, int max_lag, bool verbose) {
 
   int n_col = arr.shape(1);
   int n_row = arr.shape(0);
@@ -33,7 +33,8 @@ np::ndarray leverage_effect(np::ndarray arr, int max_lag) {
                                                         row_stride));
   auto t2 = std::chrono::high_resolution_clock::now();
   auto d1 = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-  std::cout << "Map Time :" << d1.count() << "ms\n";
+  if (verbose)
+    std::cout << "Map Time :" << d1.count() << "ms\n";
 
   // Count non nan entries
   t1 = std::chrono::high_resolution_clock::now();
@@ -59,7 +60,8 @@ np::ndarray leverage_effect(np::ndarray arr, int max_lag) {
 
   t2 = std::chrono::high_resolution_clock::now();
   d1 = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-  std::cout << "Prep Time :" << d1.count() << "ms\n";
+  if (verbose)
+    std::cout << "Prep Time :" << d1.count() << "ms\n";
 
   // std::cout << "Matrix \n" << mat << std::endl;
 
@@ -83,7 +85,8 @@ np::ndarray leverage_effect(np::ndarray arr, int max_lag) {
 
   t2 = std::chrono::high_resolution_clock::now();
   d1 = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-  std::cout << "Loop Time :" << d1.count() << "ms\n";
+  if (verbose)
+    std::cout << "Loop Time :" << d1.count() << "ms\n";
 
   np::dtype dtype = arr.get_dtype();
   p::tuple shape = p::make_tuple(out.rows(), out.cols());
@@ -102,7 +105,8 @@ np::ndarray leverage_effect(np::ndarray arr, int max_lag) {
 }
 
 template <typename Scalar>
-p::tuple gain_loss_asym(np::ndarray arr, int max_lag, Scalar theta) {
+p::tuple gain_loss_asym(np::ndarray arr, int max_lag, Scalar theta,
+                        bool verbose) {
 
   auto t1 = std::chrono::high_resolution_clock::now();
 
@@ -156,14 +160,15 @@ p::tuple gain_loss_asym(np::ndarray arr, int max_lag, Scalar theta) {
 
   auto t2 = std::chrono::high_resolution_clock::now();
   auto d1 = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-  std::cout << "Loops Time :" << d1.count() << "ms\n";
+  if (verbose)
+    std::cout << "Loops Time :" << d1.count() << "ms\n";
 
   return p::make_tuple(gain, loss);
 }
 
 /**
- * Computes the laged product mean over the colums for all lags in 1 to max_lag
- * The lagged product mean is defined as
+ * Computes the laged product mean over the colums for all lags in 1 to
+ * max_lag The lagged product mean is defined as
  *
  * ```
  *  1/n \sum_{t=1}^{n} arr_pos_lag[t + lag] * arr[t]

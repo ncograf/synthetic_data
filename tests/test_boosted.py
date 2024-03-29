@@ -23,7 +23,7 @@ class TestBoosted:
         for k in range(1, max_k + 1):
             test[k-1,:] = np.nanmean(r_t[:-k] * r_t_2[k:] - r_t[:-k] * r_t_2[:-k], axis=0) / (np.nanmean(r_t[:-k]**2, axis=0)**2)
 
-        boosted = boosted_stats.leverage_effect_double(r_t, max_k)
+        boosted = boosted_stats.leverage_effect_double(r_t, max_k, True)
 
         assert np.array_equal(test.round(8),boosted.round(8), equal_nan=True)
     
@@ -96,7 +96,7 @@ class TestBoosted:
 
         print("Time for python loops", time.time() - t1, "s")
             
-        boosted = boosted_stats.gain_loss_asym_double(q_t, max_lag, theta)
+        boosted = boosted_stats.gain_loss_asym_double(q_t, max_lag, theta, True)
         
         boosted_gain = boosted[0] / boosted[0].sum(axis=0)
         boosted_loss = boosted[1] / boosted[1].sum(axis=0)
@@ -109,5 +109,5 @@ class TestBoosted:
 
 if __name__ == '__main__':
     TestBoosted().test_gain_loss_asym()
-    #TestBoosted().test_levearge_effect()
-    #TestBoosted().test_lag_prod_two()
+    TestBoosted().test_levearge_effect()
+    TestBoosted().test_lag_prod_two()

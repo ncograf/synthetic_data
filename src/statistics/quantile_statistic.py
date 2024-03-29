@@ -66,17 +66,49 @@ class QuantileStatistic(base_statistic.BaseStatistic, base_outlier_set.BaseOutli
         """Compute outliers based on the quanitle set by the class
 
         Returns:
-            Union[List[Tuple[str, np.datetime64]], List[str]]: List containing the index (and column depending on the data)of outliers
+            np.ndarray: mask for the outlier events
         """
         
         self.check_statistic()
 
         # compute thesholds
         assert self.statistic.ndim == 2
-        thresh_low = np.percentile(self.statistic, self.quantile / 2 * 100, axis=0)
-        thresh_high = np.percentile(self.statistic, (1 - self.quantile / 2) * 100, axis=0)
+        thresh_low = np.nanpercentile(self.statistic, self.quantile / 2 * 100, axis=0)
+        thresh_high = np.nanpercentile(self.statistic, (1 - self.quantile / 2) * 100, axis=0)
         
         mask = (self.statistic > thresh_high) | (self.statistic < thresh_low)
+        return mask
+
+    def _get_lower_mask(self) -> npt.NDArray:
+        """Compute mask for the lower quantile / 2 element
+
+        Returns:
+            np.ndarray: mask for the lower quantile events
+        """
+        
+        self.check_statistic()
+
+        # compute thesholds
+        assert self.statistic.ndim == 2
+        thresh_low = np.nanpercentile(self.statistic, self.quantile / 2 * 100, axis=0)
+        
+        mask = (self.statistic < thresh_low)
+        return mask
+
+    def _get_upper_mask(self) -> npt.NDArray:
+        """Compute mask for the upper quantile / 2 element
+
+        Returns:
+            np.ndarray: mask for the upper quantile events
+        """
+        
+        self.check_statistic()
+
+        # compute thesholds
+        assert self.statistic.ndim == 2
+        thresh_high = np.nanpercentile(self.statistic, (1 - self.quantile / 2) * 100, axis=0)
+        
+        mask = (self.statistic > thresh_high)
         return mask
     
     def get_outlier(self) -> Set[Tick]:

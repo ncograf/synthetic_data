@@ -45,7 +45,7 @@ class LogReturnStatistic(quantile_statistic.QuantileStatistic, temporal_statistc
         else:
             raise ValueError("Data must be either dataframe or Series")
 
-        data[data == 0] = np.nan
-        _log_returns = np.log(data.iloc[1:,:].to_numpy() / (data.iloc[:-1,:].to_numpy()) + 1e-12)
+        data = data.to_numpy()
+        _log_returns = np.log(data[1:] / (data[:-1] + 1e-9) + 1e-9)
 
         return _log_returns

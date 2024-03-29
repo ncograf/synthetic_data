@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import numpy.typing as npt
-import quantile_statistic
+import quantile_statistic as quantile_statistic
 import temporal_statistc
 
 class ReturnStatistic(quantile_statistic.QuantileStatistic, temporal_statistc.TemporalStatistic):

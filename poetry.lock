@@ -1076,6 +1076,23 @@ pyparsing = ">=2.3.1"
 python-dateutil = ">=2.7"
 
 [[package]]
+name = "mpmath"
+version = "1.3.0"
+description = "Python library for arbitrary-precision floating-point arithmetic"
+optional = false
+python-versions = "*"
+files = [
+    {file = "mpmath-1.3.0-py3-none-any.whl", hash = "sha256:a0b2b9fe80bbcd81a6647ff13108738cfb482d481d826cc0e02f5b35e5c88d2c"},
+    {file = "mpmath-1.3.0.tar.gz", hash = "sha256:7a28eb2a9774d00c7bc92411c19a89209d5da7c4c9a9e227be8330a23a25b91f"},
+]
+
+[package.extras]
+develop = ["codecov", "pycodestyle", "pytest (>=4.6)", "pytest-cov", "wheel"]
+docs = ["sphinx"]
+gmpy = ["gmpy2 (>=2.1.0a4)"]
+tests = ["pytest (>=4.6)"]
+
+[[package]]
 name = "multitasking"
 version = "0.0.11"
 description = "Non-blocking Python methods using decorators"
@@ -1338,6 +1355,22 @@ files = [
 [package.extras]
 dev = ["pre-commit", "tox"]
 testing = ["pytest", "pytest-benchmark"]
+
+[[package]]
+name = "powerlaw"
+version = "1.5"
+description = "Toolbox for testing if a probability distribution fits a power law"
+optional = false
+python-versions = "*"
+files = [
+    {file = "powerlaw-1.5-py3-none-any.whl", hash = "sha256:633a669573d9fd663d2f452f121117f2d6b2f2c502eca532f9355f733abfec96"},
+]
+
+[package.dependencies]
+matplotlib = "*"
+mpmath = "*"
+numpy = "*"
+scipy = "*"
 
 [[package]]
 name = "py-getch"
@@ -1967,4 +2000,4 @@ repair = ["scipy (>=1.6.3)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "3.10.13"
-content-hash = "307568dfb025b8ba05efc5d83229de95110a6f9eb39d426cf09708fe51acafe9"
+content-hash = "e9a9f181ffd7a59d2d561f339078a31bc988aa52bfd9dd6cb8e87eeef8d6180d"

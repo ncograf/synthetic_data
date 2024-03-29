@@ -13,19 +13,27 @@ class LeverageEffect(stylized_fact.StylizedFact):
             self,
             max_lag : int,
             underlaying : temporal_statistc.TemporalStatistic,
-            legend_postfix : str = '',
-            color : str = 'blue', 
             ):
         
         stylized_fact.StylizedFact.__init__(self)
 
-        self._name = r"Auto correlation $\displaymath\frac{\mathbb{E}[(r_{t+k} - \mu)(r_t - \mu)]}{\sigma^2}$"
+        self._ax_style = {
+            'title' : 'leverage effect',
+            'ylabel' : r'$L(k)$',
+            'xlabel' : r"lag $k$",
+            'xscale' : 'linear',
+            'yscale' : 'linear'
+            }
+        self.styles = [{
+            'alpha' : 1,
+            'marker' : 'None',
+            'color' : 'blue',
+            'markersize' : 1,
+            'linestyle' : '-',
+        }]
         self._sample_name = underlaying.name
-        self._figure_name = r"$L(k)$"
         self._max_lag = max_lag
         self._underlaying = underlaying
-        self._plot_color = 'blue'
-        self.y_label = r'lag k'
 
     def set_statistics(self, data: pd.DataFrame | pd.Series | None = None):
         
@@ -33,16 +41,13 @@ class LeverageEffect(stylized_fact.StylizedFact):
         self._underlaying.check_statistic()
         base = self._underlaying.statistic
         self._symbols = self._underlaying.symbols
-        
-        mu = np.nanmean(base, axis=0)
-        std = np.nanstd(base, axis=0)
         data = base
         
         # compute the (r_{t+k} - mu) part of the correlation and the (r_t - mu) part separately
         if base.dtype.name == 'float32':
-            stat = boosted_stats.leverage_effect_float(data, self._max_lag)
+            stat = boosted_stats.leverage_effect_float(data, self._max_lag, False)
         elif base.dtype.name == 'float64':
-            stat = boosted_stats.leverage_effect_double(data, self._max_lag)
+            stat = boosted_stats.leverage_effect_double(data, self._max_lag, True)
 
         self._statistic = stat
         # TODO compute outlier if needed

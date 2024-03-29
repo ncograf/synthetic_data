@@ -27,3 +27,5 @@ class TestCacheOutlierSet:
 
     
     
+if __name__ == "__main__":
+    TestCacheOutlierSet().test_store_and_load_outliers()

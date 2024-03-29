@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import numpy.typing as npt
 from typing import Union, Tuple, Dict, Optional, Literal
+import powerlaw
 from icecream import ic
 import matplotlib.pyplot as plt
 import temporal_statistc
@@ -10,24 +11,40 @@ import stylized_fact
 import boosted_stats
 
 class AutoCorrStatistic(stylized_fact.StylizedFact):
+    """Stylized Fact Autocorrelation used for heavy tails and volatility clustering """
     
     def __init__(
             self,
             max_lag : int,
             underlaying : temporal_statistc.TemporalStatistic,
-            legend_postfix : str = '',
-            color : str = 'blue', 
-            implementation : Literal['boosted', 'strides', 'pyhton_loop'] = 'strides'):
+            title : str = 'No Title',
+            ylim : Tuple[float] | None = None,
+            xscale : str =  'log',
+            yscale : str =  'linear',
+            powerlaw : bool = False,
+            implementation : Literal['boosted', 'strides', 'pyhton_loop'] = 'boosted'):
         
         stylized_fact.StylizedFact.__init__(self)
 
-        self._name = r"Auto correlation $\displaymath\frac{\mathbb{E}[(r_{t+k} - \mu)(r_t - \mu)]}{\sigma^2}$"
-        self._sample_name = underlaying.name
-        self._figure_name = "auto_correlation"
+        self._powerlaw = powerlaw
         self._max_lag = max_lag
         self._underlaying = underlaying
-        self._plot_color = 'blue'
-        self.y_label = 'lag k'
+        self._ax_style = {
+            'title' : title,
+            'ylabel' : r'Auto-correlation',
+            'xlabel' : r'lag $k$',
+            'xscale' : xscale,
+            'yscale' : yscale,
+            }
+        if not ylim is None:
+            self._ax_style['ylim'] = ylim
+        self.styles = [{
+            'alpha' : 1,
+            'marker' : 'o',
+            'color' : 'blue',
+            'markersize' : 1,
+            'linestyle' : 'None',
+        }]
 
         if implementation == 'strides':
             self.set_statistics = self._set_statistics_stride
@@ -37,6 +54,18 @@ class AutoCorrStatistic(stylized_fact.StylizedFact):
             self.set_statistics = self._set_statistics_python_loop
         else:
             raise ValueError("The given implementation argument does not exist")
+        
+    def get_alphas(self, xmax=0.05, xmin=0.01):
+
+        self.check_statistic()
+        alphas = []
+        for c in range(self.statistic.shape[1]):
+            dat = np.abs(self.statistic[:,c])
+            dat = dat[~np.isnan(dat)]
+            fit = powerlaw.Fit(dat, xmax=xmax, xmin=xmin)
+            alphas.append(fit.alpha)
+
+        return alphas
     
     def _set_statistics_stride(self, data: pd.DataFrame | pd.Series | None = None):
         
@@ -117,3 +146,38 @@ class AutoCorrStatistic(stylized_fact.StylizedFact):
         stat /= var
         self._statistic = stat
         # TODO compute outlier if needed
+
+    def draw_stylized_fact(
+            self,
+            ax : plt.Axes,
+            **kwargs
+            ):
+        """Draws the averaged statistic over all symbols on the axis
+
+        Args:
+            ax (plt.Axes): Axis to plot on
+        """
+        self.check_statistic()
+        data = np.mean(self.statistic, axis=1)
+        
+        ax.set(**self.ax_style)
+        if self.x_ticks is None:
+            ax.plot(data, **self.styles[0])
+        else:
+            ax.plot(self.x_ticks, data, **self.styles[0])
+
+        if self._powerlaw:
+            alphas = self.get_alphas()
+            max_alpha = np.nanmax(alphas)
+            min_alpha = np.nanmin(alphas)
+            mean_alpha = np.nanmean(alphas)
+            text_neg = f"{min_alpha:.4f} " + r'$\leq \alpha \leq$' + f" {max_alpha:.4f}"
+            text_pos = r'$\bar{\alpha}$:' + f" {mean_alpha:.4f}"
+            text = text_pos + "\n" + text_neg
+            ax.text(
+                0.01, 0.01,
+                s=text,
+                horizontalalignment='left',
+                verticalalignment='bottom',
+                transform=ax.transAxes,
+                )

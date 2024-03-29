@@ -1,12 +1,12 @@
 import pandas as pd
 import numpy as np
 import numpy.typing as npt
-from typing import Union, Tuple, Dict, Optional, Literal
 from icecream import ic
 import matplotlib.pyplot as plt
 import temporal_statistc
 import scipy.linalg as linalg
 import stylized_fact
+import powerlaw
 
 class NormalizedPriceReturn(stylized_fact.StylizedFact):
     
@@ -16,13 +16,27 @@ class NormalizedPriceReturn(stylized_fact.StylizedFact):
     ):
         
         stylized_fact.StylizedFact.__init__(self)
-
-        self._name = r"$P(r) = P(r_t > r)$"
-        self._sample_name = underlaying.name
-        self._figure_name = "auto_correlation"
         self._underlaying = underlaying
-        self._plot_color = 'blue'
-        self.y_label = 'lag k'
+        self.styles = [{
+            'alpha' : 1,
+            'marker' : 'o',
+            'color' : 'blue',
+            'markersize' : 1,
+            'linestyle' : 'None',
+        },{
+            'alpha' : 1,
+            'marker' : 'o',
+            'color' : 'red',
+            'markersize' : 1,
+            'linestyle' : 'None',
+        } ]
+        self._ax_style = {
+            'title' : 'heavy-tailed price return',
+            'ylabel' : r'$P(r)$',
+            'xlabel' : r'normalized price return',
+            'xscale' : 'log',
+            'yscale' : 'log'
+            }
 
     def normalized_returns(self) -> npt.NDArray:
         """ Compute the empirical 1 - F(X) for the statistic X
@@ -45,7 +59,7 @@ class NormalizedPriceReturn(stylized_fact.StylizedFact):
         k = np.min((5000, m_pos, m_neg))
         if m_pos > 0:
             data_pos = np.sort(data_pos)
-            std_pos = np.var(data_pos)
+            std_pos = np.std(data_pos)
             mu_pos = np.mean(data_pos)
             norm_data_pos = (data_pos - mu_pos) / std_pos
             disp_data_pos = norm_data_pos[:: m_pos // k]
@@ -57,7 +71,7 @@ class NormalizedPriceReturn(stylized_fact.StylizedFact):
 
         if m_neg > 0:
             data_neg = np.sort(data_neg)
-            std_neg = np.var(data_neg)
+            std_neg = np.std(data_neg)
             mu_neg = np.mean(data_neg)
             norm_data_neg = (data_neg - mu_neg) / std_neg
             disp_data_neg = norm_data_neg[:: m_neg // k]
@@ -77,21 +91,27 @@ class NormalizedPriceReturn(stylized_fact.StylizedFact):
 
         return  out
 
+    def get_alphas(self, xmin=0.5):
+
+        self.check_statistic()
+        dat = np.abs(self.statistic[:,0])
+        dat = dat[np.logical_and(~np.isnan(dat), dat != 0)]
+        fit = powerlaw.Fit(dat, xmin=xmin)
+        alpha_neg = fit.alpha
+        dat = np.abs(self.statistic[:,2])
+        dat = dat[np.logical_and(~np.isnan(dat), dat != 0)]
+        fit = powerlaw.Fit(dat, xmin=xmin)
+        alpha_pos = fit.alpha
+        return alpha_neg, alpha_pos
     
     def set_statistics(self, data: pd.DataFrame | pd.Series | None = None):
         
         norm_ret = self.normalized_returns()
         self._statistic = norm_ret
 
-    def draw_stylized_fact_averaged(
+    def draw_stylized_fact(
             self,
             ax : plt.Axes,
-            style : Dict[str, any] = {
-                'alpha' : 1,
-                'marker' : 'o',
-                'markersize' : 1,
-                'linestyle' : 'None'
-            }
             ):
         """Draws the averaged statistic over all symbols on the axes
 
@@ -101,17 +121,19 @@ class NormalizedPriceReturn(stylized_fact.StylizedFact):
 
         self.check_statistic()
         
-        if not 'color' in style.keys():
-            style['color'] = self._plot_color
-        
-        color = style['color']
-        color_neg = style['color_neg'] if 'color_neg' in style.keys() else color
-        color_pos = style['color_pos'] if 'color_pos' in style.keys() else color
-        style.pop('color_pos')
-        style.pop('color_neg')
-
-        style['color'] = color_neg
-        ax.plot(self.statistic[:,3], self.statistic[:,2], **style, label=r'$r_t < 0$')
-        style['color'] = color_pos
-        ax.plot(self.statistic[:,1], self.statistic[:,0], **style, label=r'$r_t > 0$')
+        a_pos, a_neg = self.get_alphas()
+        ax.set(**self.ax_style)
+        ax.plot(self.statistic[:,3], self.statistic[:,2], **self.styles[0], label=r'$r_t < 0$')
+        ax.plot(self.statistic[:,1], self.statistic[:,0], **self.styles[1], label=r'$r_t > 0$')
+        text_pre = r'$\rho(r) \propto r^{-\alpha}$'
+        text_neg = r'$\alpha$ for $(r_t < 0)$: ' + f"{a_neg:.4f}"
+        text_pos = r'$\alpha$ for $(r_t > 0)$: ' + f"{a_pos:.4f}"
+        text = text_pre + "\n" + text_pos + "\n" + text_neg
+        ax.text(
+            0.01, 0.01,
+            s=text,
+            horizontalalignment='left',
+            verticalalignment='bottom',
+            transform=ax.transAxes,
+            )
         ax.legend()
