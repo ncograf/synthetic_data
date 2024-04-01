@@ -11,6 +11,16 @@ namespace np = boost::python::numpy;
 
 namespace boosted_stats {
 
+/** Comptue Leverage effect
+ *
+ *  ```
+ *  $L(k) = \frac{\langle r_t r_{t+k}² \rangle}{\langle r_{t+k}^2 \rangle^2}$
+ *  ```
+ *
+ *  This formula is obtained from DOI:10.1016/j.physa.2016.12.021, note that
+ *  it deviates from other papers.
+ *
+ */
 template <typename Scalar>
 np::ndarray leverage_effect(np::ndarray arr, int max_lag, bool verbose) {
 
