@@ -189,7 +189,7 @@ def visualize_all(stock_data : pd.DataFrame, name : str = ""):
     norm_price_ret.set_statistics(None)
     norm_price_ret.get_alphas()
     
-    lev_eff = leverage_effect.LeverageEffect(max_lag=100, underlaying=ret_stat)
+    lev_eff = leverage_effect.LeverageEffect(max_lag=100, underlaying=log_stat)
     lev_eff.set_statistics(None)
 
     co_fine = coarse_fine_volatility.CoarseFineVolatility(max_lag=25, tau=5, underlaying=log_stat)
@@ -221,7 +221,7 @@ def visualize_all(stock_data : pd.DataFrame, name : str = ""):
 
 if __name__ == "__main__":
 
-    visualize_stylized_facts(loader='g_1_1_norm')
+    visualize_stylized_facts(loader='real')
     if False:
         visualize_stylized_pair(fact='lin-upred')
         visualize_stylized_pair(fact='coarse-fine-vol')

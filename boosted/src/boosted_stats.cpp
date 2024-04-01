@@ -70,13 +70,13 @@ np::ndarray leverage_effect(np::ndarray arr, int max_lag, bool verbose) {
 
     // r_t * r_{t-lag}
     Eigen::Array<Scalar, Eigen::Dynamic, Eigen::Dynamic> enumerator =
-        (mat.topRows(n_row - lag) * squared.bottomRows(n_row - lag) -
-         mat.topRows(n_row - lag) * squared.topRows(n_row - lag))
+        (mat.topRows(n_row - lag) * squared.bottomRows(n_row - lag))
             .colwise()
             .sum() /
         (count - ones * lag);
     Eigen::Array<Scalar, Eigen::Dynamic, Eigen::Dynamic> denominator =
-        (squared.topRows(n_row - lag).colwise().sum() / (count - ones * lag));
+        (squared.bottomRows(n_row - lag).colwise().sum() /
+         (count - ones * lag));
     out.row(lag - 1) = enumerator / (denominator * denominator);
     // std::cout << "Enum \n" << enumerator << std::endl;
     // std::cout << "Top Squared \n" << squared.topRows(n_row - lag) <<

@@ -42,7 +42,9 @@ class LeverageEffect(stylized_fact.StylizedFact):
         self._underlaying.check_statistic()
         base = self._underlaying.statistic
         self._symbols = self._underlaying.symbols
-        data = base
+        std = np.nanstd(base, axis=0)
+        mu = np.nanmean(base, axis=0)
+        data = (base - mu)
         
         # compute the (r_{t+k} - mu) part of the correlation and the (r_t - mu) part separately
         if base.dtype.name == 'float32':
