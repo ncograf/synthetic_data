@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import base_filter
+import base_statistic
 from icecream import ic
 
 
@@ -11,8 +12,9 @@ class IlliquidityFilter(base_filter.BaseFilter):
         self._min_jumps = min_jumps
         self._data : pd.DataFrame | None = None
         self._exclude_tol : int = exclude_tolerance
+        self._drop_cols = []
 
-    def filter_data(self, data : pd.DataFrame | pd.Series) -> pd.DataFrame:
+    def fit_filter(self, data : pd.DataFrame | pd.Series, verbose : bool = True):
         """Filters data which have an illiquid state for strictly longer that self.exclude_tolerance
 
         A state is considered illiquid if in the given self._window ticks before (including the current)
@@ -20,12 +22,11 @@ class IlliquidityFilter(base_filter.BaseFilter):
 
         So [1,2,2,3] with a window of 2, and self._min_jumps 1 would only have 1 illiquid state
         So [1,2,2,2,3] with a window of 2, and self._min_jumps 1 would have 2 illiquid state
+        
+        This method stores the names of columns to be filtered
 
         Args:
             data (pd.DataFrame | pd.Series): data to filter
-
-        Returns:
-            pd.DataFrame: filtered dataframe
         """
         
         if isinstance(data, pd.Series):
@@ -42,8 +43,10 @@ class IlliquidityFilter(base_filter.BaseFilter):
         no_jump_stock_mask = jumps_sum <= self._exclude_tol
 
         # simply set all to nan if it does not enough jumps in the region
-        self._data = data.to_numpy()[:,no_jump_stock_mask]
+        self._drop_cols = np.array(data.columns)[~no_jump_stock_mask]
         
-        self._data = pd.DataFrame(self._data, columns=data.columns[no_jump_stock_mask], index=data.index)
+        if verbose:
+            print("Illiquidity Filter, filteres the following coumns:")
+            print(self._drop_cols.tolist())
+
         
-        return self._data

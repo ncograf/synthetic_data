@@ -19,6 +19,7 @@ import cached_outlier_set
 import garch_generator
 import index_generator
 import illiquidity_filter
+import gen_data_loader
 
 @click.group()
 def inspect():
@@ -151,7 +152,6 @@ def visualize_data(symbol):
 
     data_loader = real_data_loader.RealDataLoader()
     real_stock_data = data_loader.get_timeseries(col_name="Adj Close", data_path="data/raw_yahoo_data", update_all=False)
-    real_stock_data = real_stock_data.loc[:,real_stock_data.columns[:20]]
 
     real_data = stock_price_statistic.StockPriceStatistic(quantile=0.1)
     real_data.set_statistics(real_stock_data)
@@ -168,16 +168,15 @@ def visualize_data(symbol):
     inspector = data_inspector.DataInspector()
     inspector.plot_time_series(statistics=[{real_data}], symbols=[symbol], rc_params=figure_params)
 
-@click.command()
-def visualize_garch_data():
+def visualize_garch_data(symbol):
 
     data_loader = real_data_loader.RealDataLoader()
     real_stock_data = data_loader.get_timeseries(col_name="Adj Close", data_path="data/raw_yahoo_data", update_all=False)
-    real_stock_data = real_stock_data.loc[:,real_stock_data.columns[:20]]
+    #real_stock_data = real_stock_data.loc[:,real_stock_data.columns[:20]]
 
-    garch = garch_generator.GarchGenerator()
-    index_gen = index_generator.IndexGenerator(generator=garch)
-    synth_data = index_gen.generate_index(real_stock_data)
+    garch = garch_generator.GarchGenerator(name='GARCH_1_1_normal')
+    gen_loader = gen_data_loader.GenDataLoader()
+    synth_data = gen_loader.get_timeseries(garch, data_loader=data_loader, col_name='Adj Close')
     
     real_data = stock_price_statistic.StockPriceStatistic(quantile=0.1)
     real_data.set_statistics(real_stock_data)
@@ -188,6 +187,12 @@ def visualize_garch_data():
     synthetic_data.set_statistics(synth_data)
     synthetic_log = log_return_statistic.LogReturnStatistic(quantile=0.1, legend_postfix=" - GARCH")
     synthetic_log.set_statistics(synth_data)
+
+    # Hack data
+    stat = synthetic_log._statistic
+    stat[np.isinf(stat)] = 0
+    stat = synthetic_data._statistic
+    stat[np.isinf(stat)] = 0
 
     figure_params = {"figure.figsize" : (16, 10),
              "font.size" : 24,
@@ -202,17 +207,26 @@ def visualize_garch_data():
     inspector = data_inspector.DataInspector()
     statistics = [[synthetic_data, real_data],[synthetic_log, real_log]]
 
-    for symbol in real_stock_data.columns:
-        inspector.plot_time_series(statistics=statistics, symbols=[symbol], rc_params=figure_params)
+    inspector.plot_time_series(statistics=statistics, symbols=[symbol], rc_params=figure_params)
 
 
 if __name__ == "__main__":
     #sumarize_outliers()
 
     #summarize_liquid_data()
-    #visualize_data("MMM")
+    visualize_data("ORCL")
+    visualize_data("ODFL")
+    visualize_data("MTCH")
+    visualize_data("CTSH")
+    visualize_data("C")
+    visualize_garch_data("ORCL")
+    visualize_garch_data("ODFL")
+    visualize_garch_data("MTCH")
+    visualize_garch_data("CTSH")
+    visualize_garch_data("C")
+    #['C', 'CTSH', 'MTCH', 'ODFL', 'ORCL']
 
-    outlier()
+    #outlier()
     #visualize_garch_data()
 
     #runner = CliRunner()

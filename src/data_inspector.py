@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import click
 from matplotlib.gridspec import GridSpec
+import matplotlib
 from getch import getch
 from pathlib import Path
 from typing import List, Optional, Dict, Union, Set
@@ -15,7 +16,6 @@ import historic_events
 from tueplots import bundles
 import time
 from tick import Tick
-from copy import deepcopy
 
 class DataInspector:
     """Class to clean data, visualize it and compute basic statistics
@@ -32,6 +32,7 @@ class DataInspector:
         self.cache = Path(cache)
         self.cache.mkdir(parents=True, exist_ok=True)
         
+        matplotlib.use('qtagg')
         plt.rcParams["text.usetex"] = True
 
     def plot_time_series(self,
@@ -72,12 +73,11 @@ class DataInspector:
                         else:
                             statistic.draw_series(axes[idx], symbol=symbol, style_plot=style_plot, grow_only=grow_only)
                         grow_only = True
+            plt.show()
             fig.savefig(fig_path)
         if not copy is None:
             copy_path = copy / f"{name}.png"
             shutil.copy(fig_path, copy_path)
-
-        plt.show()
 
     def plot_histogram(self,
                        statistic : base_statistic.BaseStatistic,

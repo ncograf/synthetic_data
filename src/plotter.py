@@ -10,11 +10,11 @@ class Plotter:
         cache : Path | str,
         figure_name : str,
         figure_title : str,
-        subplot_layout : Tuple[int],
+        subplot_layout : Dict[str, any],
         figure_style : Dict[str, any] =  
         {
             "figure.figsize" : (16, 10),
-            "font.size" : 11,
+            "font.size" : 12,
             "figure.dpi" : 96,
             "figure.constrained_layout.use" : True,
             "figure.constrained_layout.h_pad" : 0.1,
@@ -24,21 +24,21 @@ class Plotter:
         },
         export : Path | str | None = None,
         ):
-        """_summary_
+        """Generates plotter class to simplify and normify plots for the project
 
         Args:
-            cache (Path | str): Cache path to store image
-            figure_name (str): figure name to store
-            figure_title (str): figure title on image
-            subplot_layout (Tuple[int]): layout (number and arrangement)
-            figure_style (_type_, optional): _description_. Defaults to { "figure.figsize" : (16, 10), "font.size" : 24, "figure.dpi" : 96, "figure.constrained_layout.use" : True, "figure.constrained_layout.h_pad" : 0.1, "figure.constrained_layout.hspace" : 0, "figure.constrained_layout.w_pad" : 0.1, "figure.constrained_layout.wspace" : 0, }.
-            export (Path | str | None, optional): Export path if necessary. Defaults to None.
+            cache (Path | str): cache directory to store the plots
+            figure_name (str): figure name to store the plot in the cache
+            figure_title (str): title to be plotted in the top
+            subplot_layout (Dict[str, any]): size in terms of subplots
+            figure_style (Dict[str, any], optional): Style, how the figure is supposed to look like. Defaults to { "figure.figsize" : (16, 10), "font.size" : 12, "figure.dpi" : 96, "figure.constrained_layout.use" : True, "figure.constrained_layout.h_pad" : 0.1, "figure.constrained_layout.hspace" : 0, "figure.constrained_layout.w_pad" : 0.1, "figure.constrained_layout.wspace" : 0, }.
+            export (Path | str | None, optional): Export path if image must be exported to some other path. Defaults to None.
         """
         
         self._fig : plt.Figure
         self._axes : plt.Axes
         with plt.rc_context(figure_style):
-            self._fig, self._axes = plt.subplots(*subplot_layout, constrained_layout=True)
+            self._fig, self._axes = plt.subplots(**subplot_layout, constrained_layout=True)
             self._fig.suptitle(figure_title)
 
         self._figure_title = figure_title

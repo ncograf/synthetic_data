@@ -15,7 +15,7 @@ class LogReturnStatistic(quantile_statistic.QuantileStatistic, temporal_statistc
         self._sample_name = "S\&P 500 Log Returns"
         self._figure_name = "sp500_log_returns"
 
-    def set_statistics(self, data: pd.DataFrame | pd.Series):
+    def set_statistics(self, data: pd.DataFrame | pd.Series, returns : bool = False):
         """Computes the log returns from the stock prices
 
         Args:
@@ -24,10 +24,14 @@ class LogReturnStatistic(quantile_statistic.QuantileStatistic, temporal_statistc
         self.check_data_validity(data)
         if isinstance(data, pd.Series):
             data = data.to_frame()
+            
         self._outlier = None
         self._dates = data.index.to_list()[1:]
         self._symbols = data.columns.to_list()
-        self._statistic = self._get_log_returns(data)
+        if returns:
+            self._statistic = data.to_numpy()
+        else:
+            self._statistic = self._get_log_returns(data)
         self._compute_outlier()
 
     def _get_log_returns(self, data: pd.DataFrame | pd.Series) -> npt.NDArray:

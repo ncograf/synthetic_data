@@ -13,6 +13,7 @@ class NormalizedPriceReturn(stylized_fact.StylizedFact):
     def __init__(
             self,
             underlaying : temporal_statistc.TemporalStatistic,
+            title_postfix : str = '',
     ):
         
         stylized_fact.StylizedFact.__init__(self)
@@ -31,7 +32,7 @@ class NormalizedPriceReturn(stylized_fact.StylizedFact):
             'linestyle' : 'None',
         } ]
         self._ax_style = {
-            'title' : 'heavy-tailed price return',
+            'title' : 'heavy-tailed price return' + title_postfix,
             'ylabel' : r'$P(r)$',
             'xlabel' : r'normalized price return',
             'xscale' : 'log',

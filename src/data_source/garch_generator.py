@@ -60,6 +60,4 @@ class GarchGenerator(base_generator.BaseGenerator):
         for i in range(1,price_simulation.shape[0]):
             price_simulation[i] = price_simulation[i-1] * return_simulation[i]
         
-        price_simulation[np.isinf(price_simulation)] = np.nan
-        
         return (price_simulation, return_simulation)

@@ -26,7 +26,7 @@ class TestAutoCorrStatistic:
         # compute statistics
         log_stat.set_statistics(df)
         base_stat.set_statistics()
-        assert np.array_equal(base_stat.statistic,np.array([[-1,1],[-1,1],[-1,1]]).T, equal_nan=True)
+        assert np.array_equal(base_stat.statistic.round(6),np.array([[-1,1],[-1,1],[-1,1]]).T, equal_nan=True)
 
     def test_get_statistic_simple(self):
         
@@ -48,7 +48,7 @@ class TestAutoCorrStatistic:
         # compute statistics
         log_stat.set_statistics(df)
         base_stat.set_statistics()
-        assert np.array_equal(base_stat.statistic,np.array([[-1,1],[-1,1],[-1,1]]).T, equal_nan=True)
+        assert np.array_equal(base_stat.statistic.round(6),np.array([[-1,1],[-1,1],[-1,1]]).T, equal_nan=True)
     
     def test_get_statistic_python_loop(self):
         

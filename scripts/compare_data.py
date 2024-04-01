@@ -11,6 +11,8 @@ import scipy.spatial.distance as sd
 import tail_statistics
 import distribution_comparator
 import plotter
+import illiquidity_filter
+import infty_filter
 
 
 @click.group()
@@ -22,12 +24,25 @@ def compare_garch():
 
     data_loader = real_data_loader.RealDataLoader()
     real_stock_data = data_loader.get_timeseries(col_name="Adj Close", data_path="data/raw_yahoo_data", update_all=False)
-    real_stock_data = real_stock_data.iloc[:,[1]]
 
     garch = garch_generator.GarchGenerator(name='GARCH_1_1_normal')
     gen_loader = gen_data_loader.GenDataLoader()
     synth_data = gen_loader.get_timeseries(garch, data_loader=data_loader, col_name='Adj Close')
+
+    iliq_filter = illiquidity_filter.IlliquidityFilter()
+    iliq_filter.fit_filter(real_stock_data)
+    inf_filter = infty_filter.InftyFilter()
+    inf_filter.fit_filter(synth_data)
+
+    iliq_filter.apply_filter(real_stock_data)
+    iliq_filter.apply_filter(synth_data)
+    inf_filter.apply_filter(real_stock_data)
+    inf_filter.apply_filter(synth_data)
+
+    real_stock_data = real_stock_data.iloc[:,[1]]
     synth_data = synth_data.iloc[:,[1]]
+    
+    # apply 
     
     quantile = 0.01
     real_data = stock_price_statistic.StockPriceStatistic(quantile=quantile)

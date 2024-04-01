@@ -1,38 +1,26 @@
 import pandas as pd
 import numpy as np
+import base_statistic
 from icecream import ic
 
 class BaseFilter:
 
     def __init__(self):
-        self._data : pd.DataFrame | None = None
+        self._drop_cols = []
 
-    def filter_data(self, data : pd.DataFrame | pd.Series) -> pd.DataFrame:
+    def fit_filter(self, data : pd.DataFrame | pd.Series) -> pd.DataFrame:
         raise NotImplementedError("The data filter needs to be impleemnted first")
         
-
-    def get_data(self, data : pd.DataFrame | pd.Series | None) -> pd.DataFrame:
-        """Returns the filtered data
-        
-        If data was computed before return that data, otherwise filter the input
+    def apply_filter(self, data : pd.DataFrame | pd.Series):
+        """Applies the filter to the given statistic, i.e. removes the columns which are unnecessary
 
         Args:
-            data (pd.DataFrame | pd.Series | None): data to be filtered, only used if self._data = None
-
-        Raises:
-            RuntimeError: If the data is not provided and the filtered data was not computed before
-
-        Returns:
-            pd.DataFrame: filtered data
+            stat (base_statistic.BaseStatistic): statistic to be changed
         """
         
-        if data is None and not self._data is None:
-            return self._data
+        indices = []
+        for sym in self._drop_cols:
+            idx = data.columns.to_list().index(sym)
+            indices.append(idx)
 
-        if not data is None:
-            return self.filter_data(data)
-    
-        raise RuntimeError("No data was found or provided.")
-
-
-
+        data.drop(self._drop_cols, axis=1, inplace=True)

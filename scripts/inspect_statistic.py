@@ -32,7 +32,9 @@ import stock_price_statistic
 import gen_data_loader
 import time
 import plotter
-
+import illiquidity_filter
+import infty_filter
+import arch
 
 @click.group()
 def inspect():
@@ -46,6 +48,16 @@ def visualize_stylized_pair(fact : Literal['heavy-tails', 'lin-upred', 'vol-culs
     data_loader = gen_data_loader.GenDataLoader()
     gen_data = data_loader.get_timeseries(generator=garch, col_name="Adj Close", data_loader=real_loader,  update_all=False)
     real_data = real_loader.get_timeseries(col_name="Adj Close", data_path="data/raw_yahoo_data", update_all=False)
+
+    iliq_filter = illiquidity_filter.IlliquidityFilter(window=20, min_jumps=2, exclude_tolerance=10)
+    iliq_filter.fit_filter(real_data)
+    inf_filter = infty_filter.InftyFilter()
+    inf_filter.fit_filter(gen_data)
+
+    iliq_filter.apply_filter(real_data)
+    iliq_filter.apply_filter(gen_data)
+    inf_filter.apply_filter(real_data)
+    inf_filter.apply_filter(gen_data)
     
     visualize_pair(real_data=real_data, gen_data = gen_data, fact=fact)
 
@@ -60,8 +72,11 @@ def visualize_stylized_facts(loader : Literal['real', 'g_1_1_norm']):
         stock_data = real_loader.get_timeseries(col_name="Adj Close", data_path="data/raw_yahoo_data", update_all=False)
     else:
         raise ValueError(f"The given loader {loader} is not supported.")
+    inf_filter = infty_filter.InftyFilter()
+    inf_filter.fit_filter(stock_data)
+    inf_filter.apply_filter(stock_data)
     
-    visualize_all(stock_data=stock_data)
+    visualize_all(stock_data=stock_data, name=loader)
 
 def visualize_pair(
     real_data : pd.DataFrame, gen_data : pd.DataFrame,
@@ -72,17 +87,23 @@ def visualize_pair(
         cache='data/cache',
         figure_name=fact.replace('-', '_'),
         figure_title=fact,
-        subplot_layout=(1,2))
+        subplot_layout={
+            'ncols' : 1,
+            'nrows' : 2,
+            'sharex' : 'all',
+            'sharey' : 'all',
+        }
+        )
 
     m_lag = 1000
     
     if fact == 'heavy-tails':
 
-        for i, data in enumerate((real_data, gen_data)):
+        for i, (data, pref) in enumerate(zip([real_data, gen_data], [' real data', ' generated data'])):
             log_stat = log_return_statistic.LogReturnStatistic(0.001)
             log_stat.set_statistics(data)
 
-            norm_price_ret = normalized_price_return.NormalizedPriceReturn(log_stat)
+            norm_price_ret = normalized_price_return.NormalizedPriceReturn(log_stat, title_postfix=pref)
             norm_price_ret.set_statistics(None)
             norm_price_ret.get_alphas()
             norm_price_ret.draw_stylized_fact(plot.axes[i])
@@ -109,41 +130,41 @@ def visualize_pair(
 
     elif fact == 'lev-effect':
 
-        for i, (data, pref) in enumerate(zip([real_data, gen_data], ['real', 'generated'])):
+        for i, (data, pref) in enumerate(zip([real_data, gen_data], [' real data', ' generated data'])):
     
             log_stat = log_return_statistic.LogReturnStatistic(0.001)
             log_stat.set_statistics(data)
 
-            lev_eff = leverage_effect.LeverageEffect(max_lag=100, underlaying=log_stat)
+            lev_eff = leverage_effect.LeverageEffect(max_lag=100, underlaying=log_stat, title_postfix=pref)
             lev_eff.set_statistics(None)
             lev_eff.draw_stylized_fact(plot.axes[i])
 
     elif fact == 'coarse-fine-vol':
 
-        for i, (data, pref) in enumerate(zip([real_data, gen_data], ['real', 'generated'])):
+        for i, (data, pref) in enumerate(zip([real_data, gen_data], [' real data', ' generated data'])):
 
             log_stat = log_return_statistic.LogReturnStatistic(0.001)
             log_stat.set_statistics(data)
     
-            co_fine = coarse_fine_volatility.CoarseFineVolatility(max_lag=25, tau=5, underlaying=log_stat)
+            co_fine = coarse_fine_volatility.CoarseFineVolatility(max_lag=25, tau=5, underlaying=log_stat, title_postfix=pref)
             co_fine.set_statistics(None)
             co_fine.draw_stylized_fact(plot.axes[i])
 
     elif fact == 'gain-loss-asym':
 
-        for i, (data, pref) in enumerate(zip([real_data, gen_data], ['real', 'generated'])):
+        for i, (data, pref) in enumerate(zip([real_data, gen_data], [' real data', ' generated data'])):
 
             price = stock_price_statistic.StockPriceStatistic(0.001)
             price.set_statistics(data)
     
-            gain_loss_asym = gain_loss_asymetry.GainLossAsymetry(max_lag=m_lag, theta=0.1, underlying_price=price)
+            gain_loss_asym = gain_loss_asymetry.GainLossAsymetry(max_lag=m_lag, theta=0.1, underlying_price=price, title_postfix=pref)
             gain_loss_asym.set_statistics(None)
             gain_loss_asym.draw_stylized_fact(plot.axes[i])
 
     plot.save()
 
 
-def visualize_all(stock_data : pd.DataFrame):
+def visualize_all(stock_data : pd.DataFrame, name : str = ""):
     
     log_stat = log_return_statistic.LogReturnStatistic(0.001)
     log_stat.set_statistics(stock_data)
@@ -179,9 +200,15 @@ def visualize_all(stock_data : pd.DataFrame):
 
     plot = plotter.Plotter(
         cache='data/cache',
-        figure_name='stylized_facts',
-        figure_title='stylized_facts',
-        subplot_layout=(2,3))
+        figure_name='stylized_facts_' + name,
+        figure_title='Stylized Facts ' + name,
+        subplot_layout={
+            'ncols' : 3,
+            'nrows' : 2,
+            'sharex' : 'none',
+            'sharey' : 'none',
+        }
+        )
 
     log_corr_stat.draw_stylized_fact(plot.axes[0,0])
     norm_price_ret.draw_stylized_fact(plot.axes[0,1])
@@ -194,10 +221,11 @@ def visualize_all(stock_data : pd.DataFrame):
 
 if __name__ == "__main__":
 
-    #visualize_stylized_facts(loader='g_1_1_norm')
-    #visualize_stylized_pair(fact='lin-upred')
-    #visualize_stylized_pair(fact='coarse-fine-vol')
-    #visualize_stylized_pair(fact='gain-loss-asym')
-    #visualize_stylized_pair(fact='lev-effect')
-    visualize_stylized_pair(fact='vol-cluster')
-    #visualize_stylized_pair(fact='heavy-tails')
+    visualize_stylized_facts(loader='g_1_1_norm')
+    if False:
+        visualize_stylized_pair(fact='lin-upred')
+        visualize_stylized_pair(fact='coarse-fine-vol')
+        visualize_stylized_pair(fact='gain-loss-asym')
+        visualize_stylized_pair(fact='lev-effect')
+        visualize_stylized_pair(fact='vol-cluster')
+        visualize_stylized_pair(fact='heavy-tails')

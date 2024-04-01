@@ -13,12 +13,13 @@ class LeverageEffect(stylized_fact.StylizedFact):
             self,
             max_lag : int,
             underlaying : temporal_statistc.TemporalStatistic,
+            title_postfix : str = '',
             ):
         
         stylized_fact.StylizedFact.__init__(self)
 
         self._ax_style = {
-            'title' : 'leverage effect',
+            'title' : 'leverage effect' + title_postfix,
             'ylabel' : r'$L(k)$',
             'xlabel' : r"lag $k$",
             'xscale' : 'linear',

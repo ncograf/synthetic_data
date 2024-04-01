@@ -13,12 +13,13 @@ class CoarseFineVolatility(stylized_fact.StylizedFact):
             max_lag : int,
             tau : int,
             underlaying : temporal_statistc.TemporalStatistic,
+            title_postfix : str = '',
             ):
         
         stylized_fact.StylizedFact.__init__(self)
 
         self._ax_style = {
-            'title' : 'coarse-fine volatility correlation',
+            'title' : 'coarse-fine volatility correlation' + title_postfix,
             'ylabel' : r'$\rho(k)$',
             'xlabel' : r'lag $k$',
             'xscale' : 'linear',

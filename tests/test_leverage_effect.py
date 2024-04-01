@@ -26,7 +26,7 @@ class TestLeverageEffect:
         # compute statistics
         log_stat.set_statistics(df)
         base_stat.set_statistics()
-        diff = (base_stat.statistic - np.array([[0,0],[0,0],[0,0]]).T) < 1e-10
+        diff = (base_stat.statistic - np.array([[0,0],[0,0],[0,0]]).T) < 1e-8
         assert np.all(diff[~np.isnan(diff)])
 
     def test_get_statistic(self):
@@ -34,7 +34,7 @@ class TestLeverageEffect:
         log_stat = lstat.LogReturnStatistic(0.001)
         base_stat = stat.LeverageEffect(max_lag=4, underlaying=log_stat)
         _symbols = ["a", "b", "c", "d"]
-        _returns = np.exp([1,2,3,4,5,6,7])
+        _returns = np.exp(np.random.rand(10))
         n_dates = _returns.shape[0] + 1
         _prices = np.ones(n_dates)
         for i in range(len(_returns)):

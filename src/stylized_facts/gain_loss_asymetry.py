@@ -14,12 +14,13 @@ class GainLossAsymetry(stylized_fact.StylizedFact):
             max_lag : int,
             theta : float,
             underlying_price : temporal_statistc.TemporalStatistic,
+            title_postfix : str = '',
             ):
         
         stylized_fact.StylizedFact.__init__(self)
 
         self._ax_style = {
-            'title' : 'gain/loss asymetry',
+            'title' : 'gain/loss asymetry' + title_postfix,
             'ylabel' : r'return time probability',
             'xlabel' : r"time ticks t'",
             'xscale' : 'log',

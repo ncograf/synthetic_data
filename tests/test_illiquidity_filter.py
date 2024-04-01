@@ -15,11 +15,12 @@ class TestIlliquidityFilter:
         pd_test.iloc[13:17, 1] = 0 # 3 jumps
         pd_test.iloc[3:8, 2] = 0 # 5 jumps
         pd_test.iloc[13:18, 2] = 0 # 5 jumps
-        out_data = filter.filter_data(pd_test)
-
+        filter.fit_filter(pd_test)
         test = pd_test.copy().to_numpy()
+        filter.apply_filter(pd_test)
 
-        t = out_data.to_numpy() == test[:,[1,3]]
+
+        t = pd_test.to_numpy() == test[:,[1,3]]
         assert np.all(t)
 
     def test_basics(self):
@@ -27,11 +28,12 @@ class TestIlliquidityFilter:
         filter = illiquidity_filter.IlliquidityFilter(window=3, min_jumps=2, exclude_tolerance=7)
         pd_test = pd.DataFrame(np.linspace(1, 100, num=100).reshape((50,2)))
         pd_test.iloc[:10, 0] = 0
-        out_data = filter.filter_data(pd_test)
+        filter.fit_filter(pd_test)
 
         test = pd_test.copy().to_numpy()
+        filter.apply_filter(pd_test)
 
-        t = out_data.to_numpy() == test[:,[1]]
+        t = pd_test.to_numpy() == test[:,[1]]
         assert np.all(t)
 
 if __name__ == '__main__':
