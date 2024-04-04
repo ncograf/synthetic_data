@@ -18,9 +18,9 @@ class BaseFilter:
             stat (base_statistic.BaseStatistic): statistic to be changed
         """
         
-        indices = []
+        symbols = []
         for sym in self._drop_cols:
-            idx = data.columns.to_list().index(sym)
-            indices.append(idx)
+            if sym in data.columns.to_list():
+                symbols.append(sym)
 
-        data.drop(self._drop_cols, axis=1, inplace=True)
+        data.drop(symbols, axis=1, inplace=True)

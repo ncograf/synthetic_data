@@ -34,7 +34,7 @@ import time
 import plotter
 import illiquidity_filter
 import infty_filter
-import arch
+from arch.univariate import GARCH, Normal, StudentsT, ConstantMean, Distribution
 
 @click.group()
 def inspect():
@@ -44,7 +44,7 @@ def inspect():
 def visualize_stylized_pair(fact : Literal['heavy-tails', 'lin-upred', 'vol-culster', 'lev-effect', 'coarse-fine-vol', 'gain-loss-asym']):
 
     real_loader = real_data_loader.RealDataLoader()
-    garch = garch_generator.GarchGenerator(p=1, q=1, name='GARCH_1_1_normal')
+    garch = garch_generator.GarchGenerator(p=3, q=3,distribution=StudentsT(), name='GARCH_3_3_student')
     data_loader = gen_data_loader.GenDataLoader()
     gen_data = data_loader.get_timeseries(generator=garch, col_name="Adj Close", data_loader=real_loader,  update_all=False)
     real_data = real_loader.get_timeseries(col_name="Adj Close", data_path="data/raw_yahoo_data", update_all=False)
@@ -62,9 +62,13 @@ def visualize_stylized_pair(fact : Literal['heavy-tails', 'lin-upred', 'vol-culs
     visualize_pair(real_data=real_data, gen_data = gen_data, fact=fact)
 
 #@inspect.command()
-def visualize_stylized_facts(loader : Literal['real', 'g_1_1_norm']):
+def visualize_stylized_facts(loader : Literal['real', 'g_1_1_norm', 'g_3_3_student']):
     real_loader = real_data_loader.RealDataLoader()
-    if loader == 'g_1_1_norm':
+    if loader == 'g_3_3_student':
+        garch = garch_generator.GarchGenerator(p=3, q=3,distribution=StudentsT(), name='GARCH_3_3_student')
+        data_loader = gen_data_loader.GenDataLoader()
+        stock_data = data_loader.get_timeseries(generator=garch, col_name="Adj Close", data_loader=real_loader,  update_all=False)
+    elif loader == 'g_1_1_norm':
         garch = garch_generator.GarchGenerator(p=1, q=1, name='GARCH_1_1_normal')
         data_loader = gen_data_loader.GenDataLoader()
         stock_data = data_loader.get_timeseries(generator=garch, col_name="Adj Close", data_loader=real_loader,  update_all=False)
@@ -85,11 +89,27 @@ def visualize_pair(
 
     plot = plotter.Plotter(
         cache='data/cache',
+        figure_style = 
+        {
+            "figure.figsize" : (16, 10),
+            "figure.titlesize" : 24,
+            "axes.titlesize" : 20,
+            "axes.labelsize" : 18,
+            "font.size" : 18,
+            "xtick.labelsize" : 16,
+            "ytick.labelsize" : 16,
+            "figure.dpi" : 96,
+            "figure.constrained_layout.use" : True,
+            "figure.constrained_layout.h_pad" : 0.1,
+            "figure.constrained_layout.hspace" : 0,
+            "figure.constrained_layout.w_pad" : 0.1,
+            "figure.constrained_layout.wspace" : 0,
+        },
         figure_name=fact.replace('-', '_'),
         figure_title=fact,
         subplot_layout={
-            'ncols' : 1,
-            'nrows' : 2,
+            'ncols' : 2,
+            'nrows' : 1,
             'sharex' : 'all',
             'sharey' : 'all',
         }
@@ -202,6 +222,23 @@ def visualize_all(stock_data : pd.DataFrame, name : str = ""):
         cache='data/cache',
         figure_name='stylized_facts_' + name,
         figure_title='Stylized Facts ' + name,
+        figure_style = 
+        {
+            "figure.figsize" : (16, 10),
+            "figure.titlesize" : 22,
+            "axes.titlesize" : 18,
+            "axes.labelsize" : 16,
+            "font.size" : 17,
+            "xtick.labelsize" : 15,
+            "ytick.labelsize" : 15,
+            "figure.dpi" : 96,
+            "legend.loc" : "upper right",
+            "figure.constrained_layout.use" : True,
+            "figure.constrained_layout.h_pad" : 0.1,
+            "figure.constrained_layout.hspace" : 0,
+            "figure.constrained_layout.w_pad" : 0.1,
+            "figure.constrained_layout.wspace" : 0,
+        },
         subplot_layout={
             'ncols' : 3,
             'nrows' : 2,
@@ -221,7 +258,8 @@ def visualize_all(stock_data : pd.DataFrame, name : str = ""):
 
 if __name__ == "__main__":
 
-    visualize_stylized_facts(loader='real')
+    if True:
+        visualize_stylized_facts(loader='g_3_3_student')
     if False:
         visualize_stylized_pair(fact='lin-upred')
         visualize_stylized_pair(fact='coarse-fine-vol')

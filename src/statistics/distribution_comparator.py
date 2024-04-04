@@ -83,7 +83,6 @@ class DistributionComparator:
     
     def draw_distributions(self, ax : plt.Axes):
         
-        k = 5000 // 
         ax.set(**self._ax_style)
         ax.plot(self._kde_one.support,self._kde_one.density, **self._kde_styles[0])
         ax.plot(self._kde_two.support,self._kde_two.density, **self._kde_styles[1])

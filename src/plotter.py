@@ -37,9 +37,9 @@ class Plotter:
         
         self._fig : plt.Figure
         self._axes : plt.Axes
-        with plt.rc_context(figure_style):
-            self._fig, self._axes = plt.subplots(**subplot_layout, constrained_layout=True)
-            self._fig.suptitle(figure_title)
+        plt.rcParams.update(figure_style)
+        self._fig, self._axes = plt.subplots(**subplot_layout, constrained_layout=True)
+        self._fig.suptitle(figure_title)
 
         self._figure_title = figure_title
         self._figure_name = Path(figure_name).stem
