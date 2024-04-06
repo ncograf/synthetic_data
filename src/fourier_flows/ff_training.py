@@ -1,13 +1,14 @@
 import torch
 import numpy as np
 from fourier_flow import FourierFlow
+from typing import Tuple, List
 
-def train_fourier_flow(X : torch.Tensor, epochs : int, learning_rate : float):
+def train_fourier_flow(X : torch.Tensor, epochs : int, learning_rate : float) -> Tuple[FourierFlow, List[float]]:
     
     D = X.shape[0]
     T = X.shape[1]
     hidden_dim = T*2
-    n_layer = 5
+    n_layer = 10
 
     model = FourierFlow(hidden_dim=hidden_dim, D=D, T=T, n_layer=n_layer)
     
@@ -29,7 +30,7 @@ def train_fourier_flow(X : torch.Tensor, epochs : int, learning_rate : float):
         optimizer.step()
         scheduler.step()
         
-        if epoch % 10:
+        if epoch % 10 == 0:
             print((f'Epoch: {epoch:>10d}, last loss {loss.item():>10.4f},'
                   f'aveage_loss {np.mean(losses):>10.4f}'))
         

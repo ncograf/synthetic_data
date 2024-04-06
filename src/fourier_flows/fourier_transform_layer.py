@@ -59,12 +59,12 @@ class FourierTransformLayer(nn.Module):
         assert fft_x.dim() == 3
         
         # get real an imaginary component and extend the cutted parts
-        fft_real, fft_imag = fft_x[:,:,0] * self.T, fft_x[:,:,1] * self.T
+        fft_real, fft_imag = fft_x[:,:,0], fft_x[:,:,1]
         fft_real = torch.cat([fft_real, torch.flip(fft_real, dims=[1])[:,1:]], dim=1)
         fft_imag = torch.cat([fft_imag, -torch.flip(fft_imag, dims=[1])[:,1:]], dim=1)
         
         # fouriertransform along the second axis and then
         # make sure the lower freqencies and on the left
-        x = torch.real(torch.fft.ifft(torch.fft.ifftshift(fft_real + 1j * fft_imag, dim=1), dim=1))
+        x = torch.real(torch.fft.ifft(torch.fft.ifftshift(fft_real + 1j * fft_imag, dim=1), dim=1)) * self.T
 
         return x

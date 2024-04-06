@@ -26,8 +26,8 @@ class FourierFlow(nn.Module):
         self.n_layer = n_layer
 
         self.latent_size = T // 2 + 1
-        mu = torch.zeros(self.latent_size)
-        sigma = torch.eye(self.latent_size)
+        mu = torch.zeros(2 * self.latent_size)
+        sigma = torch.eye(2 * self.latent_size)
         
         self.dist_z = MultivariateNormal(mu, sigma)
     
@@ -62,7 +62,8 @@ class FourierFlow(nn.Module):
         z = torch.cat([x_fft[:,:,0], x_fft[:,:,1]], dim=1)
         log_prob_z = self.dist_z.log_prob(z)
         
-        log_jac_det_sum = np.sum(log_jac_dets, axis=0)
+        log_jac_dets = torch.stack(log_jac_dets, dim=0)
+        log_jac_det_sum = torch.sum(log_jac_dets, dim=0)
         
         return z, log_prob_z, log_jac_det_sum
     
@@ -86,3 +87,23 @@ class FourierFlow(nn.Module):
         x = self.dft.inverse(z_complex)
 
         return x
+    
+    def sample(self, n : int) -> torch.Tensor:
+        """Sample new series from the learn distribution
+
+        Args:
+            n (int): number of series to sample
+
+        Returns:
+            Tensor: signals in the signal space
+        """
+        
+        z = self.dist_z.rsample(sample_shape=(n,))
+        
+        z_real = z[:,:self.latent_size]
+        z_imag = z[:,self.latent_size:]
+        z_complex = torch.stack([z_real, z_imag], dim=-1)
+        
+        signals = self.inverse(z_complex)
+        
+        return signals

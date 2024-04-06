@@ -24,16 +24,20 @@ class SpectralFilteringLayer(nn.Module):
         
         self.H_net = nn.Sequential(
             nn.Linear(self.split_size, hidden_dim),
+            nn.BatchNorm1d(hidden_dim),
             nn.Sigmoid(),
             nn.Linear(hidden_dim, hidden_dim),
+            nn.BatchNorm1d(hidden_dim),
             nn.Sigmoid(),
             nn.Linear(hidden_dim, self.split_size),
         )
 
         self.M_net = nn.Sequential(
             nn.Linear(self.split_size, hidden_dim),
+            nn.BatchNorm1d(hidden_dim),
             nn.Sigmoid(),
             nn.Linear(hidden_dim, hidden_dim),
+            nn.BatchNorm1d(hidden_dim),
             nn.Sigmoid(),
             nn.Linear(hidden_dim, self.split_size),
         )
@@ -49,20 +53,18 @@ class SpectralFilteringLayer(nn.Module):
         Returns:
             Tuple[torch.Tensor, torch.Tensor]: latent variable Z and det(J(f))
         """
-        if flip:
-            x_re = x[:,:,0]
-            x_im = x[:,:,1]
-        else:
-            x_im = x[:,:,0]
-            x_re = x[:,:,1]
 
-        log_H = self.H_net(x_im)
+        x_re, x_im = x[:,:,0], x[:,:,1]
+        if flip:
+            x_re, x_im = x_im, x_re
+
+        log_H = self.H_net(x_re)
         H = torch.exp(log_H)
 
-        M = self.M_net(x_im)
+        M = self.M_net(x_re)
         
-        Y_1 = H * x_re + M
-        Y_2 = x_im
+        Y_1 = x_re
+        Y_2 = H * x_im + M
         
         if flip:
             Y_2, Y_1 = Y_1, Y_2
@@ -91,13 +93,13 @@ class SpectralFilteringLayer(nn.Module):
         if flip:
             y_imag, y_real = y_real, y_imag
             
-        x_imag = y_imag
+        x_real = y_real
         
-        log_H = self.H_net(x_imag)
-        H = torch.exp(log_H)
-        M = self.M_net(x_imag)
+        log_H = self.H_net(y_real)
+        H = torch.exp(-log_H)
+        M = self.M_net(y_real)
         
-        x_real = (y_real - M) / H
+        x_imag = (y_imag - M) * H
         
         if flip:
             x_imag, x_real = x_real, x_imag
