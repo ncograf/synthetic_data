@@ -7,4 +7,5 @@ eigen*
 .environment
 .env
 .python-version
+.vscode
 
