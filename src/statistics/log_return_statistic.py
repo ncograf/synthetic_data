@@ -1,6 +1,6 @@
-import pandas as pd
 import numpy as np
 import numpy.typing as npt
+import pandas as pd
 import quantile_statistic
 import temporal_statistc
 

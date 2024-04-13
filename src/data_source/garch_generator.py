@@ -1,9 +1,10 @@
-from arch.univariate import GARCH, Normal, ConstantMean, Distribution
-from arch.univariate.base import ARCHModelResult
 from typing import Tuple
-import numpy.typing as npt
-import numpy as np
+
 import base_generator
+import numpy as np
+import numpy.typing as npt
+from arch.univariate import GARCH, ConstantMean, Distribution, Normal
+from arch.univariate.base import ARCHModelResult
 
 
 class GarchGenerator(base_generator.BaseGenerator):

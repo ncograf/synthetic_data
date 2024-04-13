@@ -1,7 +1,8 @@
-from abc import abstractproperty, abstractmethod
-from typing import List, Iterable
-from tick import Tick
+from abc import abstractmethod, abstractproperty
+from typing import Iterable, List
+
 import pandas as pd
+from tick import Tick
 
 
 class BaseOutlierSet:

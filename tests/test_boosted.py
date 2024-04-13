@@ -1,6 +1,7 @@
+import time
+
 import boosted_stats
 import numpy as np
-import time
 
 
 class TestBoosted:

@@ -1,11 +1,12 @@
 from abc import abstractmethod
 from typing import Dict, List
-import pandas as pd
+
+import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
-import matplotlib.pyplot as plt
-from tick import Tick
+import pandas as pd
 import scipy.stats as ss
+from tick import Tick
 
 
 class BaseStatistic:

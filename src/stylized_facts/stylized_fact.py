@@ -1,8 +1,9 @@
+from typing import Dict, List
+
+import base_statistic
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
-import base_statistic
-from typing import Dict, List
 
 
 class StylizedFact(base_statistic.BaseStatistic):

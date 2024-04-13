@@ -1,6 +1,6 @@
-from tick import Tick
 import pandas as pd
 from cached_outlier_set import CachedOutlierSet
+from tick import Tick
 
 
 class TestCacheOutlierSet:

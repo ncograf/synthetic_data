@@ -1,10 +1,11 @@
-import yfinance as yf
-import bs4 as bs
-import requests
 import time
-from typing import List, Union, Dict, Tuple
-import pandas as pd
 from pathlib import Path
+from typing import Dict, List, Tuple, Union
+
+import bs4 as bs
+import pandas as pd
+import requests
+import yfinance as yf
 
 
 class RealDataLoader:

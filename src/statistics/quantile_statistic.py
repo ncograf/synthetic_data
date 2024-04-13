@@ -1,12 +1,13 @@
-import base_statistic
+from typing import Dict, Set
+
 import base_outlier_set
+import base_statistic
 import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
-from matplotlib.legend import Legend
-from typing import Set, Dict
-import pandas as pd
 import numpy as np
 import numpy.typing as npt
+import pandas as pd
+from matplotlib.legend import Legend
+from matplotlib.lines import Line2D
 from tick import Tick
 
 

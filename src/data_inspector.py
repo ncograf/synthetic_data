@@ -1,20 +1,21 @@
-import numpy as np
-import matplotlib.pyplot as plt
-import click
-from matplotlib.gridspec import GridSpec
-import matplotlib
-from getch import getch
-from pathlib import Path
-from typing import List, Optional, Dict, Union, Set
 import shutil
-import base_statistic
-import temporal_statistc
-import base_outlier_set
-import cached_outlier_set
-import historic_events
-from tueplots import bundles
 import time
+from pathlib import Path
+from typing import Dict, List, Optional, Set, Union
+
+import base_outlier_set
+import base_statistic
+import cached_outlier_set
+import click
+import historic_events
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
+import temporal_statistc
+from getch import getch
+from matplotlib.gridspec import GridSpec
 from tick import Tick
+from tueplots import bundles
 
 
 class DataInspector:

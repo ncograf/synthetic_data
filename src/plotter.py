@@ -1,6 +1,7 @@
-import matplotlib.pyplot as plt
 from pathlib import Path
 from typing import Dict
+
+import matplotlib.pyplot as plt
 
 
 class Plotter:

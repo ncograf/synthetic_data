@@ -1,7 +1,7 @@
 import auto_corr_statistic as stat
 import log_return_statistic as lstat
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 
 class TestAutoCorrStatistic:

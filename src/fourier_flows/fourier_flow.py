@@ -1,9 +1,10 @@
+from typing import Tuple
+
 import torch
 import torch.nn as nn
-from typing import Tuple
-from torch.distributions.multivariate_normal import MultivariateNormal
-from spectral_filtering_layer import SpectralFilteringLayer
 from fourier_transform_layer import FourierTransformLayer
+from spectral_filtering_layer import SpectralFilteringLayer
+from torch.distributions.multivariate_normal import MultivariateNormal
 
 
 class FourierFlow(nn.Module):

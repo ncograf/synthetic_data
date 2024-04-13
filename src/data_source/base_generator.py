@@ -1,6 +1,7 @@
 from abc import abstractmethod
-import numpy.typing as npt
 from typing import Tuple
+
+import numpy.typing as npt
 
 
 class BaseGenerator:

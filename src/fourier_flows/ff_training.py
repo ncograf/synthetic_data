@@ -1,7 +1,8 @@
-import torch
+from typing import List, Tuple
+
 import numpy as np
+import torch
 from fourier_flow import FourierFlow
-from typing import Tuple, List
 
 
 def train_fourier_flow(

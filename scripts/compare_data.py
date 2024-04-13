@@ -1,16 +1,16 @@
 import click
-import real_data_loader
-import garch_generator
-import stock_price_statistic
-import log_return_statistic
-import scaled_log_return_statistic
-import gen_data_loader
-import tail_statistics
 import distribution_comparator
-import plotter
+import garch_generator
+import gen_data_loader
 import illiquidity_filter
-from arch.univariate import StudentsT
 import infty_filter
+import log_return_statistic
+import plotter
+import real_data_loader
+import scaled_log_return_statistic
+import stock_price_statistic
+import tail_statistics
+from arch.univariate import StudentsT
 
 
 @click.group()

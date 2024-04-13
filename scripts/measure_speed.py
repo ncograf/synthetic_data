@@ -1,10 +1,10 @@
-import click
-import real_data_loader
-import matplotlib.pyplot as plt
+import time
 
 import auto_corr_statistic
+import click
 import log_return_statistic
-import time
+import matplotlib.pyplot as plt
+import real_data_loader
 
 
 @click.command()

@@ -1,6 +1,6 @@
-import pandas as pd
-import numpy as np
 import log_return_statistic
+import numpy as np
+import pandas as pd
 
 
 class AbsLogReturnStatistic(log_return_statistic.LogReturnStatistic):

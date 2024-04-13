@@ -1,6 +1,6 @@
-import scaled_log_return_statistic as stat
-import pandas as pd
 import numpy as np
+import pandas as pd
+import scaled_log_return_statistic as stat
 
 
 class TestScaledLogReturnStatistic:

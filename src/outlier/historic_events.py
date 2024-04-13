@@ -1,17 +1,20 @@
 from __future__ import annotations
-import pyperclip as pc
-import bs4 as bs
-import requests
-import matplotlib.pyplot as plt
-from schema import Schema, Optional as schopt
-from typing import Dict, Set, List, Iterable
-import pandas as pd
-import numpy as np
-import base_outlier_set
-from pathlib import Path
-import webbrowser
+
 import json
+import webbrowser
+from pathlib import Path
+from typing import Dict, Iterable, List, Set
+
+import base_outlier_set
+import bs4 as bs
 import click
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import pyperclip as pc
+import requests
+from schema import Optional as schopt
+from schema import Schema
 
 
 class HistoricEvent:

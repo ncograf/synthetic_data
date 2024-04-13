@@ -1,9 +1,10 @@
-import torch
-from torch.utils.data import TensorDataset, DataLoader
-from torch.nn import CrossEntropyLoss
+from typing import Dict, List, Tuple
+
 import numpy as np
+import torch
 from tg_rnn_network import TGRNNNetwork
-from typing import Tuple, List, Dict
+from torch.nn import CrossEntropyLoss
+from torch.utils.data import DataLoader, TensorDataset
 
 
 def sample_noise(B: int, T: int, dim: int) -> torch.Tensor:

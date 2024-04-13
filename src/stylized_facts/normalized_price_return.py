@@ -1,10 +1,10 @@
-import pandas as pd
+import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
-import matplotlib.pyplot as plt
-import temporal_statistc
-import stylized_fact
+import pandas as pd
 import powerlaw
+import stylized_fact
+import temporal_statistc
 
 
 class NormalizedPriceReturn(stylized_fact.StylizedFact):

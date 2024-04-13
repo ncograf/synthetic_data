@@ -1,8 +1,8 @@
-import quantile_statistic as stat
-import pandas as pd
-import numpy as np
 import matplotcheck.base as mpc
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import quantile_statistic as stat
 from tick import Tick
 
 

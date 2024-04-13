@@ -1,9 +1,10 @@
-from typing import Union
-import pandas as pd
 from pathlib import Path
-import real_data_loader
+from typing import Union
+
 import base_generator
 import index_generator
+import pandas as pd
+import real_data_loader
 
 
 class GenDataLoader:

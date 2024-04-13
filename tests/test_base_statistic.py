@@ -1,6 +1,6 @@
 import base_statistic as stat
-import pandas as pd
 import numpy as np
+import pandas as pd
 from tick import Tick
 
 

@@ -1,6 +1,6 @@
-import torch
-import numpy as np
 import fourier_flow
+import numpy as np
+import torch
 
 
 class TestFourierFlows:

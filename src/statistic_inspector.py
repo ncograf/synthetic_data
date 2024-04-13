@@ -1,10 +1,11 @@
-import matplotlib.pyplot as plt
-from pathlib import Path
-from typing import Optional, Dict
 import shutil
+from pathlib import Path
+from typing import Dict, Optional
+
+import base_statistic
+import matplotlib.pyplot as plt
 import stylized_fact
 from tueplots import bundles
-import base_statistic
 
 
 class StatisticInspector:

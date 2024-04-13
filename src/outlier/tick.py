@@ -1,6 +1,8 @@
 from __future__ import annotations
+
+from typing import Dict, List, Set, Tuple
+
 import pandas as pd
-from typing import List, Dict, Set, Tuple
 
 
 class Tick:

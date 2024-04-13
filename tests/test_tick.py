@@ -1,5 +1,5 @@
-from tick import Tick
 import pandas as pd
+from tick import Tick
 
 
 class TestTick:

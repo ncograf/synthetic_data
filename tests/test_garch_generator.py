@@ -1,5 +1,5 @@
-import real_data_loader as data
 import garch_generator
+import real_data_loader as data
 
 
 class TestGarchGenerator:

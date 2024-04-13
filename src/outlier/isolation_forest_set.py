@@ -1,10 +1,11 @@
 from typing import Dict, List
-import pandas as pd
-import numpy as np
+
 import base_outlier_set
 import base_statistic
-from tick import Tick
+import numpy as np
+import pandas as pd
 from sklearn.ensemble import IsolationForest
+from tick import Tick
 
 
 class IsolationForestStatisticSet(base_outlier_set.BaseOutlierSet):

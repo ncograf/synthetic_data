@@ -1,7 +1,8 @@
-import real_data_loader as data
-from pathlib import Path
-import pandas as pd
 import shutil
+from pathlib import Path
+
+import pandas as pd
+import real_data_loader as data
 
 
 class TestLocalData:

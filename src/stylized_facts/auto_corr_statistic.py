@@ -1,11 +1,12 @@
-import pandas as pd
-import numpy as np
-from typing import Tuple, Literal
-import powerlaw
-import matplotlib.pyplot as plt
-import temporal_statistc
-import stylized_fact
+from typing import Literal, Tuple
+
 import boosted_stats
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import powerlaw
+import stylized_fact
+import temporal_statistc
 
 
 class AutoCorrStatistic(stylized_fact.StylizedFact):

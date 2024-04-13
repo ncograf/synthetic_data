@@ -1,9 +1,10 @@
-from matplotlib.axes import Axes
-import numpy as np
-from pandas import DataFrame, Series
 from typing import Dict
+
 import base_statistic
+import numpy as np
 import quantile_statistic
+from matplotlib.axes import Axes
+from pandas import DataFrame, Series
 
 
 class TailStatistic(base_statistic.BaseStatistic):

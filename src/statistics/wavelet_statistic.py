@@ -1,10 +1,11 @@
-import pandas as pd
+from typing import Optional
+
 import numpy as np
 import numpy.typing as npt
-from typing import Optional
+import pandas as pd
 import quantile_statistic
-import temporal_statistc
 import scipy.linalg as linalg
+import temporal_statistc
 
 
 class Wavelet:

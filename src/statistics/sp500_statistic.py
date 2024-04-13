@@ -1,7 +1,8 @@
-import pandas as pd
-import numpy as np
 from typing import Dict
+
 import base_statistic
+import numpy as np
+import pandas as pd
 
 
 class SP500Statistic(base_statistic.BaseStatistic):

@@ -1,9 +1,10 @@
+from typing import Dict, Tuple
+
+import matplotlib.pyplot as plt
 import numpy as np
 import quantile_statistic
-import scipy.stats as ss
 import scipy.spatial.distance as sd
-import matplotlib.pyplot as plt
-from typing import Tuple, Dict
+import scipy.stats as ss
 import statsmodels.api as sm
 
 

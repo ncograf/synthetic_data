@@ -1,6 +1,7 @@
-import pandas as pd
+from typing import Dict, List, Set
+
 import base_outlier_set
-from typing import List, Dict, Set
+import pandas as pd
 from tick import Tick
 
 

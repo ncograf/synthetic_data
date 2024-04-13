@@ -1,6 +1,6 @@
-import pandas as pd
-import numpy as np
 import base_filter
+import numpy as np
+import pandas as pd
 
 
 class InftyFilter(base_filter.BaseFilter):

@@ -1,10 +1,11 @@
+from typing import Dict, List, Tuple
+
 import base_statistic
-import matplotlib.pyplot as plt
 import matplotlib.dates as plt_dates
-from typing import Dict, Tuple, List
-import pandas as pd
+import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
+import pandas as pd
 from tick import Tick
 
 

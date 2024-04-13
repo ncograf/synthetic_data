@@ -1,9 +1,10 @@
-from typing import Dict, Set, List, Iterable
+import json
+from pathlib import Path
+from typing import Dict, Iterable, List, Set
+
+import base_outlier_set
 import pandas as pd
 from tick import Tick
-import base_outlier_set
-from pathlib import Path
-import json
 
 
 class CachedOutlierSet(base_outlier_set.BaseOutlierSet):
