@@ -3,15 +3,16 @@ from typing import List, Iterable
 from tick import Tick
 import pandas as pd
 
+
 class BaseOutlierSet:
     """Outlier Detector class"""
-    
+
     def __init__(self):
-        self._outlier : List[Tick] = None
+        self._outlier: List[Tick] = None
         self._name = "Not Set Name"
-    
+
     @abstractmethod
-    def get_outlier(self, symbol : str | None = None) -> Iterable[Tick]:
+    def get_outlier(self, symbol: str | None = None) -> Iterable[Tick]:
         """Get set of outlier for given symbol or all if symbol is None
 
         Args:
@@ -20,17 +21,21 @@ class BaseOutlierSet:
         Returns:
             Set[Tick]: Set of ticks considered outlier
         """
-        raise NotImplementedError("The set outliers function needs to be implementd before use")
+        raise NotImplementedError(
+            "The set outliers function needs to be implementd before use"
+        )
 
     @abstractmethod
-    def set_outlier(self, data : pd.DataFrame):
+    def set_outlier(self, data: pd.DataFrame):
         """Comptues outliers form given DataFrame
 
         Args:
             data (pd.DataFrame): data to look for outlier
 
         """
-        raise NotImplementedError("The set outliers function needs to be implementd before use")
+        raise NotImplementedError(
+            "The set outliers function needs to be implementd before use"
+        )
 
     @abstractproperty
     def data(self) -> pd.DataFrame:
@@ -45,7 +50,7 @@ class BaseOutlierSet:
         """
         if self._outlier is None:
             raise ValueError("Outliler must be computed before calling this function.")
-    
+
     def is_outlier(self, tick: Tick, **kwargs) -> bool:
         """Check whether point is in the outlier array
 
@@ -60,4 +65,3 @@ class BaseOutlierSet:
         """
         self.check_outlier()
         return tick in self._outlier
-    

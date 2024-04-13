@@ -5,39 +5,40 @@ import base_outlier_set
 from pathlib import Path
 import json
 
+
 class CachedOutlierSet(base_outlier_set.BaseOutlierSet):
     """Outlier Detector which only loads the csv file of outliers"""
-    
-    def __init__(self, path : Path | str | None = None):
+
+    def __init__(self, path: Path | str | None = None):
         base_outlier_set.BaseOutlierSet.__init__(self)
         if path is not None and Path(path).exists():
             self.load_outliers(path)
         self._name = "Cached"
-    
+
     @property
     def outlier(self):
         return self._outlier
 
     @outlier.setter
-    def outlier(self, value : Iterable):
-        value = set(value) # remove duplicates
-        self._outlier = list(value) # make it sorted
+    def outlier(self, value: Iterable):
+        value = set(value)  # remove duplicates
+        self._outlier = list(value)  # make it sorted
         self._outlier.sort()
 
     @property
     def data(self) -> pd.DataFrame:
         """Data property containing the data on which the outliers are computed"""
         raise ValueError("No data available for chached set")
-    
+
     def __len__(self):
         if self._outlier is None:
             return 0
         return len(self._outlier)
 
-    def __getitem__(self, idx : int) -> Tick:
+    def __getitem__(self, idx: int) -> Tick:
         return self._outlier[idx]
 
-    def set_outlier(self, data : Set[Tick]):
+    def set_outlier(self, data: Set[Tick]):
         """store the outliers
 
         Args:
@@ -50,8 +51,7 @@ class CachedOutlierSet(base_outlier_set.BaseOutlierSet):
             self.outlier = data
         else:
             self.outlier = set(self.outlier) | data
-        
-    
+
     def get_outlier(self) -> List[Tick]:
         """Computes a list of outlier points
 
@@ -67,15 +67,17 @@ class CachedOutlierSet(base_outlier_set.BaseOutlierSet):
     def _to_dict_of_list(self):
         """Coverts outliers into dict of list"""
 
-        _dict : Dict[str, List[Dict[str, pd.Timestamp | str | bool]]] = {}
+        _dict: Dict[str, List[Dict[str, pd.Timestamp | str | bool]]] = {}
         for tick in self.outlier:
             if tick.symbol not in _dict.keys():
                 _dict[tick.symbol] = []
-            
+
             _dict[tick.symbol].append(tick.get_dict())
         return _dict
 
-    def _from_dict_of_list(self, dict : Dict[str, List[Dict[str, pd.Timestamp | str | bool]]]) -> Set[Tick]:
+    def _from_dict_of_list(
+        self, dict: Dict[str, List[Dict[str, pd.Timestamp | str | bool]]]
+    ) -> Set[Tick]:
         """Converts Dictonary into Set of Ticks
 
         Args:
@@ -86,30 +88,29 @@ class CachedOutlierSet(base_outlier_set.BaseOutlierSet):
         """
 
         _set = set()
-        
+
         for symbol in dict:
             if not isinstance(symbol, str):
                 raise RuntimeError("Symbols in dict must be string")
 
             for _elem in dict[symbol]:
-
-                if 'date' not in _elem.keys() or _elem['date'] is None:
+                if "date" not in _elem.keys() or _elem["date"] is None:
                     raise RuntimeError("Dictonary must contain a valid date")
-                date = pd.Timestamp(_elem['date']).floor('d')
-                
-                note = ''
-                if 'note' in _elem.keys():
-                    note = _elem['note']
+                date = pd.Timestamp(_elem["date"]).floor("d")
+
+                note = ""
+                if "note" in _elem.keys():
+                    note = _elem["note"]
 
                 real = True
-                if 'real' in _elem.keys():
-                    real = _elem['real']
-                
+                if "real" in _elem.keys():
+                    real = _elem["real"]
+
                 _set.add(Tick(date, symbol, note, real))
-            
+
         return _set
 
-    def store_outliers(self, path : Path | str):
+    def store_outliers(self, path: Path | str):
         """Stores set of outliers at the given path
 
         Args:
@@ -124,14 +125,14 @@ class CachedOutlierSet(base_outlier_set.BaseOutlierSet):
             raise FileExistsError("The path to the parent must already exists.")
 
         if self.outlier is None or len(self.outlier) == 0:
-            return 
-        
+            return
+
         _dict = self._to_dict_of_list()
 
         with path.open("w") as target:
             json.dump(_dict, target)
-    
-    def load_outliers(self, path : Path | str):
+
+    def load_outliers(self, path: Path | str):
         """Load outliers from backup file
 
         Args:
@@ -145,7 +146,7 @@ class CachedOutlierSet(base_outlier_set.BaseOutlierSet):
         path = Path(path)
         if not path.exists():
             raise FileExistsError(f"The path {str(path)} does not exist.")
-        
+
         with path.open() as source:
             _dict = json.load(source)
 

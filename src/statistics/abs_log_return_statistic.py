@@ -2,11 +2,12 @@ import pandas as pd
 import numpy as np
 import log_return_statistic
 
-class AbsLogReturnStatistic(log_return_statistic.LogReturnStatistic):
-    
-    def __init__(self, quantile : float, legend_postfix : str = '', color = 'green'):
 
-        log_return_statistic.LogReturnStatistic.__init__(self, quantile=quantile, legend_postfix=legend_postfix, color=color)
+class AbsLogReturnStatistic(log_return_statistic.LogReturnStatistic):
+    def __init__(self, quantile: float, legend_postfix: str = "", color="green"):
+        log_return_statistic.LogReturnStatistic.__init__(
+            self, quantile=quantile, legend_postfix=legend_postfix, color=color
+        )
 
         self._name = r"Abs Log Returns $|R_t| = \left|\displaystyle\log\left(\frac{X_t}{X_{t-1}}\right)\right|$"
         self._sample_name = "S\&P 500 Abs Log Returns"
@@ -25,4 +26,4 @@ class AbsLogReturnStatistic(log_return_statistic.LogReturnStatistic):
         self._dates = data.index.to_list()[1:]
         self._symbols = data.columns.to_list()
         self._statistic = np.abs(self._get_log_returns(data))
-        self._compute_outlier() #TODO fix one sided
+        self._compute_outlier()  # TODO fix one sided

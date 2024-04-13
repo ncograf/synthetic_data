@@ -2,12 +2,11 @@ from tick import Tick
 import pandas as pd
 from cached_outlier_set import CachedOutlierSet
 
-class TestCacheOutlierSet:
-        
-    def test_store_and_load_outliers(self):
 
-        smi_dates = [pd.Timestamp.now(), pd.Timestamp('2017-01-01 12:00:00')]
-        spy_dates = [pd.Timestamp.now(), pd.Timestamp('1999-12-18 21:00:00')]
+class TestCacheOutlierSet:
+    def test_store_and_load_outliers(self):
+        smi_dates = [pd.Timestamp.now(), pd.Timestamp("2017-01-01 12:00:00")]
+        spy_dates = [pd.Timestamp.now(), pd.Timestamp("1999-12-18 21:00:00")]
         note = "Note test"
         real = False
         smi_ticks = [Tick(d, "SMI", note, real) for d in smi_dates]
@@ -21,9 +20,7 @@ class TestCacheOutlierSet:
         _set.store_outliers(path)
         _set.load_outliers(path)
         assert set(_set.outlier) == tick_set
-    
 
-    
-    
+
 if __name__ == "__main__":
     TestCacheOutlierSet().test_store_and_load_outliers()

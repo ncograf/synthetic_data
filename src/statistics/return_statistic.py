@@ -4,11 +4,14 @@ import numpy.typing as npt
 import quantile_statistic as quantile_statistic
 import temporal_statistc
 
-class ReturnStatistic(quantile_statistic.QuantileStatistic, temporal_statistc.TemporalStatistic):
-    
-    def __init__(self, quantile : float, legend_postfix : str = '', color = 'green'):
 
-        temporal_statistc.TemporalStatistic.__init__(self, legend_postfix=legend_postfix, color=color)
+class ReturnStatistic(
+    quantile_statistic.QuantileStatistic, temporal_statistc.TemporalStatistic
+):
+    def __init__(self, quantile: float, legend_postfix: str = "", color="green"):
+        temporal_statistc.TemporalStatistic.__init__(
+            self, legend_postfix=legend_postfix, color=color
+        )
         quantile_statistic.QuantileStatistic.__init__(self, quantile)
 
         self._name = r"Log Returns $R_t = \displaystyle\frac{X_t}{X_{t-1}}$"
@@ -44,6 +47,8 @@ class ReturnStatistic(quantile_statistic.QuantileStatistic, temporal_statistc.Te
             raise ValueError("Data must be either dataframe or Series")
 
         data[data == 0] = np.nan
-        _log_returns = (data.iloc[1:,:].to_numpy() / (data.iloc[:-1,:].to_numpy()) + 1e-12) - 1
+        _log_returns = (
+            data.iloc[1:, :].to_numpy() / (data.iloc[:-1, :].to_numpy()) + 1e-12
+        ) - 1
 
         return _log_returns

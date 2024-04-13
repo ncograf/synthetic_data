@@ -4,11 +4,10 @@ import base_filter
 
 
 class InftyFilter(base_filter.BaseFilter):
-
     def __init__(self):
         self._drop_cols = []
 
-    def fit_filter(self, data : pd.DataFrame | pd.Series, verbose : bool = True):
+    def fit_filter(self, data: pd.DataFrame | pd.Series, verbose: bool = True):
         """Filters data which have inifity in the data
 
         This method stores the names of columns to be filtered
@@ -16,7 +15,7 @@ class InftyFilter(base_filter.BaseFilter):
         Args:
             data (pd.DataFrame | pd.Series): data to filter
         """
-        
+
         if isinstance(data, pd.Series):
             data = data.to_frame()
 
@@ -24,10 +23,7 @@ class InftyFilter(base_filter.BaseFilter):
 
         # simply set all to nan if it does not enough jumps in the region
         self._drop_cols = np.array(data.columns)[no_jump_stock_mask]
-        
+
         if verbose:
             print("Infinity Filter, filteres the following coumns:")
             print(self._drop_cols.tolist())
-        
-
-        

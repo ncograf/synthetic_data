@@ -5,9 +5,16 @@ from typing import Callable
 import quantile_statistic
 import temporal_statistc
 
-class SpikeStatistic(quantile_statistic.QuantileStatistic, temporal_statistc.TemporalStatistic):
-    
-    def __init__(self, denomiator_scaling : Callable[[float], float], quantile : float, function_name : str = 'func'):
+
+class SpikeStatistic(
+    quantile_statistic.QuantileStatistic, temporal_statistc.TemporalStatistic
+):
+    def __init__(
+        self,
+        denomiator_scaling: Callable[[float], float],
+        quantile: float,
+        function_name: str = "func",
+    ):
         """Initialize Spike statistic
 
         Args:
@@ -19,7 +26,11 @@ class SpikeStatistic(quantile_statistic.QuantileStatistic, temporal_statistc.Tem
 
         self.denominator_scaling = np.vectorize(denomiator_scaling)
 
-        self._name = r"Spike statistic $\frac{|\Delta X_t - \Delta X_{t+1}|}{" + function_name + "(|X_t - X_{t+1}|)}$"
+        self._name = (
+            r"Spike statistic $\frac{|\Delta X_t - \Delta X_{t+1}|}{"
+            + function_name
+            + "(|X_t - X_{t+1}|)}$"
+        )
 
     def set_statistics(self, data: pd.DataFrame | pd.Series):
         """Computes the wavelet statistic from the stock prices
@@ -35,14 +46,14 @@ class SpikeStatistic(quantile_statistic.QuantileStatistic, temporal_statistc.Tem
         self._symbols = data.columns.to_list()
         self._dates = data.index.to_list()
         self.statistic = self._spike_transform(data)
-    
-    def _spike_transform(self, series : npt.NDArray) -> npt.NDArray:
+
+    def _spike_transform(self, series: npt.NDArray) -> npt.NDArray:
         """Spike transform
-        
+
         The spike transform is defined as
         $sp(X_t) = \frac{|2X_{t} - X_{t-1} - X_{t_1}|}{scale(|X_{t+1} - X_{t-1}|)}$
         where scale is some scaling function defined in the constructor
-        
+
         To get a full array, the result will be mean-padded
 
         Args:
@@ -62,12 +73,14 @@ class SpikeStatistic(quantile_statistic.QuantileStatistic, temporal_statistc.Tem
         nominator = 2 * np_series[1:-1] - np_series[2:] - np_series[:-2]
 
         denominator = np_series[2:] - np_series[:-2]
-        denominator = self.denominator_scaling(np.abs(denominator)) # TODO this abs is somehow weired
+        denominator = self.denominator_scaling(
+            np.abs(denominator)
+        )  # TODO this abs is somehow weired
 
         spike_trans = nominator / (denominator + 1e-10)
         avg = np.mean(spike_trans, axis=0)
-        spike_trans = np.pad(spike_trans, pad_width=(1,0), constant_values=avg, mode='constant')
+        spike_trans = np.pad(
+            spike_trans, pad_width=(1, 0), constant_values=avg, mode="constant"
+        )
 
         return spike_trans
-        
-

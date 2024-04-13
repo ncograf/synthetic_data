@@ -4,18 +4,23 @@ import numpy.typing as npt
 import quantile_statistic
 import temporal_statistc
 
-class LogReturnStatistic(quantile_statistic.QuantileStatistic, temporal_statistc.TemporalStatistic):
-    
-    def __init__(self, quantile : float, legend_postfix : str = '', color = 'green'):
 
-        temporal_statistc.TemporalStatistic.__init__(self, legend_postfix=legend_postfix, color=color)
+class LogReturnStatistic(
+    quantile_statistic.QuantileStatistic, temporal_statistc.TemporalStatistic
+):
+    def __init__(self, quantile: float, legend_postfix: str = "", color="green"):
+        temporal_statistc.TemporalStatistic.__init__(
+            self, legend_postfix=legend_postfix, color=color
+        )
         quantile_statistic.QuantileStatistic.__init__(self, quantile)
 
-        self._name = r"Log Returns $R_t = \displaystyle\log\left(\frac{X_t}{X_{t-1}}\right)$"
+        self._name = (
+            r"Log Returns $R_t = \displaystyle\log\left(\frac{X_t}{X_{t-1}}\right)$"
+        )
         self._sample_name = "S\&P 500 Log Returns"
         self._figure_name = "sp500_log_returns"
 
-    def set_statistics(self, data: pd.DataFrame | pd.Series, returns : bool = False):
+    def set_statistics(self, data: pd.DataFrame | pd.Series, returns: bool = False):
         """Computes the log returns from the stock prices
 
         Args:
@@ -24,7 +29,7 @@ class LogReturnStatistic(quantile_statistic.QuantileStatistic, temporal_statistc
         self.check_data_validity(data)
         if isinstance(data, pd.Series):
             data = data.to_frame()
-            
+
         self._outlier = None
         self._dates = data.index.to_list()[1:]
         self._symbols = data.columns.to_list()
