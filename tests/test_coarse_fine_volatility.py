@@ -2,7 +2,6 @@ import coarse_fine_volatility as stat
 import log_return_statistic as lstat
 import pandas as pd
 import numpy as np
-from tick import Tick
 
 class TestCoarseFineVolatility:
 
@@ -20,7 +19,7 @@ class TestCoarseFineVolatility:
         for i in range(len(_returns)):
             _prices[i+1] = _prices[i] * _returns[i]
         _data = np.einsum('kl,k->kl',np.ones((n_dates, len(_symbols))), _prices)
-        _dates = [pd.Timestamp(f'2017-01-01') + pd.Timedelta(days=i) for i in range(n_dates)]
+        _dates = [pd.Timestamp('2017-01-01') + pd.Timedelta(days=i) for i in range(n_dates)]
         df = pd.DataFrame(_data, columns=_symbols, index=_dates)
 
         # compute statistics

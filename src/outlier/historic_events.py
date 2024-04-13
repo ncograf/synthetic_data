@@ -2,14 +2,11 @@ from __future__ import annotations
 import pyperclip as pc
 import bs4 as bs
 import requests
-from abc import abstractmethod, abstractproperty
 import matplotlib.pyplot as plt
 from schema import Schema, Optional as schopt
-from typing import Dict, Union, Tuple, Set, List, Iterable
+from typing import Dict, Set, List, Iterable
 import pandas as pd
 import numpy as np
-import numpy.typing as npt
-from tick import Tick
 import base_outlier_set
 from pathlib import Path
 import webbrowser
@@ -143,7 +140,7 @@ class HistoricEventSet(base_outlier_set.BaseOutlierSet):
     
     def __init__(self, path : Path | str | None = None):
         base_outlier_set.BaseOutlierSet.__init__(self)
-        if not path is None and Path(path).exists():
+        if path is not None and Path(path).exists():
             self.load_events(path)
         self._name = "Historic Events"
         self._events : Dict[pd.Timestamp, List[HistoricEvent]] = {}
@@ -246,7 +243,7 @@ class HistoricEventSet(base_outlier_set.BaseOutlierSet):
 
         date_str = date.strftime("%Y-%m-%d")
         pc.copy(date_str)
-        if not symbol is None:
+        if symbol is not None:
             symbol_name = self.get_stock_name(symbol)
             google_search = f'https://www.google.com/search?client=firefox-b-d&q={date_str}+{symbol_name}'
             webbrowser.open_new_tab(google_search)
@@ -260,7 +257,7 @@ class HistoricEventSet(base_outlier_set.BaseOutlierSet):
                 current_events = self._events[date]
                 if current_events > 1:
                     for i, event in enumerate(self._events[date]):
-                        click.echo(f"\nAvailable Events:")
+                        click.echo("\nAvailable Events:")
                         click.echo(f"[{i}] : {str(event)}")
 
                     choices = [k for k in np.arange(num)]
@@ -277,7 +274,7 @@ class HistoricEventSet(base_outlier_set.BaseOutlierSet):
                 
                 current_events[idx].symbols.add(symbol)
                 click.echo(f"Added {symbol} to {str(current_events[idx])}")
-            except click.Abort as e:
+            except click.Abort:
                 click.echo("\nAbort editing events.")
                 return
             except Exception as e:
@@ -286,7 +283,7 @@ class HistoricEventSet(base_outlier_set.BaseOutlierSet):
 
     def get_stock_name(self, symbol : str):
 
-        symbols_path = self._cache / f"symbol_name_map.csv"
+        symbols_path = self._cache / "symbol_name_map.csv"
         if symbols_path.exists():
             symbol_df = pd.read_csv(symbols_path)
         else:
@@ -334,7 +331,7 @@ class HistoricEventSet(base_outlier_set.BaseOutlierSet):
                     show_choices=True
                     )
 
-            except click.Abort as e:
+            except click.Abort:
                 click.echo("\nAbort editing events.")
                 return
             except Exception as e:
@@ -390,7 +387,7 @@ class HistoricEventSet(base_outlier_set.BaseOutlierSet):
             link = ""
         
         try:
-            click.echo(f'\n\n---- Summary ----')
+            click.echo('\n\n---- Summary ----')
             click.echo(f'Title: {title}')
             click.echo(f'Note: {note}')
             click.echo(f'Link: {link}')
@@ -398,7 +395,7 @@ class HistoricEventSet(base_outlier_set.BaseOutlierSet):
                 event.title = title
                 event.note = note
                 event.link = link
-                if not symbol is None: 
+                if symbol is not None: 
                     event.symbols.add(symbol) # as this is a set no duplications will be made
                 self._events[date] = event_list # add event list to make sure changed element is not added
 
@@ -430,7 +427,7 @@ class HistoricEventSet(base_outlier_set.BaseOutlierSet):
             if self._text_element is not None:
                 try:
                     self._text_element.remove()
-                except:
+                except: # noqa E722
                     pass # ingnore failor here as it's not important
         
 

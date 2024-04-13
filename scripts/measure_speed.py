@@ -1,26 +1,9 @@
 import click
-import numpy as np
-import data_inspector
 import real_data_loader
-from pathlib import Path
-from typing import Optional, Set, List
 import matplotlib.pyplot as plt
 
-import sp500_statistic
-import base_statistic
-import base_outlier_set
 import auto_corr_statistic
 import log_return_statistic
-import scaled_log_return_statistic
-import wavelet_statistic
-import stock_price_statistic
-import spike_statistic
-import isolation_forest_set
-import outlier_summary
-import cached_outlier_set
-import garch_generator
-import index_generator
-import illiquidity_filter
 import time
 
 @click.command()

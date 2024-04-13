@@ -1,8 +1,5 @@
 import real_data_loader as data
-from pathlib import Path
-import pandas as pd
 import garch_generator
-import shutil
 
 class TestGarchGenerator:
     """Test Function to get local data"""
@@ -27,7 +24,7 @@ class TestGarchGenerator:
 
         try:
             model.check_model()
-        except:
+        except: # noqa E722
             assert False, "No error should be raised as the model is set"
 
         gen_price, gen_ret = model.generate_data(600, 200)

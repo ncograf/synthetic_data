@@ -1,17 +1,9 @@
-import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
-import click
-from matplotlib.gridspec import GridSpec
-from getch import getch
 from pathlib import Path
-from typing import List, Optional, Dict, Union, Set
+from typing import Optional, Dict
 import shutil
 import stylized_fact
 from tueplots import bundles
-import time
-from tick import Tick
-from copy import deepcopy
 import base_statistic
 
 class StatisticInspector:
@@ -56,7 +48,7 @@ class StatisticInspector:
                 'yscale' : 'log',
                 'xscale' : 'log',
                 'xlim' : (None,None),
-                'xlim' : (None,None),
+                'ylim' : (None,None),
                 'xlabel' : 'None',
                 'ylabel' : 'None',
             }
@@ -79,7 +71,7 @@ class StatisticInspector:
             self.draw_axis(ax=ax, ax_style=ax_params)
             fig.savefig(fig_path)
         
-        if not copy is None:
+        if copy is not None:
             copy_path = copy / f"{stylized_fact._figure_name}_average.png"
             shutil.copy(fig_path, copy_path)
 
@@ -111,7 +103,7 @@ class StatisticInspector:
                 'yscale' : 'log',
                 'xscale' : 'log',
                 'xlim' : (None,None),
-                'xlim' : (None,None),
+                'ylim' : (None,None),
                 'xlabel' : 'None',
                 'ylabel' : 'None',
             }
@@ -128,7 +120,7 @@ class StatisticInspector:
             self.draw_axis(ax, ax_style=ax_params)
             fig.savefig(fig_path)
         
-        if not copy is None:
+        if copy is not None:
             copy_path = copy / f"{stylized_fact._figure_name}_flipped_cfd.png"
             shutil.copy(fig_path, copy_path)
 
@@ -141,7 +133,7 @@ class StatisticInspector:
             'yscale' : 'log',
             'xscale' : 'log',
             'xlim' : (0,1),
-            'xlim' : (0,1),
+            'ylim' : (0,1),
             'xlabel' : 'None',
             'ylabel' : 'None',
         }

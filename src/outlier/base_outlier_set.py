@@ -1,7 +1,5 @@
 from abc import abstractproperty, abstractmethod
-import matplotlib.pyplot as plt
-from typing import Dict, Union, Tuple, Set, List, Iterable
-from pathlib import Path
+from typing import List, Iterable
 from tick import Tick
 import pandas as pd
 

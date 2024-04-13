@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Union, Tuple, Optional, Set, Dict, List, Callable
+from typing import Dict, List
 import pandas as pd
 import numpy as np
 import numpy.typing as npt
@@ -176,7 +176,7 @@ class BaseStatistic:
             ax (plt.Axes): Axis to draw onto
         """
         
-        if not 'color' in style.keys():
+        if 'color' not in style.keys():
             style['color'] = self._plot_color
             
         self.check_statistic()

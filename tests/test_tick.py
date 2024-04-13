@@ -1,6 +1,5 @@
 from tick import Tick
 import pandas as pd
-import numpy as np
 
 class TestTick:
     
@@ -19,7 +18,7 @@ class TestTick:
         assert outlier.real == real
         
         outlier.real = True
-        assert outlier.real == True
+        assert outlier.real
         
         outlier.note = "Second"
         assert outlier.note == "Second"

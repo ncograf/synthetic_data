@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-import numpy.typing as npt
 import log_return_statistic
 
 class AbsLogReturnStatistic(log_return_statistic.LogReturnStatistic):

@@ -1,40 +1,23 @@
 import click
-import numpy as np
 import pandas as pd
-import data_inspector
 import real_data_loader
-from pathlib import Path
-from typing import Optional, Set, List, Literal
+from typing import Literal
 
-import sp500_statistic
-import base_statistic
-import base_outlier_set
 import log_return_statistic
-import scaled_log_return_statistic
-import wavelet_statistic
 import stock_price_statistic
-import spike_statistic
-import isolation_forest_set
-import outlier_summary
-import cached_outlier_set
 import garch_generator
-import index_generator
 import illiquidity_filter
 import coarse_fine_volatility
 import auto_corr_statistic
 import leverage_effect
-import statistic_inspector
 import normalized_price_return
 import abs_log_return_statistic
 import gain_loss_asymetry
 import return_statistic
-import stock_price_statistic
 import gen_data_loader
-import time
 import plotter
-import illiquidity_filter
 import infty_filter
-from arch.univariate import GARCH, Normal, StudentsT, ConstantMean, Distribution
+from arch.univariate import StudentsT
 
 @click.group()
 def inspect():

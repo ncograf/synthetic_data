@@ -18,7 +18,6 @@ class TailStatistic(base_statistic.BaseStatistic):
         self._mask = self.underlying._get_mask()
         self._statistic = np.copy(self.underlying.statistic)
         self._statistic[~self._mask] = np.nan
-        t = self.statistic[~np.isnan(self.statistic)]
     
     def draw_histogram(self, axes: Axes,
                        style: Dict[str, any],
@@ -51,7 +50,6 @@ class UpperTailStatistic(TailStatistic):
         self._mask = self.underlying._get_upper_mask()
         self._statistic = np.copy(self.underlying.statistic)
         self._statistic[~self._mask] = np.nan
-        t = self.statistic[~np.isnan(self.statistic)]
 
 class LowerTailStatistic(TailStatistic):
 
@@ -64,4 +62,3 @@ class LowerTailStatistic(TailStatistic):
         self._mask = self.underlying._get_lower_mask()
         self._statistic = np.copy(self.underlying.statistic)
         self._statistic[~self._mask] = np.nan
-        t = self.statistic[~np.isnan(self.statistic)]

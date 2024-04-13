@@ -1,10 +1,8 @@
-from arch.univariate import GARCH, Normal, StudentsT, ConstantMean, Distribution
+from arch.univariate import GARCH, Normal, ConstantMean, Distribution
 from arch.univariate.base import ARCHModelResult
 from typing import Tuple
 import numpy.typing as npt
 import numpy as np
-import time
-from pathlib import Path
 import base_generator
 
 class GarchGenerator(base_generator.BaseGenerator):
@@ -56,7 +54,6 @@ class GarchGenerator(base_generator.BaseGenerator):
         price_simulation = np.zeros_like(return_simulation, dtype=np.float64)
         price_simulation[0] = self._zero_price
 
-        t = time.time()
         for i in range(1,price_simulation.shape[0]):
             price_simulation[i] = price_simulation[i-1] * return_simulation[i]
         

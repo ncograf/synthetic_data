@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-import numpy.typing as npt
 import stylized_fact
 import matplotlib.pyplot as plt
 import boosted_stats

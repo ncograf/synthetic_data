@@ -1,9 +1,5 @@
-from abc import abstractmethod, abstractproperty
-import matplotlib.pyplot as plt
-from typing import Dict, Union, Tuple, Set, List, Iterable
+from typing import Dict, Set, List, Iterable
 import pandas as pd
-import numpy as np
-import numpy.typing as npt
 from tick import Tick
 import base_outlier_set
 from pathlib import Path
@@ -14,7 +10,7 @@ class CachedOutlierSet(base_outlier_set.BaseOutlierSet):
     
     def __init__(self, path : Path | str | None = None):
         base_outlier_set.BaseOutlierSet.__init__(self)
-        if not path is None and Path(path).exists():
+        if path is not None and Path(path).exists():
             self.load_outliers(path)
         self._name = "Cached"
     
@@ -73,7 +69,7 @@ class CachedOutlierSet(base_outlier_set.BaseOutlierSet):
 
         _dict : Dict[str, List[Dict[str, pd.Timestamp | str | bool]]] = {}
         for tick in self.outlier:
-            if not tick.symbol in _dict.keys():
+            if tick.symbol not in _dict.keys():
                 _dict[tick.symbol] = []
             
             _dict[tick.symbol].append(tick.get_dict())
@@ -97,7 +93,7 @@ class CachedOutlierSet(base_outlier_set.BaseOutlierSet):
 
             for _elem in dict[symbol]:
 
-                if not 'date' in  _elem.keys() or _elem['date'] is None:
+                if 'date' not in _elem.keys() or _elem['date'] is None:
                     raise RuntimeError("Dictonary must contain a valid date")
                 date = pd.Timestamp(_elem['date']).floor('d')
                 

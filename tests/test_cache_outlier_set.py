@@ -1,7 +1,5 @@
 from tick import Tick
 import pandas as pd
-from pathlib import Path
-import numpy as np
 from cached_outlier_set import CachedOutlierSet
 
 class TestCacheOutlierSet:

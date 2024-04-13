@@ -1,7 +1,5 @@
 import boosted_stats
-import pandas as pd
 import numpy as np
-from tick import Tick
 import time
 
 class TestBoosted:

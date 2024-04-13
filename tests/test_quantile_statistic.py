@@ -71,13 +71,13 @@ class TestQuantileStatistic:
     def test_error(self):
 
         try:
-            base_stat = stat.QuantileStatistic(quantile=2)
+            _ = stat.QuantileStatistic(quantile=2)
             assert False, "Value error expected."
         except ValueError as ex:
             assert "The quantile must be" in str(ex)
 
         try:
-            base_stat = stat.QuantileStatistic(quantile=-0.1)
+            _ = stat.QuantileStatistic(quantile=-0.1)
             assert False, "Value error expected."
         except ValueError as ex:
             assert "The quantile must be" in str(ex)

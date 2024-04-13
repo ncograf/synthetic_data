@@ -49,7 +49,7 @@ class TestBaseStatistic:
         
         try:
             base_stat.check_data_validity(base_df) # check if this fails
-        except:
+        except: # noqa E722
             assert False, "Check with the correct data should not fail"
 
         try:

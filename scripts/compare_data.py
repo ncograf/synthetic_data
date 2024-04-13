@@ -1,18 +1,15 @@
 import click
-import numpy as np
 import real_data_loader
 import garch_generator
 import stock_price_statistic
 import log_return_statistic
 import scaled_log_return_statistic
 import gen_data_loader
-import scipy.stats as ss
-import scipy.spatial.distance as sd
 import tail_statistics
 import distribution_comparator
 import plotter
 import illiquidity_filter
-from arch.univariate import GARCH, Normal, StudentsT, ConstantMean, Distribution
+from arch.univariate import StudentsT
 import infty_filter
 
 

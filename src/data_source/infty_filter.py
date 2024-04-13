@@ -1,8 +1,6 @@
 import pandas as pd
 import numpy as np
 import base_filter
-import base_statistic
-from icecream import ic
 
 
 class InftyFilter(base_filter.BaseFilter):

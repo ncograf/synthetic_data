@@ -1,8 +1,6 @@
-import numpy as np
 import torch
 import torch.nn as nn
 from typing import Tuple
-from torch.distributions.multivariate_normal import MultivariateNormal
 
 class SpectralFilteringLayer(nn.Module):
     

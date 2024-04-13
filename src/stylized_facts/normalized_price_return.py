@@ -1,10 +1,8 @@
 import pandas as pd
 import numpy as np
 import numpy.typing as npt
-from icecream import ic
 import matplotlib.pyplot as plt
 import temporal_statistc
-import scipy.linalg as linalg
 import stylized_fact
 import powerlaw
 

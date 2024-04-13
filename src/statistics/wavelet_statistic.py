@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import numpy.typing as npt
-from typing import Union, Optional
+from typing import Optional
 import quantile_statistic
 import temporal_statistc
 import scipy.linalg as linalg
@@ -105,16 +105,16 @@ class WaveletStatistic(quantile_statistic.QuantileStatistic, temporal_statistc.T
         if self.normalize:
             raise NotImplementedError("This function is depricated and needs serious revision")
             # padding by COPY the EDGE VALUE to get a variance for the whole series
-            padded_array = np.pad(series, (n_wave_left, n_wave_right), mode='edge')
-            rolling_std = pd.Series(padded_array).rolling(window=n_wavelet).std() # comupute rolling stds
-            rolling_std = rolling_std.to_numpy()[n_wavelet + 1:]
-            rolling_mean = pd.Series(padded_array).rolling(window=n_wavelet).mean() # comupute rolling stds
-            rolling_mean = rolling_mean.to_numpy()[n_wavelet + 1:]
+            # padded_array = np.pad(series, (n_wave_left, n_wave_right), mode='edge')
+            # rolling_std = pd.Series(padded_array).rolling(window=n_wavelet).std() # comupute rolling stds
+            # rolling_std = rolling_std.to_numpy()[n_wavelet + 1:]
+            # rolling_mean = pd.Series(padded_array).rolling(window=n_wavelet).mean() # comupute rolling stds
+            # rolling_mean = rolling_mean.to_numpy()[n_wavelet + 1:]
             
-            eps = 1e-2
-            trans_series = trans_series / series.abs() # normalize
-            trans_series[:n_wave_left + 1] = 0
-            trans_series[-n_wave_right - 1:] = 0 # add zero padding to avoid problems at the borders
+            # eps = 1e-2
+            # trans_series = trans_series / series.abs() # normalize
+            # trans_series[:n_wave_left + 1] = 0
+            # trans_series[-n_wave_right - 1:] = 0 # add zero padding to avoid problems at the borders
 
         return trans_series
         

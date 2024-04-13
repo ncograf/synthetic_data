@@ -37,10 +37,10 @@ class TestLocalData:
         message = "Problem reading csv with pandas for symbol TEST_EMPTY"
         assert message in error_dict["TEST_EMPTY"]
 
-        message = (f"The file for the symbol TEST_NO_DATA contains not data.")
+        message = ("The file for the symbol TEST_NO_DATA contains not data.")
         assert message in error_dict["TEST_NO_DATA"]
 
-        message = f"For the symbol TEST_NEXIST no csv file was found!"
+        message = "For the symbol TEST_NEXIST no csv file was found!"
         assert message in error_dict["TEST_NEXIST"]
         
 class TestYahooData:

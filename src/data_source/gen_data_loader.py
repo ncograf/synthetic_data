@@ -1,5 +1,4 @@
-import time
-from typing import List, Union, Dict, Tuple
+from typing import Union
 import pandas as pd
 from pathlib import Path
 import real_data_loader
@@ -51,7 +50,7 @@ class GenDataLoader():
                 print(f"Loading cache failed. {str(ex)}")
 
         # both of these functions are well tests, so it hopefully works
-        if not data_loader is None:
+        if data_loader is not None:
             price_data = data_loader.get_timeseries(col_name) # gets data
         else:
             raise ValueError("If data needs to be generated, make sure to pass a data_loader")

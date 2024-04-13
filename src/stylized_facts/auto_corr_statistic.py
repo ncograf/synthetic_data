@@ -1,12 +1,9 @@
 import pandas as pd
 import numpy as np
-import numpy.typing as npt
-from typing import Union, Tuple, Dict, Optional, Literal
+from typing import Tuple, Literal
 import powerlaw
-from icecream import ic
 import matplotlib.pyplot as plt
 import temporal_statistc
-import scipy.linalg as linalg
 import stylized_fact
 import boosted_stats
 
@@ -36,7 +33,7 @@ class AutoCorrStatistic(stylized_fact.StylizedFact):
             'xscale' : xscale,
             'yscale' : yscale,
             }
-        if not ylim is None:
+        if ylim is not None:
             self._ax_style['ylim'] = ylim
         self.styles = [{
             'alpha' : 1,

@@ -1,7 +1,4 @@
-from tick import Tick
 import pandas as pd
-from pathlib import Path
-import numpy as np
 from historic_events import HistoricEvent, HistoricEventSet
 
 class TestHistoricEventSet:
@@ -33,14 +30,11 @@ class TestHistoricEventSet:
         assert all == {e1, e2, e3}
 
     def test_open_event_links(self):
-        return # do not execute this test
         he_set = HistoricEventSet()
         now = pd.Timestamp.now()
         he_set.open_event_links(now, "A")
     
     def test_edit_event(self):
-        return # do not execute this test
-        he_set = HistoricEventSet()
         histset = HistoricEventSet()
         histset.cmd_edit_event(date=pd.Timestamp.now(), symbol="Test")
         for k, elem in histset._events.items():
@@ -57,13 +51,6 @@ class TestHistoricEventSet:
     
     def test_get_snp500(self):
         
-        now = pd.Timestamp.now().floor('d')
-        before = pd.Timestamp('1999-12-18 21:00:00').floor('d')
-        recently = pd.Timestamp('2023-12-18 21:00:00').floor('d')
-        e1 = HistoricEvent(now, "e1", "Test e1", "test")
-        e2 = HistoricEvent(before, "e2", "Test e2", "link")
-        e3 = HistoricEvent(recently, "e3", "Test e3", "link")
-
         # make sure the test runs smoothly
         path = "tests/testdata/cache/test_hist_event_cache.json"
         _set = HistoricEventSet(path)
@@ -88,7 +75,7 @@ class TestHistoricEvent:
         assert event.deleted == deleted
         
         event.deleted = True
-        assert event.deleted == True
+        assert event.deleted
         
         event.note = "Second"
         assert event.note == "Second"

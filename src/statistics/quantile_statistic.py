@@ -2,9 +2,8 @@ import base_statistic
 import base_outlier_set
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
-from matplotlib.text import Text
 from matplotlib.legend import Legend
-from typing import Union, Tuple, Set, Callable, Dict
+from typing import Set, Dict
 import pandas as pd
 import numpy as np
 import numpy.typing as npt

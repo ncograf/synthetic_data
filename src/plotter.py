@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
-import numpy as np
 from pathlib import Path
-from typing import Tuple, Dict
+from typing import Dict
 
 class Plotter:
     
@@ -44,7 +43,7 @@ class Plotter:
         self._figure_title = figure_title
         self._figure_name = Path(figure_name).stem
 
-        if not export is None:
+        if export is not None:
             self._export_dir = Path(export)
         else:
             self._export_dir = None
@@ -77,7 +76,7 @@ class Plotter:
         """Saves the figure to the cache and export path if given"""
         
         self._fig.savefig(self.cache_path)
-        if not self.export_path is None:
+        if self.export_path is not None:
             self._fig.savefig(self.export_path)
 
     

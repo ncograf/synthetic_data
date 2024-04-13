@@ -1,11 +1,9 @@
 import pandas as pd
 import numpy as np
-import numpy.typing as npt
 import stylized_fact
 import matplotlib.pyplot as plt
 import boosted_stats
 import temporal_statistc
-from typing import Literal, Dict
 
 class GainLossAsymetry(stylized_fact.StylizedFact):
     
@@ -53,7 +51,6 @@ class GainLossAsymetry(stylized_fact.StylizedFact):
         # compute the (r_{t+k} - mu) part of the correlation and the (r_t - mu) part separately
 
         log_price = np.log(base)
-        n = log_price.shape[0]
         if log_price.dtype.name == 'float32':
             boosted = boosted_stats.gain_loss_asym_float(log_price, self._max_lag, self._theta, True)
         if log_price.dtype.name == 'float64':

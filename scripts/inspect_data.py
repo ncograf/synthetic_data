@@ -3,21 +3,14 @@ import numpy as np
 import data_inspector
 import real_data_loader
 from pathlib import Path
-from typing import Optional, Set, List
+from typing import Optional
 
 import sp500_statistic
-import base_statistic
-import base_outlier_set
 import log_return_statistic
-import scaled_log_return_statistic
-import wavelet_statistic
 import stock_price_statistic
-import spike_statistic
-import isolation_forest_set
 import outlier_summary
 import cached_outlier_set
 import garch_generator
-import index_generator
 import illiquidity_filter
 import gen_data_loader
 
@@ -80,8 +73,8 @@ def outlier():
     # some outlier might depend on the statistic so this needs to be after set statstics
     # TODO for pure outlier statistics make sure to set the data
 
-    historic_events_path = f"data/cache/historical_events.json"
-    outlier_path = f"data/cache/outlier_json.json"
+    historic_events_path = "data/cache/historical_events.json"
+    outlier_path = "data/cache/outlier_json.json"
     
     inspector = data_inspector.DataInspector()
     inspector.check_outliers_manually(statistics=statistics,
@@ -140,9 +133,6 @@ def sumarize_outliers():
     data_loader = real_data_loader.RealDataLoader()
     real_stock_data = data_loader.get_timeseries(col_name="Adj Close", data_path="data/raw_yahoo_data", update_all=False)
 
-    quantile = 0.001
-    log_stat = log_return_statistic.LogReturnStatistic(quantile=quantile)
-    spike_stat = spike_statistic.SpikeStatistic(denomiator_scaling=np.exp, quantile=quantile, function_name='exp')
     cache_det = cached_outlier_set.CachedOutlierSet(path="data/cache/precentile_outlier.json")
 
     summary = outlier_summary.OutlierSummary(data=real_stock_data, detectors=[cache_det])

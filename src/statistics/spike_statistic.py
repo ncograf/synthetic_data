@@ -1,10 +1,9 @@
 import pandas as pd
 import numpy as np
 import numpy.typing as npt
-from typing import Union, Optional, Callable
+from typing import Callable
 import quantile_statistic
 import temporal_statistc
-import scipy.linalg as linalg
 
 class SpikeStatistic(quantile_statistic.QuantileStatistic, temporal_statistc.TemporalStatistic):
     

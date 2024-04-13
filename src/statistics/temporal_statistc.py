@@ -1,7 +1,7 @@
 import base_statistic
 import matplotlib.pyplot as plt
 import matplotlib.dates as plt_dates
-from typing import Dict, Union, Tuple, Optional, List, Set
+from typing import Dict, Tuple, List
 import pandas as pd
 import numpy as np
 import numpy.typing as npt
@@ -74,7 +74,7 @@ class TemporalStatistic(base_statistic.BaseStatistic):
             'linestyle' : 'None',
         }
 
-        if not 'emph_points' in self.series_artists.keys():
+        if 'emph_points' not in self.series_artists.keys():
             self.series_artists['emph_points'] = ax.plot([], [], **style_emph)[0]
         
         time_data = np.array([tick.date for tick in ticks])
@@ -87,9 +87,9 @@ class TemporalStatistic(base_statistic.BaseStatistic):
 
         # plot the neighbours of emphasized plots
         if neighbour_points:
-            if not 'neigh_before' in self.series_artists.keys():
+            if 'neigh_before' not in self.series_artists.keys():
                 self.series_artists['neigh_before'] = ax.plot([],[], **style_neighbours)[0]
-            if not 'neigh_after' in self.series_artists.keys():
+            if 'neigh_after' not in self.series_artists.keys():
                 self.series_artists['neigh_after'] = ax.plot([],[], **style_neighbours)[0]
 
             dates_before = np.maximum(date_loc - 1, 0)
@@ -114,7 +114,7 @@ class TemporalStatistic(base_statistic.BaseStatistic):
                           }
                           ):
         
-        if not 'label' in style_plot.keys():
+        if 'label' not in style_plot.keys():
             style_plot['label'] = symbol + self._legend_postfix
 
         # plot the investigated symbol
@@ -123,7 +123,7 @@ class TemporalStatistic(base_statistic.BaseStatistic):
         symbol_idx = self.get_symbol_index(symbol)
         time_region = self.dates[fst_idx:end_idx]
         statistic_region = self.statistic[fst_idx:end_idx, symbol_idx]
-        if not f'time_series_{symbol}' in self.series_artists.keys():
+        if f'time_series_{symbol}' not in self.series_artists.keys():
             self.series_artists[f'time_series_{symbol}'] = ax.plot([],[],**style_plot)[0]
         
         self.series_artists[f'time_series_{symbol}'].set_data((time_region, statistic_region))
@@ -151,7 +151,7 @@ class TemporalStatistic(base_statistic.BaseStatistic):
         for symbol in context:
             # TODO clear all symbols that are not used any more
             symbol_idx = self.get_symbol_index(symbol)
-            if not f'context_{symbol}' in self.series_artists.keys():
+            if f'context_{symbol}' not in self.series_artists.keys():
                 self.series_artists[f'context_{symbol}'] = ax.plot([],[],**style_args)[0]
             
             self.series_artists[f'context_{symbol}'].set_xdata(time_region)

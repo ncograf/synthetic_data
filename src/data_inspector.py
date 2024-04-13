@@ -1,4 +1,3 @@
-import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import click
@@ -75,7 +74,7 @@ class DataInspector:
                         grow_only = True
             plt.show()
             fig.savefig(fig_path)
-        if not copy is None:
+        if copy is not None:
             copy_path = copy / f"{name}.png"
             shutil.copy(fig_path, copy_path)
 
@@ -108,7 +107,7 @@ class DataInspector:
             statistic.draw_histogram(ax, symbol=symbol, style=style, y_label="Denstiy" )
             fig.savefig(fig_path)
         
-        if not copy is None:
+        if copy is not None:
             copy_path = copy / f"{statistic._figure_name}_{symbol}_hist.png"
             shutil.copy(fig_path, copy_path)
 
@@ -207,12 +206,10 @@ class DataInspector:
                         click.echo(f'{start} is an invalid index, stay within {0} and {len(outlier_cache)}')
                     i = start
                 except click.BadParameter:
-                        click.echo(f'The input was invalid...')
-                except:
-                        click.echo(f'An error occured')
+                        click.echo('The input was invalid...')
                     
             elif key == 'n':
-                if point.real == False:
+                if not point.real:
                     point.real = True
                     print(f"REMOVED MARK from {point.symbol}: {point.date}", flush=True)
                 i += 1 # show next element
@@ -297,7 +294,8 @@ class DataInspector:
         fig.axes.clear()
 
         # the join of the dictionaries here will be realtively smooth
-        outlier_cache = self._iterate_outliers(statistics=statistics, 
+        self._iterate_outliers(
+            statistics=statistics, 
                                               time_statistics=time_statistics, 
                                               outlier_sets=outlier_detectors, 
                                               outlier_path=outlier_path,

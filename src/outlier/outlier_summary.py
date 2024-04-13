@@ -1,7 +1,6 @@
 import pandas as pd
-import numpy as np
 import base_outlier_set
-from typing import List, Dict, Tuple, Set
+from typing import List, Dict, Set
 from tick import Tick
 
 class OutlierSummary:

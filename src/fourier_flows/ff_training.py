@@ -35,6 +35,6 @@ def train_fourier_flow(X : torch.Tensor, epochs : int, learning_rate : float) ->
                   f'aveage_loss {np.mean(losses):>10.4f}'))
         
         
-    print(f'Finished training!')
+    print('Finished training!')
     
     return model, losses

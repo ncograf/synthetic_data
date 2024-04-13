@@ -1,10 +1,6 @@
 import pandas as pd
-import numpy as np
-import numpy.typing as npt
-from typing import Union, Tuple, Dict, Optional
 import quantile_statistic
 import temporal_statistc
-import scipy.linalg as linalg
 
 class StockPriceStatistic(quantile_statistic.QuantileStatistic, temporal_statistc.TemporalStatistic):
     

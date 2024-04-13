@@ -2,7 +2,6 @@ import auto_corr_statistic as stat
 import log_return_statistic as lstat
 import pandas as pd
 import numpy as np
-from tick import Tick
 
 class TestAutoCorrStatistic:
 
@@ -20,7 +19,7 @@ class TestAutoCorrStatistic:
         for i in range(len(_returns)):
             _prices[i+1] = _prices[i] * _returns[i]
         _data = np.einsum('kl,k->kl',np.ones((n_dates, len(_symbols))), _prices)
-        _dates = [pd.Timestamp(f'2017-01-01') + pd.Timedelta(days=i) for i in range(n_dates)]
+        _dates = [pd.Timestamp('2017-01-01') + pd.Timedelta(days=i) for i in range(n_dates)]
         df = pd.DataFrame(_data, columns=_symbols, index=_dates)
 
         # compute statistics
@@ -42,7 +41,7 @@ class TestAutoCorrStatistic:
         for i in range(len(_returns)):
             _prices[i+1] = _prices[i] * _returns[i]
         _data = np.einsum('kl,k->kl',np.ones((n_dates, len(_symbols))), _prices)
-        _dates = [pd.Timestamp(f'2017-01-01') + pd.Timedelta(days=i) for i in range(n_dates)]
+        _dates = [pd.Timestamp('2017-01-01') + pd.Timedelta(days=i) for i in range(n_dates)]
         df = pd.DataFrame(_data, columns=_symbols, index=_dates)
 
         # compute statistics
@@ -63,7 +62,7 @@ class TestAutoCorrStatistic:
             _prices[i+1] = _prices[i] * _returns[i]
         _data = np.einsum('kl,k->kl',np.ones((n_dates, 4)), _prices)
         _data[:4,1] = np.nan
-        _dates = [pd.Timestamp(f'2017-01-01') + pd.Timedelta(days=i) for i in range(n_dates)]
+        _dates = [pd.Timestamp('2017-01-01') + pd.Timedelta(days=i) for i in range(n_dates)]
         df = pd.DataFrame(_data, columns=_symbols, index=_dates)
         log_stat.set_statistics(df)
         base_stat.set_statistics(None)
@@ -82,7 +81,7 @@ class TestAutoCorrStatistic:
             _prices[i+1] = _prices[i] * _returns[i]
         _data = np.einsum('kl,k->kl',np.ones((n_dates, 4)), _prices)
         _data[:4,1] = np.nan
-        _dates = [pd.Timestamp(f'2017-01-01') + pd.Timedelta(days=i) for i in range(n_dates)]
+        _dates = [pd.Timestamp('2017-01-01') + pd.Timedelta(days=i) for i in range(n_dates)]
         df = pd.DataFrame(_data, columns=_symbols, index=_dates)
         log_stat.set_statistics(df)
         base_stat.set_statistics(None)
@@ -101,7 +100,7 @@ class TestAutoCorrStatistic:
             _prices[i+1] = _prices[i] * _returns[i]
         _data = np.einsum('kl,k->kl',np.ones((n_dates, 4)), _prices)
         _data[:4,1] = np.nan
-        _dates = [pd.Timestamp(f'2017-01-01') + pd.Timedelta(days=i) for i in range(n_dates)]
+        _dates = [pd.Timestamp('2017-01-01') + pd.Timedelta(days=i) for i in range(n_dates)]
         df = pd.DataFrame(_data, columns=_symbols, index=_dates)
         log_stat.set_statistics(df)
         base_stat.set_statistics(None)

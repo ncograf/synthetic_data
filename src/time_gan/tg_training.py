@@ -84,10 +84,10 @@ def train_time_gan(
     opt_discr = torch.optim.Adam(discr_params, lr=learning_rate)
 
     # Define scheduler functions
-    scd_recon = torch.optim.lr_scheduler.ExponentialLR(opt_recon, gamma=0.999)
-    scd_super = torch.optim.lr_scheduler.ExponentialLR(opt_super, gamma=0.999)
-    scd_gener = torch.optim.lr_scheduler.ExponentialLR(opt_gener, gamma=0.999)
-    scd_discr = torch.optim.lr_scheduler.ExponentialLR(opt_discr, gamma=0.999)
+    # scd_recon = torch.optim.lr_scheduler.ExponentialLR(opt_recon, gamma=0.999)
+    # scd_super = torch.optim.lr_scheduler.ExponentialLR(opt_super, gamma=0.999)
+    # scd_gener = torch.optim.lr_scheduler.ExponentialLR(opt_gener, gamma=0.999)
+    # scd_discr = torch.optim.lr_scheduler.ExponentialLR(opt_discr, gamma=0.999)
     
     losses = {
         'recon' : [],
@@ -247,7 +247,7 @@ def train_time_gan(
 
 if __name__ == "__main__":
     
-    print(f"Start test")
+    print("Start test")
     n_samples = 20
     T = 24
 
@@ -260,5 +260,5 @@ if __name__ == "__main__":
     X_signal = torch.tensor(signals, dtype=torch.float32)
     
     models, losses = train_time_gan(X_signal, 101, 1e-3)
-    print(f"End test")
+    print("End test")
     

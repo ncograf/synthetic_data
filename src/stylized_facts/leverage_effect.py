@@ -1,11 +1,8 @@
 import pandas as pd
 import numpy as np
-import numpy.typing as npt
 import stylized_fact
-import matplotlib as plt
 import boosted_stats
 import temporal_statistc
-from typing import Literal, Dict
 
 class LeverageEffect(stylized_fact.StylizedFact):
     
@@ -42,7 +39,7 @@ class LeverageEffect(stylized_fact.StylizedFact):
         self._underlaying.check_statistic()
         base = self._underlaying.statistic
         self._symbols = self._underlaying.symbols
-        std = np.nanstd(base, axis=0)
+        # std = np.nanstd(base, axis=0)
         mu = np.nanmean(base, axis=0)
         data = (base - mu)
         
