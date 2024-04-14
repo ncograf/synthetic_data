@@ -8,6 +8,7 @@ packages = [
     {include = "*", from = "src"},
     {include = "*", from = "src/statistics"},
     {include = "*", from = "src/outlier"},
+    {include = "*", from = "src/garch"},
     {include = "*", from = "src/stylized_facts"},
     {include = "*", from = "src/data_source"},
     {include = "*", from = "src/fourier_flows"},
@@ -40,6 +41,7 @@ pyqt6 = "^6.6.1"
 jupyter = "^1.0.0"
 seaborn = "^0.13.2"
 ruff = "^0.3.7"
+copulas = "^0.11.0"
 
 
 [tool.ruff]
