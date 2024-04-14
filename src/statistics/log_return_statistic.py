@@ -8,7 +8,7 @@ import temporal_statistc
 class LogReturnStatistic(
     quantile_statistic.QuantileStatistic, temporal_statistc.TemporalStatistic
 ):
-    def __init__(self, quantile: float, legend_postfix: str = "", color="green"):
+    def __init__(self, quantile: float = 0.01, legend_postfix: str = "", color="green"):
         temporal_statistc.TemporalStatistic.__init__(
             self, legend_postfix=legend_postfix, color=color
         )
