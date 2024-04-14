@@ -43,7 +43,7 @@ class GarchGenerator(base_generator.BaseGenerator):
         return_mask = ~np.isnan(percent_returns)
 
         self._model = ConstantMean(percent_returns[return_mask])
-        self._model.volatility = GARCH(self._p, self._q)
+        self._model.volatility = GARCH(p=self._p, q=self._q)
         self._model.distribution = self._distribution
         self._fitted = self._model.fit()
 
