@@ -29,7 +29,7 @@ class GarchGenerator(base_generator.BaseGenerator):
         """Fit Garch model with the given stock market price data
 
         Args:
-            data (npt.ArrayLike): stock market prices for one stock
+            price_data (npt.ArrayLike): stock market prices for one stock
         """
 
         if price_data.ndim != 1:
