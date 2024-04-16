@@ -10,6 +10,7 @@ packages = [
     {include = "*", from = "src/outlier"},
     {include = "*", from = "src/garch"},
     {include = "*", from = "src/stylized_facts"},
+    {include = "*", from = "src/visualization"},
     {include = "*", from = "src/data_source"},
     {include = "*", from = "src/fourier_flows"},
     {include = "*", from = "src/time_gan"},
