@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Union
+from typing import List, Union
 
 import base_generator
 import index_generator
@@ -25,6 +25,7 @@ class GenDataLoader:
         generator: base_generator.BaseGenerator,
         data_loader: real_data_loader.RealDataLoader | None = None,
         col_name: str = "Adj Close",
+        symbols: List[str] | None = None,
         update_all: bool = False,
     ) -> pd.DataFrame:
         """Get data, from yahoo or locally depending on whether it is already cached
@@ -33,6 +34,7 @@ class GenDataLoader:
             generator (BaseGenerator) : Generator to generate data
             data_laoder (RealDataLoader | None, optional): Loader to get fitting data if it needs to be created. Defaults to None
             col_name (str): column to be fetched
+            symbols (List[str] | None, optional): Symbols to be generated if None all symbols in the data_loader are generated. Defaults to None
             update_all (bool, optional): If true all data gets fetched from yahoo. Defaults to False.
 
         Returns:
@@ -50,7 +52,8 @@ class GenDataLoader:
                 data_ = pd.read_csv(cache_path, index_col="Date")
                 data_.index = pd.to_datetime(data_.index)
                 data_.sort_index(inplace=True)
-                return data_
+                if symbols is None or set(symbols) in set(data_.columns.to_list()):
+                    return data_
             except Exception as ex:
                 print(f"Loading cache failed. {str(ex)}")
 
@@ -63,6 +66,6 @@ class GenDataLoader:
             )
 
         index_gen = index_generator.IndexGenerator(generator=generator)
-        data = index_gen.generate_index(price_data)
+        data = index_gen.generate_index(price_data, symbols=symbols)
         data.to_csv(cache_path, index=True)
         return data
