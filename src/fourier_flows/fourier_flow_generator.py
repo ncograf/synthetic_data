@@ -5,6 +5,7 @@ import numpy as np
 import numpy.typing as npt
 import torch
 from fourier_flow import FourierFlow
+from torch.utils.data import DataLoader, TensorDataset
 
 
 class FourierFlowGenerator(base_generator.BaseGenerator):
@@ -41,9 +42,9 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
         X = np.lib.stride_tricks.sliding_window_view(
             log_returns, seq_len, axis=0, writeable=False
         )
-        X = torch.tensor(np.swapaxes(X[:, ::lag], 0, 1))
+        X = torch.tensor(X, dtype=torch.float32)
 
-        n_epochs = 1000
+        n_epochs = 10
         learning_rate = 1e-3
 
         self._model, self._losses = self.train_fourier_flow(
@@ -62,7 +63,11 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
     ) -> Tuple[npt.NDArray, npt.NDArray]:
         self.check_model()
 
-        return_simulation = self._model.sample(len)
+        n = len // self._model.T + 1
+
+        return_simulation = self._model.sample(n)
+        return_simulation = return_simulation.detach().numpy().flatten()
+        return_simulation = return_simulation[:len]
 
         price_simulation = np.zeros_like(return_simulation, dtype=np.float64)
         price_simulation[0] = self._zero_price
@@ -82,22 +87,31 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
 
         model = FourierFlow(hidden_dim=hidden_dim, D=D, T=T, n_layer=n_layer)
 
+        dataset = TensorDataset(X)
+        loader = DataLoader(dataset=dataset, batch_size=128)
+
         optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
         scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.999)
 
         losses = []
 
         for epoch in range(epochs):
-            optimizer.zero_grad()
+            epoch_loss = 0
+            for (batch,) in loader:
+                optimizer.zero_grad()
 
-            z, log_prob_z, log_jac_det = model(X)
-            loss = torch.mean(-log_prob_z - log_jac_det)
+                z, log_prob_z, log_jac_det = model(batch)
+                loss = torch.mean(-log_prob_z - log_jac_det)
 
-            losses.append(loss.item())
+                loss.backward()
+                optimizer.step()
+                scheduler.step()
 
-            loss.backward()
-            optimizer.step()
-            scheduler.step()
+                epoch_loss += loss.item()
+
+            epoch_loss / len(loader)
+
+            losses.append(epoch_loss)
 
             if epoch % 10 == 0:
                 print(
