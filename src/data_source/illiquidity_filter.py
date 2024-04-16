@@ -11,9 +11,10 @@ class IlliquidityFilter(base_filter.BaseFilter):
         self._min_jumps = min_jumps
         self._data: pd.DataFrame | None = None
         self._exclude_tol: int = exclude_tolerance
-        self._drop_cols = []
+        self._drop_cols = set()
+        self.filter_name = "Illiquidity"
 
-    def fit_filter(self, data: pd.DataFrame | pd.Series, verbose: bool = True):
+    def fit_filter(self, data: pd.DataFrame | pd.Series):
         """Filters data which have an illiquid state for strictly longer that self.exclude_tolerance
 
         A state is considered illiquid if in the given self._window ticks before (including the current)
@@ -44,8 +45,6 @@ class IlliquidityFilter(base_filter.BaseFilter):
         no_jump_stock_mask = jumps_sum <= self._exclude_tol
 
         # simply set all to nan if it does not enough jumps in the region
-        self._drop_cols = np.array(data.columns)[~no_jump_stock_mask]
-
-        if verbose:
-            print("Illiquidity Filter, filteres the following coumns:")
-            print(self._drop_cols.tolist())
+        self._drop_cols = self._drop_cols.union(
+            set(np.array(data.columns)[~no_jump_stock_mask])
+        )

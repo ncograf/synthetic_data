@@ -7,15 +7,13 @@ class LenFilter(base_filter.BaseFilter):
     def __init__(self, min_points: int = 1000):
         base_filter.BaseFilter.__init__(self)
         self._min_points = min_points
+        self.filter_name = "Seqence lenght"
 
-    def filter_data(self, data: pd.DataFrame | pd.Series) -> pd.DataFrame:
-        """Filters all stocks and returns only the ones with sufficient data points
+    def fit_filter(self, data: pd.DataFrame | pd.Series):
+        """Fit the filter to exclude all data with too little data points
 
         Args:
             data (pd.DataFrame | pd.Series): data to be filtered
-
-        Returns:
-            pd.DataFrame : dataframe containing the filtered data
         """
 
         if isinstance(data, pd.Series):
@@ -25,10 +23,6 @@ class LenFilter(base_filter.BaseFilter):
         mask = np.isnan(np_data)
         num_not_nan = np.sum(~mask, axis=0)
         mask_columns = num_not_nan >= self._min_points
-        self._data = pd.DataFrame(
-            np_data[:, mask_columns],
-            columns=data.columns[mask_columns],
-            index=data.index,
+        self._drop_cols = self._drop_cols.union(
+            set(np.array(data.columns)[~mask_columns])
         )
-
-        return self._data
