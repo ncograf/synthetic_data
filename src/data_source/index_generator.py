@@ -53,4 +53,4 @@ class IndexGenerator:
 
         print(f"Stocks containing infinity : {self._problematic_cols}.")
 
-        return generated_data
+        return generated_data.loc[:, symbols]

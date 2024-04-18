@@ -11,9 +11,17 @@ from torch.utils.data import DataLoader, TensorDataset
 class FourierFlowGenerator(base_generator.BaseGenerator):
     def __init__(
         self,
-        name="FourierFlow",
+        learning_rate: float,
+        epochs: int,
+        name: str = "FourierFlow",
+        dtype: torch.dtype = torch.float64,
     ):
         base_generator.BaseGenerator.__init__(self, name)
+        self.data_min = 0
+        self.data_amplitude = 1
+        self.learning_rate = learning_rate
+        self.epochs = epochs
+        self.dtype = dtype
 
     def fit_model(self, price_data: npt.ArrayLike, lag: int = 1, seq_len: int = 101):
         """Fit a Fourier Flow Neural Network. I.e. Train the network on the given data.
@@ -30,25 +38,22 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
         if price_data.ndim != 1:
             raise ValueError("Input price data must be one dimensional")
 
-        data = np.array(price_data)
-        data_mask = ~np.isnan(data)
+        data = torch.tensor(price_data, dtype=self.dtype)
+        data_mask = ~torch.isnan(data)
         data = data[
             data_mask
         ]  # drop the nans TODO, this might give wrong results for missing nans
         self._zero_price = data[0]
-        log_returns = np.log(data[1:] / data[:-1])
+        log_returns = torch.log(data[1:] / data[:-1])
 
         # split the data
         X = np.lib.stride_tricks.sliding_window_view(
             log_returns, seq_len, axis=0, writeable=False
         )
-        X = torch.tensor(X, dtype=torch.float32)
-
-        n_epochs = 10
-        learning_rate = 1e-3
+        X = torch.tensor(X)
 
         self._model, self._losses = self.train_fourier_flow(
-            X=X, epochs=n_epochs, learning_rate=learning_rate
+            X=X, epochs=self.epochs, learning_rate=self.learning_rate
         )
 
     def model(self) -> FourierFlow:
@@ -65,17 +70,36 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
 
         n = len // self._model.T + 1
 
-        return_simulation = self._model.sample(n)
-        return_simulation = return_simulation.detach().numpy().flatten()
-        return_simulation = return_simulation[:len]
+        model_output = self._model.sample(n)
+        log_returns = (model_output * self.data_amplitude) + self.data_min
+        log_returns = log_returns.detach().numpy().flatten()
+        return_simulation = np.exp(log_returns[:len])
 
-        price_simulation = np.zeros_like(return_simulation, dtype=np.float64)
+        price_simulation = np.zeros_like(return_simulation, dtype=np.float32)
         price_simulation[0] = self._zero_price
 
-        for i in range(1, price_simulation.shape[0]):
-            price_simulation[i] = price_simulation[i - 1] * return_simulation[i]
+        for i in range(0, price_simulation.shape[0] - 1):
+            price_simulation[i + 1] = price_simulation[i] * return_simulation[i]
 
         return (price_simulation, return_simulation)
+
+    def min_max_scaling(self, data: torch.Tensor) -> torch.Tensor:
+        """Min max scaling of data
+
+        Args:
+            data (torch.Tensor): Data to be scaled
+
+        Returns:
+            torch.Tensor: scaled data
+        """
+
+        self.data_min = torch.min(data)
+        data_ = data - self.data_min
+        self.data_amplitude = torch.max(data_)
+
+        data_ = data_ / self.data_amplitude
+
+        return data_
 
     def train_fourier_flow(
         self, X: torch.Tensor, epochs: int, learning_rate: float
@@ -85,13 +109,19 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
         hidden_dim = T * 2
         n_layer = 10
 
-        model = FourierFlow(hidden_dim=hidden_dim, D=D, T=T, n_layer=n_layer)
+        model = FourierFlow(
+            hidden_dim=hidden_dim, D=D, T=T, n_layer=n_layer, dtype=self.dtype
+        )
 
-        dataset = TensorDataset(X)
+        X_scaled = self.min_max_scaling(X)
+
+        model.set_normilizing(X_scaled)
+
+        dataset = TensorDataset(X_scaled)
         loader = DataLoader(dataset=dataset, batch_size=128)
 
         optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-        scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.999)
+        scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.995)
 
         losses = []
 
@@ -104,11 +134,14 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
                 loss = torch.mean(-log_prob_z - log_jac_det)
 
                 loss.backward()
+
+                # torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
+
                 optimizer.step()
-                scheduler.step()
 
                 epoch_loss += loss.item()
 
+            scheduler.step()
             epoch_loss / len(loader)
 
             losses.append(epoch_loss)
@@ -116,7 +149,7 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
             if epoch % 10 == 0:
                 print(
                     (
-                        f"Epoch: {epoch:>10d}, last loss {loss.item():>10.4f},"
+                        f"Epoch: {epoch:>10d}, last loss {epoch_loss:>10.4f},"
                         f"aveage_loss {np.mean(losses):>10.4f}"
                     )
                 )

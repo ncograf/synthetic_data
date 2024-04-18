@@ -52,7 +52,9 @@ class GenDataLoader:
                 data_ = pd.read_csv(cache_path, index_col="Date")
                 data_.index = pd.to_datetime(data_.index)
                 data_.sort_index(inplace=True)
-                if symbols is None or set(symbols) in set(data_.columns.to_list()):
+                if (symbols is None) or (
+                    set(symbols).issubset(set(data_.columns.to_list()))
+                ):
                     return data_
             except Exception as ex:
                 print(f"Loading cache failed. {str(ex)}")

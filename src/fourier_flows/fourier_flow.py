@@ -8,7 +8,14 @@ from torch.distributions.multivariate_normal import MultivariateNormal
 
 
 class FourierFlow(nn.Module):
-    def __init__(self, hidden_dim: int, D: int, T: int, n_layer: int):
+    def __init__(
+        self,
+        hidden_dim: int,
+        D: int,
+        T: int,
+        n_layer: int,
+        dtype: torch.dtype = torch.float64,
+    ):
         """Fourier Flow network for one dimensional time series
 
         Args:
@@ -16,6 +23,7 @@ class FourierFlow(nn.Module):
             D (int): Sample set size
             T (int): Time series size
             n_layer (int): number of spectral layers to be used
+            dtype (torch.dtype, optional): type of data. Defaults to torch.float64.
         """
 
         nn.Module.__init__(self)
@@ -24,22 +32,32 @@ class FourierFlow(nn.Module):
         self.T = T
         self.hidden_dim = hidden_dim
         self.n_layer = n_layer
+        self.dtype = dtype
 
         self.latent_size = T // 2 + 1
-        mu = torch.zeros(2 * self.latent_size)
-        sigma = torch.eye(2 * self.latent_size)
+        mu = torch.zeros(2 * self.latent_size, dtype=self.dtype)
+        sigma = torch.eye(2 * self.latent_size, dtype=self.dtype)
 
         self.dist_z = MultivariateNormal(mu, sigma)
 
         self.layers = nn.ModuleList(
             [
-                SpectralFilteringLayer(D=self.D, T=self.T, hidden_dim=self.hidden_dim)
+                SpectralFilteringLayer(
+                    D=self.D, T=self.T, hidden_dim=self.hidden_dim, dtype=dtype
+                )
                 for _ in range(self.n_layer)
             ]
         )
         self.flips = [True if i % 2 else False for i in range(self.n_layer)]
 
         self.dft = FourierTransformLayer(T=self.T)
+        self.dft_scale = 1
+        self.dft_shift = 0
+
+    def set_normilizing(self, X: torch.Tensor):
+        x_fft = self.dft(X)
+        self.dft_shift = torch.mean(x_fft)
+        self.dft_scale = torch.std(x_fft)
 
     def forward(
         self, x: torch.Tensor
@@ -54,6 +72,8 @@ class FourierFlow(nn.Module):
         """
 
         x_fft: torch.Tensor = self.dft(x)
+
+        x_fft = (x_fft - self.dft_shift) / self.dft_scale
 
         log_jac_dets = []
         for layer, f in zip(self.layers, self.flips):
@@ -85,6 +105,8 @@ class FourierFlow(nn.Module):
 
         for layer, f in zip(reversed(self.layers), reversed(self.flips)):
             z_complex = layer.inverse(z_complex, flip=f)
+
+        z_complex = z_complex * self.dft_scale + self.dft_shift
 
         x = self.dft.inverse(z_complex)
 

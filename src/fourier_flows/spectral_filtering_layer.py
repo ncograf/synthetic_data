@@ -5,7 +5,9 @@ import torch.nn as nn
 
 
 class SpectralFilteringLayer(nn.Module):
-    def __init__(self, D: int, T: int, hidden_dim: int):
+    def __init__(
+        self, D: int, T: int, hidden_dim: int, dtype: torch.dtype = torch.float64
+    ):
         """Spectral filtering layer for seqences
 
         see https://arxiv.org/abs/1605.08803 for implementation details
@@ -18,27 +20,31 @@ class SpectralFilteringLayer(nn.Module):
 
         nn.Module.__init__(self)
 
+        self.count = 0
+
         self.D = D
         self.split_size = T // 2 + 1
+        self.dtype = dtype
 
         self.H_net = nn.Sequential(
-            nn.Linear(self.split_size, hidden_dim),
-            nn.BatchNorm1d(hidden_dim),
+            nn.Linear(self.split_size, hidden_dim, dtype=self.dtype),
+            nn.LayerNorm(hidden_dim, dtype=self.dtype),
             nn.Sigmoid(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.BatchNorm1d(hidden_dim),
+            nn.Linear(hidden_dim, hidden_dim, dtype=self.dtype),
+            nn.LayerNorm(hidden_dim, dtype=self.dtype),
             nn.Sigmoid(),
-            nn.Linear(hidden_dim, self.split_size),
+            nn.Linear(hidden_dim, self.split_size, dtype=self.dtype),
+            nn.Tanh(),
         )
 
         self.M_net = nn.Sequential(
-            nn.Linear(self.split_size, hidden_dim),
-            nn.BatchNorm1d(hidden_dim),
+            nn.Linear(self.split_size, hidden_dim, dtype=self.dtype),
+            nn.LayerNorm(hidden_dim, dtype=self.dtype),
             nn.Sigmoid(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.BatchNorm1d(hidden_dim),
+            nn.Linear(hidden_dim, hidden_dim, dtype=self.dtype),
+            nn.LayerNorm(hidden_dim, dtype=self.dtype),
             nn.Sigmoid(),
-            nn.Linear(hidden_dim, self.split_size),
+            nn.Linear(hidden_dim, self.split_size, dtype=self.dtype),
         )
 
     def forward(self, x: torch.Tensor, flip: bool) -> Tuple[torch.Tensor, torch.Tensor]:

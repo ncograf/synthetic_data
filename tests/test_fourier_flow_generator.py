@@ -25,7 +25,7 @@ class TestFourierFlowGenerator:
 
         # fit close dates
         data_ = data_dict["SPY"].loc[:, "Close"]
-        data_ = data_.iloc[:400]
+        data_ = data_.iloc[:200]
         model = fourier_flow_generator.FourierFlowGenerator()
         model.fit_model(data_)
 
@@ -35,6 +35,7 @@ class TestFourierFlowGenerator:
             assert False, "No error should be raised as the model is set"
 
         gen_price, gen_ret = model.generate_data(600, 200)
+
         assert gen_price.shape[0] == 600
         assert gen_ret.shape[0] == 600
 
