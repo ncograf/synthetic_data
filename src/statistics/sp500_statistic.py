@@ -1,6 +1,7 @@
 from typing import Dict
 
 import base_statistic
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
@@ -126,3 +127,36 @@ class SP500Statistic(base_statistic.BaseStatistic):
         for k in properties.keys():
             if isinstance(properties[k], dict):
                 print(f"{k}{properties[k]}")
+
+    def draw_histogram(
+        self,
+        axes: plt.Axes,
+        style: Dict[str, any] = {
+            "color": "green",
+            "density": True,
+        },
+        y_label: str = "Density",
+        y_log_scale: bool = False,
+        **kwargs,
+    ):
+        """Plot histogram of distribution and cleans old histogram
+
+        Args:
+            axes (plt.Axes): axes to plot onto
+            style (Dict[str, any]): styles for plotting
+            y_label (bool, optional): Label used for plot. Defaults to 'Density'.
+            y_loc_scale (bool, optional): Whether to scale y axis by lograrithmus. Default to False.
+
+        Raises:
+            NotImplementedError: The function currently only works for Series
+        """
+
+        axes.clear()  # mak sure everything is redrawn
+
+        _data = self.statistic
+        _data = _data[~np.isnan(_data)]
+
+        n_bins = np.minimum(_data.shape[0], 150)
+        axes.hist(x=_data, bins=n_bins, **style, log=y_log_scale)
+        axes.set_xlabel(self._name)
+        axes.set_ylabel(y_label)
