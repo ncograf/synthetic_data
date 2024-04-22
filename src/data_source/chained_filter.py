@@ -2,19 +2,36 @@ from typing import List
 
 import base_filter
 import pandas as pd
+import time_filter as tf
 
 
 class ChainedFilter:
-    def __init__(self, filter_chain: List[base_filter.BaseFilter]):
+    def __init__(
+        self,
+        filter_chain: List[base_filter.BaseFilter],
+        time_filter: tf.TimeFilter | None = None,
+    ):
+        """Filter to chain multiple filter together
+
+        Args:
+            filter_chain (List[base_filter.BaseFilter]): List of filters to be chained
+            time_filter (tf.TimeFilter | None, optional): Time filter to be applied before fitting already. Defaults to None.
+        """
         self._drop_cols = []
         self.filter_name = "Chained"
         self.filter_chain = filter_chain
+        self.time_filter = time_filter
 
     def fit_filter(self, data: pd.DataFrame | pd.Series):
         """Fit all filters in the filter chain"""
 
+        if self.time_filter is not None:
+            # Filter out time first on copied data
+            time_filtered_data = data.copy()
+            self.time_filter.apply_filter(time_filtered_data)
+
         for filter in self.filter_chain:
-            filter.fit_filter(data=data)
+            filter.fit_filter(data=time_filtered_data)
 
     def apply_filter(self, data: pd.DataFrame | pd.Series):
         """Applies all filters in the filter chain
@@ -24,6 +41,10 @@ class ChainedFilter:
         Args:
             data (base_statistic.BaseStatistic): statistic to be changed
         """
+
+        if self.time_filter is not None:
+            # First filter time
+            self.time_filter.apply_filter(data)
 
         for filter in self.filter_chain:
             filter.apply_filter(data)
@@ -36,6 +57,7 @@ class ChainedFilter:
 
     def print_state(self, verbose: int = 1):
         """Prints informations about the columns to be dropped with the filter chain
+
 
         Args:
             verbosity (int, optional): Determines what information to be displayed
