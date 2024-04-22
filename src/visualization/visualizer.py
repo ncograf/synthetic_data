@@ -3,6 +3,7 @@ from typing import Literal
 import abs_log_return_statistic
 import auto_corr_statistic
 import coarse_fine_volatility
+import dim_reducer
 import gain_loss_asymetry
 import garch_generator
 import gen_data_loader
@@ -91,6 +92,53 @@ def visualize_stylized_facts(loader: Literal["real", "g_1_1_norm", "g_3_3_studen
 
     plotter = visualize_all(stock_data=stock_data, name=loader)
     plotter.save()
+
+
+def visualize_dim_reduction(
+    data_one: pd.DataFrame,
+    data_two: pd.DataFrame,
+):
+    plot = plotter.Plotter(
+        cache="data/cache",
+        figure_style={
+            "figure.figsize": (16, 10),
+            "figure.titlesize": 24,
+            "axes.titlesize": 20,
+            "axes.labelsize": 18,
+            "font.size": 18,
+            "xtick.labelsize": 16,
+            "ytick.labelsize": 16,
+            "figure.dpi": 96,
+            "figure.constrained_layout.use": True,
+            "figure.constrained_layout.h_pad": 0.1,
+            "figure.constrained_layout.hspace": 0,
+            "figure.constrained_layout.w_pad": 0.1,
+            "figure.constrained_layout.wspace": 0,
+        },
+        figure_title="TSNE Projections",
+        subplot_layout={
+            "ncols": 1,
+            "nrows": 1,
+            "sharex": "all",
+            "sharey": "all",
+        },
+    )
+
+    reducer = dim_reducer.DimReducer("TSNE")
+    ax = plot.axes
+
+    style_one = {
+        "color": "blue",
+    }
+
+    style_two = {
+        "color": "red",
+    }
+
+    reducer.draw_reduction(ax, data_one, **style_one)
+    reducer.draw_reduction(ax, data_two, **style_two)
+
+    return plot
 
 
 def visualize_pair(
