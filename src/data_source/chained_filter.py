@@ -25,9 +25,9 @@ class ChainedFilter:
     def fit_filter(self, data: pd.DataFrame | pd.Series):
         """Fit all filters in the filter chain"""
 
+        time_filtered_data = data.copy()
         if self.time_filter is not None:
             # Filter out time first on copied data
-            time_filtered_data = data.copy()
             self.time_filter.apply_filter(time_filtered_data)
 
         for filter in self.filter_chain:
