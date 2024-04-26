@@ -45,7 +45,7 @@ class GarchGenerator(base_generator.BaseGenerator):
         self._model = ConstantMean(percent_returns[return_mask])
         self._model.volatility = GARCH(p=self._p, q=self._q)
         self._model.distribution = self._distribution
-        self._fitted = self._model.fit()
+        self._fitted = self._model.fit(disp='off') # don't print anything
 
     def model(self) -> ConstantMean:
         return self._model

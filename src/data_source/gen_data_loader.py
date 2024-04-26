@@ -27,6 +27,7 @@ class GenDataLoader:
         col_name: str = "Adj Close",
         symbols: List[str] | None = None,
         update_all: bool = False,
+        n_cpu : int = 1,
     ) -> pd.DataFrame:
         """Get data, from yahoo or locally depending on whether it is already cached
 
@@ -36,6 +37,7 @@ class GenDataLoader:
             col_name (str): column to be fetched
             symbols (List[str] | None, optional): Symbols to be generated if None all symbols in the data_loader are generated. Defaults to None
             update_all (bool, optional): If true all data gets fetched from yahoo. Defaults to False.
+            n_cpu (bool, optional): Number of cpu's to be used to generate the data if needed. Defaults to 1.
 
         Returns:
             pd.DataFrame : Dataframe containing one column per stock and completed with NAN
@@ -68,6 +70,6 @@ class GenDataLoader:
             )
 
         index_gen = index_generator.IndexGenerator(generator=generator)
-        data = index_gen.generate_index(price_data, symbols=symbols)
+        data = index_gen.generate_index(price_data, symbols=symbols, n_cpu=n_cpu)
         data.to_csv(cache_path, index=True)
         return data
