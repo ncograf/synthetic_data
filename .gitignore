@@ -9,3 +9,6 @@ eigen*
 .python-version
 .vscode
 
+# output files
+*.out
+
