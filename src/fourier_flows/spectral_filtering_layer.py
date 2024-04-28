@@ -2,12 +2,11 @@ from typing import Tuple
 
 import torch
 import torch.nn as nn
+from type_converter import TypeConverter
 
 
 class SpectralFilteringLayer(nn.Module):
-    def __init__(
-        self, D: int, T: int, hidden_dim: int, dtype: torch.dtype = torch.float64
-    ):
+    def __init__(self, T: int, hidden_dim: int, dtype: str = "float64"):
         """Spectral filtering layer for seqences
 
         see https://arxiv.org/abs/1605.08803 for implementation details
@@ -18,13 +17,18 @@ class SpectralFilteringLayer(nn.Module):
             hidden_dim (int): size of the hidden layers in neural network
         """
 
+        if not isinstance(dtype, str):
+            self.dtype_str = TypeConverter.type_to_str(dtype)
+            self.dtype = TypeConverter.str_to_torch(self.dtype_str)
+        else:
+            self.dtype_str = TypeConverter.extract_dtype(dtype)
+            self.dtype = TypeConverter.str_to_torch(self.dtype_str)
+
         nn.Module.__init__(self)
 
         self.count = 0
 
-        self.D = D
         self.split_size = T // 2 + 1
-        self.dtype = dtype
 
         self.H_net = nn.Sequential(
             nn.Linear(self.split_size, hidden_dim, dtype=self.dtype),

@@ -1,26 +1,25 @@
-from typing import Tuple
+from typing import Any, Dict, Tuple
 
 import torch
 import torch.nn as nn
 from fourier_transform_layer import FourierTransformLayer
 from spectral_filtering_layer import SpectralFilteringLayer
 from torch.distributions.multivariate_normal import MultivariateNormal
+from type_converter import TypeConverter
 
 
 class FourierFlow(nn.Module):
     def __init__(
         self,
         hidden_dim: int,
-        D: int,
         T: int,
         n_layer: int,
-        dtype: torch.dtype = torch.float64,
+        dtype: str = "float64",
     ):
         """Fourier Flow network for one dimensional time series
 
         Args:
             hidden_dim (int): dimension of the hidden layers
-            D (int): Sample set size
             T (int): Time series size
             n_layer (int): number of spectral layers to be used
             dtype (torch.dtype, optional): type of data. Defaults to torch.float64.
@@ -28,11 +27,16 @@ class FourierFlow(nn.Module):
 
         nn.Module.__init__(self)
 
-        self.D = D
+        if not isinstance(dtype, str):
+            self.dtype_str = TypeConverter.type_to_str(dtype)
+            self.dtype = TypeConverter.str_to_torch(self.dtype_str)
+        else:
+            self.dtype_str = TypeConverter.extract_dtype(dtype)
+            self.dtype = TypeConverter.str_to_torch(self.dtype_str)
+
         self.T = T
         self.hidden_dim = hidden_dim
         self.n_layer = n_layer
-        self.dtype = dtype
 
         self.latent_size = T // 2 + 1
         mu = torch.zeros(2 * self.latent_size, dtype=self.dtype)
@@ -43,7 +47,7 @@ class FourierFlow(nn.Module):
         self.layers = nn.ModuleList(
             [
                 SpectralFilteringLayer(
-                    D=self.D, T=self.T, hidden_dim=self.hidden_dim, dtype=dtype
+                    T=self.T, hidden_dim=self.hidden_dim, dtype=dtype
                 )
                 for _ in range(self.n_layer)
             ]
@@ -53,6 +57,22 @@ class FourierFlow(nn.Module):
         self.dft = FourierTransformLayer(T=self.T)
         self.dft_scale = 1
         self.dft_shift = 0
+
+    def get_model_info(self) -> Dict[str, Any]:
+        """Model initialization parameters
+
+        Returns:
+            Dict[str, Any]: dictonary for model initialization
+        """
+
+        dict_ = {
+            "hidden_dim": self.hidden_dim,
+            "n_layer": self.n_layer,
+            "T": self.T,
+            "dtype": self.dtype_str,
+        }
+
+        return dict_
 
     def set_normilizing(self, X: torch.Tensor):
         x_fft = self.dft(X)
