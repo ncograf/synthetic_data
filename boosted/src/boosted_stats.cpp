@@ -58,7 +58,7 @@ np::ndarray leverage_effect(np::ndarray arr, int max_lag, bool verbose) {
 
   mat = (mat.isNaN()).select(0, mat);
   data = mat.data();
-
+  
   // squared array
   Eigen::Array<Scalar, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>
       squared = mat * mat;
@@ -78,15 +78,16 @@ np::ndarray leverage_effect(np::ndarray arr, int max_lag, bool verbose) {
   t1 = std::chrono::high_resolution_clock::now();
   for (int lag = 1; lag <= max_lag; lag++) {
 
-    // r_t * r_{t-lag}
+    // r_t**2 * r_{t-lag}
+    // Data is supposed to be ordered ascending,
+    // such that bottom are t + \tau
     Eigen::Array<Scalar, Eigen::Dynamic, Eigen::Dynamic> enumerator =
         (mat.topRows(n_row - lag) * squared.bottomRows(n_row - lag))
             .colwise()
             .sum() /
         (count - ones * lag);
     Eigen::Array<Scalar, Eigen::Dynamic, Eigen::Dynamic> denominator =
-        (squared.bottomRows(n_row - lag).colwise().sum() /
-         (count - ones * lag));
+        (squared.colwise().sum() / count);
     out.row(lag - 1) = enumerator / (denominator * denominator);
     // std::cout << "Enum \n" << enumerator << std::endl;
     // std::cout << "Top Squared \n" << squared.topRows(n_row - lag) <<
@@ -109,7 +110,8 @@ np::ndarray leverage_effect(np::ndarray arr, int max_lag, bool verbose) {
             reinterpret_cast<Scalar *>(out_arr.get_data()));
   t2 = std::chrono::high_resolution_clock::now();
   d1 = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-  std::cout << "Post Time :" << d1.count() << "ms\n";
+  if (verbose)
+    std::cout << "Post Time :" << d1.count() << "ms\n";
 
   return out_arr;
 }
@@ -188,7 +190,7 @@ p::tuple gain_loss_asym(np::ndarray arr, int max_lag, Scalar theta,
  */
 template <typename Scalar>
 np::ndarray lag_prod_mean_two(np::ndarray arr_pos_lag, np::ndarray arr,
-                              int max_lag) {
+                              int max_lag, bool verbose) {
 
   int scalar_size = sizeof(Scalar);
 
@@ -228,7 +230,8 @@ np::ndarray lag_prod_mean_two(np::ndarray arr_pos_lag, np::ndarray arr,
 
   auto t2 = std::chrono::high_resolution_clock::now();
   auto d1 = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-  std::cout << "Map Time :" << d1.count() << "ms\n";
+  if (verbose)
+      std::cout << "Map Time :" << d1.count() << "ms\n";
 
   // Count non nan entries
   t1 = std::chrono::high_resolution_clock::now();
@@ -256,7 +259,8 @@ np::ndarray lag_prod_mean_two(np::ndarray arr_pos_lag, np::ndarray arr,
 
   t2 = std::chrono::high_resolution_clock::now();
   d1 = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-  std::cout << "Prep Time :" << d1.count() << "ms\n";
+  if (verbose)
+      std::cout << "Prep Time :" << d1.count() << "ms\n";
 
   Eigen::Array<Scalar, 1, Eigen::Dynamic> curr_count = count;
 
@@ -275,7 +279,8 @@ np::ndarray lag_prod_mean_two(np::ndarray arr_pos_lag, np::ndarray arr,
   }
   t2 = std::chrono::high_resolution_clock::now();
   d1 = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-  std::cout << "Loop Time :" << d1.count() << "ms\n";
+  if (verbose)
+      std::cout << "Loop Time :" << d1.count() << "ms\n";
 
   np::dtype dtype = arr.get_dtype();
   p::tuple shape = p::make_tuple(out.rows(), out.cols());
@@ -288,13 +293,14 @@ np::ndarray lag_prod_mean_two(np::ndarray arr_pos_lag, np::ndarray arr,
             reinterpret_cast<Scalar *>(out_arr.get_data()));
   t2 = std::chrono::high_resolution_clock::now();
   d1 = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-  std::cout << "Post Time :" << d1.count() << "ms\n";
+  if (verbose)
+      std::cout << "Post Time :" << d1.count() << "ms\n";
 
   return out_arr;
 }
 
 template <typename Scalar>
-np::ndarray lag_prod_mean(np::ndarray arr, int max_lag) {
+np::ndarray lag_prod_mean(np::ndarray arr, int max_lag, bool verbose) {
 
   int n_col = arr.shape(1);
   int n_row = arr.shape(0);
@@ -315,7 +321,8 @@ np::ndarray lag_prod_mean(np::ndarray arr, int max_lag) {
                                                         row_stride));
   auto t2 = std::chrono::high_resolution_clock::now();
   auto d1 = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-  std::cout << "Map Time :" << d1.count() << "ms\n";
+  if (verbose)
+      std::cout << "Map Time :" << d1.count() << "ms\n";
 
   // Count non nan entries
   t1 = std::chrono::high_resolution_clock::now();
@@ -338,7 +345,8 @@ np::ndarray lag_prod_mean(np::ndarray arr, int max_lag) {
 
   t2 = std::chrono::high_resolution_clock::now();
   d1 = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-  std::cout << "Prep Time :" << d1.count() << "ms\n";
+  if (verbose)
+      std::cout << "Prep Time :" << d1.count() << "ms\n";
 
   t1 = std::chrono::high_resolution_clock::now();
   for (int lag = 1; lag <= max_lag; lag++) {
@@ -351,7 +359,8 @@ np::ndarray lag_prod_mean(np::ndarray arr, int max_lag) {
   }
   t2 = std::chrono::high_resolution_clock::now();
   d1 = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-  std::cout << "Loop Time :" << d1.count() << "ms\n";
+  if (verbose)
+      std::cout << "Loop Time :" << d1.count() << "ms\n";
 
   np::dtype dtype = arr.get_dtype();
   p::tuple shape = p::make_tuple(out.rows(), out.cols());
@@ -364,7 +373,8 @@ np::ndarray lag_prod_mean(np::ndarray arr, int max_lag) {
             reinterpret_cast<Scalar *>(out_arr.get_data()));
   t2 = std::chrono::high_resolution_clock::now();
   d1 = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-  std::cout << "Post Time :" << d1.count() << "ms\n";
+  if (verbose)
+      std::cout << "Post Time :" << d1.count() << "ms\n";
 
   return out_arr;
 }
