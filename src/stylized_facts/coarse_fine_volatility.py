@@ -71,17 +71,17 @@ class CoarseFineVolatility(stylized_fact.StylizedFact):
         # compute the (r_{t+k} - mu) part of the correlation and the (r_t - mu) part separately
         if base.dtype.name == "float32":
             stat_pos = boosted_stats.lag_prod_mean_float(
-                v_c_tau, v_f_tau, self._max_lag
+                v_c_tau, v_f_tau, self._max_lag, False
             )
             stat_neg = boosted_stats.lag_prod_mean_float(
-                v_f_tau, v_c_tau, self._max_lag
+                v_f_tau, v_c_tau, self._max_lag, False
             )
         elif base.dtype.name == "float64":
             stat_pos = boosted_stats.lag_prod_mean_double(
-                v_c_tau, v_f_tau, self._max_lag
+                v_c_tau, v_f_tau, self._max_lag, False
             )
             stat_neg = boosted_stats.lag_prod_mean_double(
-                v_f_tau, v_c_tau, self._max_lag
+                v_f_tau, v_c_tau, self._max_lag, False
             )
 
         stat_neg = stat_neg / (v_c_std * v_f_std)

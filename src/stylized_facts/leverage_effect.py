@@ -47,7 +47,7 @@ class LeverageEffect(stylized_fact.StylizedFact):
         if base.dtype.name == "float32":
             stat = boosted_stats.leverage_effect_float(data, self._max_lag, False)
         elif base.dtype.name == "float64":
-            stat = boosted_stats.leverage_effect_double(data, self._max_lag, True)
+            stat = boosted_stats.leverage_effect_double(data, self._max_lag, False)
 
         self._statistic = stat
         # TODO compute outlier if needed
