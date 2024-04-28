@@ -3,6 +3,7 @@ data
 __pycache__
 build
 eigen*
+wandb
 
 .environment
 .env

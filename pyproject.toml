@@ -6,14 +6,15 @@ authors = ["Nico Graf <ncograf@gmail.com>"]
 readme = "README.md"
 packages = [
     {include = "*", from = "src"},
-    {include = "*", from = "src/statistics"},
-    {include = "*", from = "src/outlier"},
-    {include = "*", from = "src/garch"},
-    {include = "*", from = "src/stylized_facts"},
-    {include = "*", from = "src/visualization"},
     {include = "*", from = "src/data_source"},
     {include = "*", from = "src/fourier_flows"},
+    {include = "*", from = "src/garch"},
+    {include = "*", from = "src/outlier"},
+    {include = "*", from = "src/statistics"},
+    {include = "*", from = "src/stylized_facts"},
     {include = "*", from = "src/time_gan"},
+    {include = "*", from = "src/utils"},
+    {include = "*", from = "src/visualization"},
     {include = "*.so", from = "boosted/boost_modules", format = "wheel"},
 ]
 
@@ -44,6 +45,8 @@ ruff = "^0.3.7"
 copulas = "^0.11.0"
 torch = "^2.3.0"
 tqdm = "^4.66.2"
+wandb = "^0.16.6"
+py-cpuinfo = "^9.0.0"
 
 
 [tool.ruff]
