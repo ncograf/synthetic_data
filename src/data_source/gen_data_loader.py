@@ -27,7 +27,7 @@ class GenDataLoader:
         col_name: str = "Adj Close",
         symbols: List[str] | None = None,
         update_all: bool = False,
-        n_cpu : int = 1,
+        n_cpu: int = 1,
     ) -> pd.DataFrame:
         """Get data, from yahoo or locally depending on whether it is already cached
 

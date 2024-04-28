@@ -1,20 +1,21 @@
+import copy
+import multiprocessing as mp
+import time
 from typing import List, Tuple
 
-import time
 import base_generator
-import copy
 import numpy as np
 import pandas as pd
-import multiprocessing as mp
 
 
 class IndexGenerator:
     def __init__(self, generator: base_generator.BaseGenerator):
         self._generator = generator
         self._problematic_cols = []
-        
-    def fit_and_gen(self, col_gen_dat : Tuple[str, base_generator.BaseGenerator, pd.Series]):
 
+    def fit_and_gen(
+        self, col_gen_dat: Tuple[str, base_generator.BaseGenerator, pd.Series]
+    ):
         col, generator, train_data = col_gen_dat
         mask = ~np.isnan(train_data)
         generator.fit_model(train_data[mask])
@@ -28,7 +29,10 @@ class IndexGenerator:
         return col, generator, mask, temp_series
 
     def generate_index(
-        self, data: pd.DataFrame, symbols: List[str] | None = None, n_cpu : int = 1,
+        self,
+        data: pd.DataFrame,
+        symbols: List[str] | None = None,
+        n_cpu: int = 1,
     ) -> pd.DataFrame:
         """Generates synthetic data for the whole index
 
@@ -49,24 +53,24 @@ class IndexGenerator:
         if symbols is None:
             symbols = data.columns
 
-        generated_data = data.copy(deep=True) # copy to keep the nans
+        generated_data = data.copy(deep=True)  # copy to keep the nans
         self._problematic_cols = []
-        
-        n_cpu = max(1,min(mp.cpu_count() - 2, n_cpu))
+
+        n_cpu = max(1, min(mp.cpu_count() - 2, n_cpu))
         pool = mp.Pool(n_cpu)
-        
+
         # create the dictonary and split up
-        in_ = [(col, copy.deepcopy(self._generator), data.loc[:,col]) for col in symbols]
-        
+        in_ = [
+            (col, copy.deepcopy(self._generator), data.loc[:, col]) for col in symbols
+        ]
 
         before_map = time.time()
-        print('Before Map')
+        print("Before Map")
         out = pool.map(self.fit_and_gen, in_)
         t = time.time() - before_map
-        print(f'Map took {t:.3f} seconds')
+        print(f"Map took {t:.3f} seconds")
 
         for col, gen, mask, tmp in out:
-            
             generated_data.loc[mask, col] = tmp
 
             if np.isinf(tmp).any():
