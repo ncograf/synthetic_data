@@ -28,13 +28,20 @@ class TestHistoricEventSet:
 
         assert all == {e1, e2, e3}
 
-    def test_open_event_links(self):
-        he_set = HistoricEventSet()
+    def _test_open_event_links(self):
+        """To run this test, run the file instead of pytest"""
+        he_set = HistoricEventSet("tests/testdata/cache/historic_events.json")
         now = pd.Timestamp.now()
+
+        # Test will open a browser, uncomment line below to test this
         he_set.open_event_links(now, "A")
 
-    def test_edit_event(self):
-        histset = HistoricEventSet()
+    def _test_edit_event(self):
+        """
+        To test this function run the file
+        Automatic testing is cumbersome and would need additional tools interacting with the code
+        """
+        histset = HistoricEventSet("tests/testdata/cache/historic_events.json")
         histset.cmd_edit_event(date=pd.Timestamp.now(), symbol="Test")
         for k, elem in histset._events.items():
             for ev in elem:
@@ -53,9 +60,6 @@ class TestHistoricEventSet:
         path = "tests/testdata/cache/test_hist_event_cache.json"
         _set = HistoricEventSet(path)
         print(_set.get_stock_name("MMM"))
-
-
-TestHistoricEventSet().test_get_snp500()
 
 
 class TestHistoricEvent:
@@ -118,3 +122,8 @@ class TestHistoricEvent:
         assert outlier_middle > outlier_small
         assert outlier_large >= outlier_middle
         assert outlier_middle >= outlier_small
+
+
+if __name__ == "__main__":
+    TestHistoricEventSet()._test_edit_event()
+    TestHistoricEventSet()._test_edit_event()

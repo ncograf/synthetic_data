@@ -27,12 +27,10 @@ class TestLeverageEffect:
         denom = np.zeros((4, 4))
         _returns = np.stack([np.log(_returns)] * 4, axis=1)
         _returns[:4, 1] = np.nan
-        count = np.sum(~np.isnan(_returns), axis=0)
+        _returns = _returns - np.nanmean(_returns, axis=0)
         for lag in range(1, 5):
             enumer[lag - 1] = np.nanmean(_returns[:-lag] * _returns[lag:] ** 2, axis=0)
-            denom[lag - 1] = (
-                np.nansum(_returns[lag:] ** 2, axis=0) / (count - lag)
-            ) ** 2
+            denom[lag - 1] = (np.nanmean(_returns**2, axis=0)) ** 2
 
         test = enumer / denom
 

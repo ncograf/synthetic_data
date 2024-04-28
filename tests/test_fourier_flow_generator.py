@@ -1,3 +1,5 @@
+import os
+
 import fourier_flow_generator
 import real_data_loader as data
 
@@ -6,6 +8,7 @@ class TestFourierFlowGenerator:
     """Test Function to get local data"""
 
     def test_fit_model(self):
+        os.environ["WANDB_MODE"] = "disabled"
         data_loader = data.RealDataLoader()
         data_dict, error_dict = data_loader._get_local_data(
             ["SPY"],
@@ -25,19 +28,29 @@ class TestFourierFlowGenerator:
 
         # fit close dates
         data_ = data_dict["SPY"].loc[:, "Close"]
-        data_ = data_.iloc[:200]
+        data_ = data_.iloc[:100]
         model = fourier_flow_generator.FourierFlowGenerator()
-        model.fit_model(data_)
+        config = {
+            "hidden_dim": 20,
+            "num_layer": 2,
+            "batch_size": 128,
+            "epochs": 10,
+            "learning_rate": 0.001,
+            "gamma": 0.999,
+            "seq_len": 11,
+            "lag": 1,
+        }
+        model.fit_model(price_data=data_, **config)
 
         try:
             model.check_model()
         except:  # noqa E722
             assert False, "No error should be raised as the model is set"
 
-        gen_price, gen_ret = model.generate_data(600, 200)
+        gen_price, gen_ret = model.generate_data(20, 10)
 
-        assert gen_price.shape[0] == 600
-        assert gen_ret.shape[0] == 600
+        assert gen_price.shape[0] == 20
+        assert gen_ret.shape[0] == 20
 
 
 if __name__ == "__main__":

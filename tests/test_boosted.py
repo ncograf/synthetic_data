@@ -5,6 +5,24 @@ import numpy as np
 
 
 class TestBoosted:
+    def test_levearge_effect_simple_simple(self):
+        rows = 5
+        cols = 2
+        max_k = 2
+        r_t = np.random.random((rows, cols))
+        r_t_2 = r_t**2
+
+        test = np.zeros((max_k, cols))
+        test[:] = np.nan
+        for k in range(1, max_k + 1):
+            test[k - 1, :] = np.nanmean(r_t[:-k] * r_t_2[k:], axis=0) / (
+                np.nanmean(r_t_2, axis=0) ** 2
+            )
+
+        boosted = boosted_stats.leverage_effect_double(r_t, max_k, False)
+
+        assert np.array_equal(test.round(8), boosted.round(8), equal_nan=True)
+
     def test_levearge_effect(self):
         rows = 2000
         cols = 500
@@ -19,11 +37,11 @@ class TestBoosted:
         test = np.zeros((max_k, cols))
         test[:] = np.nan
         for k in range(1, max_k + 1):
-            test[k - 1, :] = np.nanmean(
-                r_t[:-k] * r_t_2[k:] - r_t[:-k] * r_t_2[:-k], axis=0
-            ) / (np.nanmean(r_t[:-k] ** 2, axis=0) ** 2)
+            test[k - 1, :] = np.nanmean(r_t[:-k] * r_t_2[k:], axis=0) / (
+                np.nanmean(r_t_2, axis=0) ** 2
+            )
 
-        boosted = boosted_stats.leverage_effect_double(r_t, max_k, True)
+        boosted = boosted_stats.leverage_effect_double(r_t, max_k, False)
 
         assert np.array_equal(test.round(8), boosted.round(8), equal_nan=True)
 
@@ -49,14 +67,14 @@ class TestBoosted:
         for k in range(1, max_k + 1):
             test[k - 1, :] = np.nanmean(q_t[k:] * r_t[:-k], axis=0)
 
-        boosted = boosted_stats.lag_prod_mean_double(q_t, r_t, max_k)
+        boosted = boosted_stats.lag_prod_mean_double(q_t, r_t, max_k, False)
 
         assert np.array_equal(test.round(5), boosted.round(5), equal_nan=True)
 
         for k in range(1, max_k + 1):
             test[k - 1, :] = np.nanmean(r_t[k:] * r_t[:-k], axis=0)
 
-        boosted = boosted_stats.lag_prod_mean_double(r_t, max_k)
+        boosted = boosted_stats.lag_prod_mean_double(r_t, max_k, False)
 
         assert np.array_equal(test.round(8), boosted.round(8), equal_nan=True)
 
@@ -94,7 +112,7 @@ class TestBoosted:
 
         print("Time for python loops", time.time() - t1, "s")
 
-        boosted = boosted_stats.gain_loss_asym_double(q_t, max_lag, theta, True)
+        boosted = boosted_stats.gain_loss_asym_double(q_t, max_lag, theta, False)
 
         boosted_gain = boosted[0] / boosted[0].sum(axis=0)
         boosted_loss = boosted[1] / boosted[1].sum(axis=0)

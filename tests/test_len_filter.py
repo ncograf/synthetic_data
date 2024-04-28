@@ -10,10 +10,11 @@ class TestLenFilter:
         np_test[:31, 1] = np.nan
         np_test[:30, 0] = np.nan
         pd_test = pd.DataFrame(np_test)
-        out_data = filter.filter_data(pd_test)
-
         test = pd_test.copy().to_numpy()
-        assert np.array_equal(out_data.to_numpy(), test[:, [0, 2, 3]], equal_nan=True)
+        filter.fit_filter(pd_test)
+        filter.apply_filter(pd_test)
+
+        assert np.array_equal(pd_test.to_numpy(), test[:, [0, 2, 3]], equal_nan=True)
 
 
 if __name__ == "__main__":
