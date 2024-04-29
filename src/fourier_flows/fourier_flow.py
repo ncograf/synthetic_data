@@ -15,6 +15,8 @@ class FourierFlow(nn.Module):
         T: int,
         n_layer: int,
         dtype: str = "float64",
+        dft_scale: float = 1,
+        dft_shift: float = 0,
     ):
         """Fourier Flow network for one dimensional time series
 
@@ -23,6 +25,8 @@ class FourierFlow(nn.Module):
             T (int): Time series size
             n_layer (int): number of spectral layers to be used
             dtype (torch.dtype, optional): type of data. Defaults to torch.float64.
+            dft_scale (float, optional): Amount to scale dft signal. Defaults to 1.
+            dft_shift (float, optional): Amount to shift dft signal. Defaults to 0.
         """
 
         nn.Module.__init__(self)
@@ -55,8 +59,27 @@ class FourierFlow(nn.Module):
         self.flips = [True if i % 2 else False for i in range(self.n_layer)]
 
         self.dft = FourierTransformLayer(T=self.T)
-        self.dft_scale = 1
-        self.dft_shift = 0
+        self.dft_scale = dft_scale
+        self.dft_shift = dft_shift
+
+        self.apply(self._init_weights)
+
+    def _init_weights(self, module: nn.Module):
+        """Initialize weights for module
+
+        This only initalizes linear layers in the network
+
+        Args:
+            module (nn.Module): Module to apply it to.
+        """
+
+        if isinstance(module, nn.Linear):
+            with torch.no_grad():
+                nn.init.xavier_normal_(
+                    module.weight, gain=nn.init.calculate_gain("relu")
+                )
+                if module.bias is not None:
+                    nn.init.constant_(module.bias, 0)
 
     def get_model_info(self) -> Dict[str, Any]:
         """Model initialization parameters
@@ -70,6 +93,8 @@ class FourierFlow(nn.Module):
             "n_layer": self.n_layer,
             "T": self.T,
             "dtype": self.dtype_str,
+            "dft_shift": self.dft_shift,
+            "dft_scale": self.dft_scale,
         }
 
         return dict_

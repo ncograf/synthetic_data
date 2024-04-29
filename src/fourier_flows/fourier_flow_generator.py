@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Tuple
+from typing import List, Tuple
 
 import base_generator
 import cpuinfo
@@ -7,16 +7,18 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 import torch
-import wandb
 from fourier_flow import FourierFlow
 from torch.utils.data import DataLoader, TensorDataset
 from type_converter import TypeConverter
+
+import wandb
 from wandb.sdk import wandb_run as wr
 
 
 class FourierFlowGenerator(base_generator.BaseGenerator):
     def __init__(
         self,
+        symbol: str = "NoName",
         name: str = "FourierFlow",
         dtype: str = "float64",
         cache: str | Path = "data/cache",
@@ -25,6 +27,7 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
         """Initialize Fourier Flow Generator
 
         Args:
+            symbol (str, optional) : Name of the symbol to be created. Defaults to 'NoName'.
             name (str, optional): Generator name. Defaults to "FourierFlow".
             dtype (str, optional): dtype of model. Defaults to 'float64'.
             cache (str | Path, optional): cache location to store model and artifacts. Defaults to 'data/cache'.
@@ -61,6 +64,16 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
             print(f"GPU: {self.cuda_name}")
             print(f"Allocated CPU Memory: {self.cuda_mem}")
 
+        self._symbol = symbol
+
+    @property
+    def symbol(self) -> str:
+        return self._symbol
+
+    @symbol.setter
+    def symbol(self, value: str):
+        self._symbol = value
+
     def fit_model(
         self,
         price_data: pd.DataFrame,
@@ -72,6 +85,8 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
         num_layer: int = 10,
         lag: int = 1,
         seq_len: int = 101,
+        notes: str = "",
+        tags: List[str] = [],
     ):
         """Fit a Fourier Flow Neural Network. I.e. Train the network on the given data.
 
@@ -85,6 +100,8 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
             num_layer (int, optional): Number of layers in the Network. Defaults to 10.
             lag (int, optional): lag between the indivisual seqences when splitting the price. Defaults to 1.
             seq_len (int, optional): seqence lenght. Defaults to 101.
+            notes (str, optional): notes describing the task. Defaults to "".
+            tags (List[str], optional): List of tags. Defaults to [].
 
         Raises:
             ValueError: If the input is no a single price seqence
@@ -120,7 +137,8 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
             entity="ncograf",
             group="fourier_flow",
             job_type="train",
-            tags=["base_fourier_flows"],
+            tags=["base_fourier_flows", self.symbol] + tags,
+            notes=notes,
             config=general_config,
         )
 
@@ -136,7 +154,7 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
         run.log_artifact(data_artifact)
 
         # transform dataset for training
-        price_data.values.dtype = self.dtype_str
+        price_data = price_data.astype(self.numpy_dtype)
         data = torch.from_numpy(price_data.values)
         data_mask = ~torch.isnan(data)
         data = data[
@@ -154,16 +172,33 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
         # train model
         self._model = self.train_fourier_flow(X=X, run=run, **config)
 
-        # save model after training
+        # save model after training DO NOT CHANGE THE NAME as we need it when downloading the models
         model_path = self.cache / "model_state.pth"
-        torch.save(self._model.state_dict(), model_path)
+        model_dict = {
+            "state_dict": self._model.state_dict(),
+            "init_params": self._model.get_model_info(),
+            "network": str(self._model),
+            "scale": self.data_amplitude,
+            "shift": self.data_min,
+            "init_price": self._zero_price,
+        }
+        torch.save(model_dict, model_path)
         model_artifact = wandb.Artifact(
-            name="fourier_flow_model",
+            name=f"fourier_flow_model_{self.symbol}",
             type="model",
-            metadata=self._model.get_model_info(),
+            metadata={
+                "Info": "This information describes the features stored in the artifact",
+                "state_dict": "Model weights to be loaded into a torch Module",
+                "init_params": "Parameters to initialize network",
+                "network": "Network class used in Training",
+                "scale": "Scaling of the training data X_train = (X - shift) / scale",
+                "shift": "Shift of the training data X_train = (X - shift) / scale",
+                "init_price": "Initial Price for the stock for reconstruction",
+            },
         )
         model_artifact.add_file(model_path)
         run.log_artifact(model_artifact)
+        run.finish()
 
     def model(self) -> FourierFlow:
         return self._model
@@ -173,36 +208,113 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
             raise RuntimeError("Model must bet set before.")
 
     def generate_data(
-        self, len: int = 500, burn: int = 100, **kwargs
+        self,
+        len: int = 500,
+        burn: int = 100,
+        model_version: str | None = None,
+        tags: List[str] = [],
+        notes: str = "",
     ) -> Tuple[npt.NDArray, npt.NDArray]:
         """Generate data from the trained model
+
+        If model_version = None, cosider to disable wandb with
+        `os.environ['WANDB_MODE'] = 'disabled'`
 
         Args:
             len (int, optional): lengh of generated seqence. Defaults to 500.
             burn (int, optional): ignored here. Defaults to 100.
+            model_version (str | None, optional): model, `latest` to use the latest model on wandb, None for local model is used. Defaults to None.
+            tags (List[str], optional): list of tags for wandb. Defaults to [].
+            notes (str, optional): Notes in markdown. Defaults to "".
 
         Returns:
             Tuple[npt.NDArray, npt.NDArray]: price data and return data
         """
 
-        self.check_model()
+        run = wandb.init(
+            project="synthetic_data",
+            entity="ncograf",
+            group="fourier_flow",
+            job_type="generate_data",
+            tags=["base_fourier_flows"] + tags,
+            notes=notes,
+            config={
+                "len": len,
+                "burn": burn,
+                "model_version": model_version,
+            },
+        )
 
-        n = len // self._model.T + 1
+        if model_version is None:
+            # use local model
+            self.check_model()
+            model = self._model
+            scale = self.data_amplitude
+            shift = self.data_min
+            init_price = self._zero_price
+        else:
+            model_artifact = run.use_artifact(
+                f"fourier_flow_model_{self.symbol}:{model_version}"
+            )
+            model_dir = model_artifact.download()
+            model_artifact_data = torch.load(Path(model_dir) / "model_state.pth")
 
-        self._model.to(self.device)
+            # print this or use it to see what was downloaded
+            # description = model_artifact.metadata
 
-        model_output = self._model.sample(n)
-        log_returns = (model_output.detach() * self.data_amplitude) + self.data_min
+            model = FourierFlow(**model_artifact_data["init_params"])
+            model.load_state_dict(model_artifact_data["state_dict"])
+
+            model.dtype = self.torch_dtype  # use the current dtype
+
+            scale = model_artifact_data["scale"]
+            shift = model_artifact_data["shift"]
+            init_price = model_artifact_data["init_price"]
+
+        n = len // model.T + 1
+
+        model.to(self.device)
+
+        model_output = model.sample(n)
+        log_returns = (model_output * scale) + shift
         log_returns = log_returns.detach().numpy().flatten()
         return_simulation = np.exp(log_returns[:len])
 
         price_simulation = np.zeros_like(return_simulation, dtype=self.numpy_dtype)
-        price_simulation[0] = self._zero_price
+        price_simulation[0] = init_price
 
         for i in range(0, price_simulation.shape[0] - 1):
             price_simulation[i + 1] = price_simulation[i] * return_simulation[i]
 
-        return (price_simulation, return_simulation)
+        price_table = np.stack(
+            [price_simulation, np.arange(price_simulation.shape[0])], axis=1
+        )
+        price_table = wandb.Table(
+            data=price_table, columns=["stock price", "timesteps"]
+        )
+        return_table = np.stack(
+            [return_simulation, np.arange(return_simulation.shape[0])], axis=1
+        )
+        return_table = wandb.Table(
+            data=return_table, columns=["stock price returns", "timesteps"]
+        )
+        run.log(
+            {
+                "price_simulation": wandb.plot.line(
+                    price_table,
+                    x="timesteps",
+                    y="stock price",
+                    title=f"{self.symbol} Price Simulation",
+                ),
+                "return_simulation": wandb.plot.line(
+                    return_table,
+                    x="timesteps",
+                    y="stock price returns",
+                    title=f"{self.symbol} Price Return Simulation",
+                ),
+            }
+        )
+        return price_simulation, return_simulation
 
     def min_max_scaling(self, data: torch.Tensor) -> torch.Tensor:
         """Min max scaling of data
@@ -234,13 +346,30 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
         device: torch.device,
         run: wr.Run,
     ) -> FourierFlow:
+        """Train a Fourier Flow network with given parameters
+
+        Args:
+            X (torch.Tensor): Training data
+            learning_rate (float): Initial learning rate
+            gamma (float): Factor for exponential LRScheduler (in every epoch the new learning rate is lr * gamma)
+            epochs (int): Number of epochs to train
+            batch_size (int): Batch size.
+            hidden_dim (int): Hidden dimensions of Network
+            num_layer (int): Number of layers of network
+            device (torch.device): Device, CPU or GPU
+            run (wr.Run): Wandb run for logging.
+
+        Returns:
+            FourierFlow: Trained network ready for sampling.
+        """
+
         T = X.shape[1]
 
         model = FourierFlow(
             hidden_dim=hidden_dim, T=T, n_layer=num_layer, dtype=self.dtype_str
         )
         # log gradient information
-        run.watch(model, log="all")
+        # run.watch(model, log="all")
 
         X_scaled = self.min_max_scaling(X)
 

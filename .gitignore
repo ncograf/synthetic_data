@@ -1,9 +1,11 @@
 # do not include the datafoder, as it would be too much
+artifacts
 data
 __pycache__
 build
 eigen*
 wandb
+wandb_keys.json
 
 .environment
 .env
