@@ -277,7 +277,7 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
 
         model_output = model.sample(n)
         log_returns = (model_output * scale) + shift
-        log_returns = log_returns.detach().numpy().flatten()
+        log_returns = log_returns.detach().cpu().numpy().flatten()
         return_simulation = np.exp(log_returns[:len])
 
         price_simulation = np.zeros_like(return_simulation, dtype=self.numpy_dtype)
@@ -382,13 +382,14 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
         scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=gamma)
 
         # set up model
-        model.to(device)
         model.train()
-
+        model.to(device)
+        
         for epoch in range(epochs):
             epoch_loss = 0
             for (batch,) in loader:
-                batch.to(device)
+
+                batch = batch.to(device=device)
 
                 optimizer.zero_grad()
 
