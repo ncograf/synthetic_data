@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import List, Union
 
 import base_generator
-import index_generator
+import garch_index_generator
 import pandas as pd
 import real_data_loader
 
@@ -69,7 +69,7 @@ class GenDataLoader:
                 "If data needs to be generated, make sure to pass a data_loader"
             )
 
-        index_gen = index_generator.IndexGenerator(generator=generator)
+        index_gen = garch_index_generator.GarchIndexGenerator(generator=generator)
         data = index_gen.generate_index(price_data, symbols=symbols, n_cpu=n_cpu)
         data.to_csv(cache_path, index=True)
         return data
