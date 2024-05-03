@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import List
 
 import click
-import fourier_flow_generator
+import fourier_flow_index_generator
 import real_data_loader as data
 
 
@@ -35,7 +35,7 @@ import real_data_loader as data
     "--lag", type=int, default=1, help="Lag for creating the trianing seqences."
 )
 @click.option(
-    "-s", "--seq-len", type=int, default=101, help="Seqence Lenght to train on."
+    "-sl", "--seq-len", type=int, default=101, help="Seqence Lenght to train on."
 )
 @click.option(
     "-d",
@@ -52,6 +52,11 @@ import real_data_loader as data
     default=["MSFT"],
     help="Symbols to be fitted. For each symbol one fit is done.",
 )
+@click.option(
+    "--wandb-off",
+    is_flag=True,
+    help="Turn off wandb logging. (Usefull for debugging or similar)",
+)
 def train_fourier_flow(
     learning_rate: float,
     gamma: float,
@@ -63,22 +68,29 @@ def train_fourier_flow(
     seq_len: int,
     dtype: str,
     symbol: List[str],
+    wandb_off: bool,
 ):
     root_dir = Path(__file__).parent.parent
-    api_key_file = root_dir / "wandb_keys.json"
-    if not api_key_file.exists():
-        raise FileExistsError(f"No API key found in {api_key_file} for wandb.")
 
-    os.environ["WANDB_MODE"] = "online"
-    with api_key_file.open() as open_file:
-        os.environ["WANDB_API_KEY"] = json.load(open_file)["synthetic_data"]
-        open_file.close()
+    if wandb_off:
+        os.environ["WANDB_MODE"] = "disabled"
+    else:
+        api_key_file = root_dir / "wandb_keys.json"
+        if not api_key_file.exists():
+            raise FileExistsError(f"No API key found in {api_key_file} for wandb.")
+        os.environ["WANDB_MODE"] = "online"
+        with api_key_file.open() as open_file:
+            os.environ["WANDB_API_KEY"] = json.load(open_file)["synthetic_data"]
+            open_file.close()
 
     data_loader = data.RealDataLoader(cache=root_dir / "data/cache")
     price_data = data_loader.get_timeseries(
         "Adj Close", data_path=root_dir / "data/raw_yahoo_data"
     )
 
+    index_generator = fourier_flow_index_generator.FourierFlowIndexGenerator()
+
+    # fit all symbols in the index and store them on wandb
     config = {
         "learning_rate": learning_rate,
         "gamma": gamma,
@@ -89,18 +101,9 @@ def train_fourier_flow(
         "lag": lag,
         "seq_len": seq_len,
     }
-    fourier_flow = fourier_flow_generator.FourierFlowGenerator(
-        dtype=dtype, cache=root_dir / "data/cache", use_cuda=True
+    index_generator.fit_index(
+        price_index_data=price_data.loc[:, symbol], fit_params=config, dtype=dtype
     )
-
-    for sym in symbol:
-        fourier_flow.symbol = sym  # set symbol mainly for logging purposes
-        fourier_flow.fit_model(price_data=price_data.loc[:, sym], **config)
-
-        # TODO remove the todo tag
-        fourier_flow.generate_data(
-            len=500, burn=0, model_version="latest", tags=["debug version"]
-        )
 
 
 if __name__ == "__main__":
