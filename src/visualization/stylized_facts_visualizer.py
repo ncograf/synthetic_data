@@ -97,7 +97,16 @@ def visualize_stylized_facts(loader: Literal["real", "g_1_1_norm", "g_3_3_studen
 def visualize_dim_reduction(
     data_one: pd.DataFrame,
     data_two: pd.DataFrame,
-):
+) -> plotter.Plotter:
+    """Draw dimensionality reduction for two datasets
+
+    Args:
+        data_one (pd.DataFrame): First dataset
+        data_two (pd.DataFrame): Second dataset
+
+    Returns:
+        Plotter: plotter containing the dimensionality reduction
+    """
     plot = plotter.Plotter(
         cache="data/cache",
         figure_style={
@@ -152,7 +161,18 @@ def visualize_pair(
         "coarse-fine-vol",
         "gain-loss-asym",
     ],
-):
+) -> plotter.Plotter:
+    """Plot a stylized fact for two datasets.
+
+    Args:
+        real_data (pd.DataFrame): First data set refered to as real
+        gen_data (pd.DataFrame): Second data set refered to as fake
+        fact (Literal): Stylized fact.
+
+    Returns:
+        Plotter: Plotter containing the plot.
+    """
+
     plot = plotter.Plotter(
         cache="data/cache",
         figure_style={
@@ -265,7 +285,7 @@ def visualize_pair(
         for i, (data, pref) in enumerate(
             zip([real_data, gen_data], [" real data", " generated data"])
         ):
-            price = stock_price_statistic.StockPriceStatistic(0.001)
+            price = stock_price_statistic.StockPriceStatistic()
             price.set_statistics(data)
 
             gain_loss_asym = gain_loss_asymetry.GainLossAsymetry(
@@ -277,20 +297,36 @@ def visualize_pair(
     return plot
 
 
-def visualize_all(stock_data: pd.DataFrame, name: str = ""):
-    log_stat = log_return_statistic.LogReturnStatistic(0.001)
+def visualize_all(stock_data: pd.DataFrame, name: str = "") -> plotter.Plotter:
+    """Visualizes all stilized facts and returns the plotter object
+
+    Args:
+        stock_data (pd.DataFrame): _description_
+        name (str, optional): _description_. Defaults to "".
+
+    Returns:
+        Plotter: Python Plotter object containing the plots
+    """
+
+    log_stat = log_return_statistic.LogReturnStatistic()
     log_stat.set_statistics(stock_data)
 
-    ret_stat = return_statistic.ReturnStatistic(0.001)
+    ret_stat = return_statistic.ReturnStatistic()
     ret_stat.set_statistics(stock_data)
 
-    abs_log_stat = abs_log_return_statistic.AbsLogReturnStatistic(0.001)
+    abs_log_stat = abs_log_return_statistic.AbsLogReturnStatistic()
     abs_log_stat.set_statistics(stock_data)
 
-    price = stock_price_statistic.StockPriceStatistic(0.001)
+    price = stock_price_statistic.StockPriceStatistic()
     price.set_statistics(stock_data)
 
     m_lag = 1000
+
+    if m_lag >= ret_stat.statistic.shape[0]:
+        raise ValueError(
+            f"Trying stylized facts with lag {m_lag}, log statistic only has {ret_stat.shape[0]} elements."
+        )
+
     log_corr_stat = auto_corr_statistic.AutoCorrStatistic(
         max_lag=m_lag,
         underlaying=log_stat,
