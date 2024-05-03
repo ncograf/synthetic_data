@@ -135,12 +135,14 @@ class TestGetAllData:
     def test_all_mixed_reload(self):
         backup = Path("tests/testdata/local/ZTS_BACKUP.csv")
         zts = Path("tests/testdata/local/ZTS.csv")
+        xom = Path("tests/testdata/local/XOM.csv")
         shutil.copy(backup, zts)
         data_loader = data.RealDataLoader(download_delay=0)
         data_dict, error_local, error_yahoo = data_loader._get_all_data(
             ["XOM", "ZTS"], data_path="tests/testdata/local", update_all=True
         )
         zts.unlink(missing_ok=True)
+        xom.unlink(missing_ok=True)
 
         for k in data_dict.keys():
             assert data_dict[k].index.name == "Date"

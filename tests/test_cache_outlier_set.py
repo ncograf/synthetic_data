@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pandas as pd
 from cached_outlier_set import CachedOutlierSet
 from tick import Tick
@@ -20,6 +22,8 @@ class TestCacheOutlierSet:
         _set.store_outliers(path)
         _set.load_outliers(path)
         assert set(_set.outlier) == tick_set
+
+        Path(path).unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

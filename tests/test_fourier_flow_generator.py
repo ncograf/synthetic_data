@@ -29,7 +29,7 @@ class TestFourierFlowGenerator:
         # fit close dates
         data_ = data_dict["SPY"].loc[:, "Close"]
         data_ = data_.iloc[:100]
-        model = fourier_flow_generator.FourierFlowGenerator()
+        model = fourier_flow_generator.FourierFlowGenerator(symbol="MSFT")
         config = {
             "hidden_dim": 20,
             "num_layer": 2,
@@ -47,7 +47,13 @@ class TestFourierFlowGenerator:
         except:  # noqa E722
             assert False, "No error should be raised as the model is set"
 
-        gen_price, gen_ret = model.generate_data(20, 10)
+        gen_price, gen_ret = model.generate_data(
+            model=model.model(),
+            scale=model.data_amplitude,
+            shift=model.data_min,
+            init_price=model._zero_price,
+            len_=20,
+        )
 
         assert gen_price.shape[0] == 20
         assert gen_ret.shape[0] == 20

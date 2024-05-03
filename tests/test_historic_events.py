@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pandas as pd
 from historic_events import HistoricEvent, HistoricEventSet
 
@@ -28,6 +30,8 @@ class TestHistoricEventSet:
 
         assert all == {e1, e2, e3}
 
+        Path(path).unlink(missing_ok=True)
+
     def _test_open_event_links(self):
         """To run this test, run the file instead of pytest"""
         he_set = HistoricEventSet("tests/testdata/cache/historic_events.json")
@@ -35,6 +39,7 @@ class TestHistoricEventSet:
 
         # Test will open a browser, uncomment line below to test this
         he_set.open_event_links(now, "A")
+        Path("test/testdata/cache/historic_events.json").unlink(missing_ok=True)
 
     def _test_edit_event(self):
         """
@@ -59,7 +64,8 @@ class TestHistoricEventSet:
         # make sure the test runs smoothly
         path = "tests/testdata/cache/test_hist_event_cache.json"
         _set = HistoricEventSet(path)
-        print(_set.get_stock_name("MMM"))
+
+        Path(path).unlink(missing_ok=True)
 
 
 class TestHistoricEvent:
