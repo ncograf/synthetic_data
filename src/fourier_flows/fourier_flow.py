@@ -63,8 +63,8 @@ class FourierFlow(nn.Module):
         self.dft_shift = dft_shift
 
         self.apply(self._init_weights)
-    
-    def to(self, device : torch.device | str):
+
+    def to(self, device: torch.device | str):
         """Moves the model to the device
 
         Args:
@@ -75,7 +75,6 @@ class FourierFlow(nn.Module):
         sigma = torch.eye(2 * self.latent_size, dtype=self.dtype, device=device)
 
         self.dist_z = MultivariateNormal(mu, sigma)
-
 
     def _init_weights(self, module: nn.Module):
         """Initialize weights for module

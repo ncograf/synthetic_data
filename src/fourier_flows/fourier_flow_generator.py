@@ -209,9 +209,12 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
 
     def generate_data(
         self,
-        len: int = 500,
+        model: FourierFlow,
+        scale: float,
+        shift: float,
+        init_price: float,
+        len_: int = 500,
         burn: int = 100,
-        model_version: str | None = None,
         tags: List[str] = [],
         notes: str = "",
     ) -> Tuple[npt.NDArray, npt.NDArray]:
@@ -221,9 +224,9 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
         `os.environ['WANDB_MODE'] = 'disabled'`
 
         Args:
+            model (FourierFlow): model to sample from.
             len (int, optional): lengh of generated seqence. Defaults to 500.
             burn (int, optional): ignored here. Defaults to 100.
-            model_version (str | None, optional): model, `latest` to use the latest model on wandb, None for local model is used. Defaults to None.
             tags (List[str], optional): list of tags for wandb. Defaults to [].
             notes (str, optional): Notes in markdown. Defaults to "".
 
@@ -231,54 +234,14 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
             Tuple[npt.NDArray, npt.NDArray]: price data and return data
         """
 
-        run = wandb.init(
-            project="synthetic_data",
-            entity="ncograf",
-            group="fourier_flow",
-            job_type="generate_data",
-            tags=["base_fourier_flows"] + tags,
-            notes=notes,
-            config={
-                "len": len,
-                "burn": burn,
-                "model_version": model_version,
-            },
-        )
-
-        if model_version is None:
-            # use local model
-            self.check_model()
-            model = self._model
-            scale = self.data_amplitude
-            shift = self.data_min
-            init_price = self._zero_price
-        else:
-            model_artifact = run.use_artifact(
-                f"fourier_flow_model_{self.symbol}:{model_version}"
-            )
-            model_dir = model_artifact.download()
-            model_artifact_data = torch.load(Path(model_dir) / "model_state.pth")
-
-            # print this or use it to see what was downloaded
-            # description = model_artifact.metadata
-
-            model = FourierFlow(**model_artifact_data["init_params"])
-            model.load_state_dict(model_artifact_data["state_dict"])
-
-            model.dtype = self.torch_dtype  # use the current dtype
-
-            scale = model_artifact_data["scale"]
-            shift = model_artifact_data["shift"]
-            init_price = model_artifact_data["init_price"]
-
-        n = len // model.T + 1
+        n = len_ // model.T + 1
 
         model.to(self.device)
 
         model_output = model.sample(n)
         log_returns = (model_output * scale) + shift
         log_returns = log_returns.detach().cpu().numpy().flatten()
-        return_simulation = np.exp(log_returns[:len])
+        return_simulation = np.exp(log_returns[:len_])
 
         price_simulation = np.zeros_like(return_simulation, dtype=self.numpy_dtype)
         price_simulation[0] = init_price
@@ -286,34 +249,6 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
         for i in range(0, price_simulation.shape[0] - 1):
             price_simulation[i + 1] = price_simulation[i] * return_simulation[i]
 
-        price_table = np.stack(
-            [price_simulation, np.arange(price_simulation.shape[0])], axis=1
-        )
-        price_table = wandb.Table(
-            data=price_table, columns=["stock price", "timesteps"]
-        )
-        return_table = np.stack(
-            [return_simulation, np.arange(return_simulation.shape[0])], axis=1
-        )
-        return_table = wandb.Table(
-            data=return_table, columns=["stock price returns", "timesteps"]
-        )
-        run.log(
-            {
-                "price_simulation": wandb.plot.line(
-                    price_table,
-                    x="timesteps",
-                    y="stock price",
-                    title=f"{self.symbol} Price Simulation",
-                ),
-                "return_simulation": wandb.plot.line(
-                    return_table,
-                    x="timesteps",
-                    y="stock price returns",
-                    title=f"{self.symbol} Price Return Simulation",
-                ),
-            }
-        )
         return price_simulation, return_simulation
 
     def min_max_scaling(self, data: torch.Tensor) -> torch.Tensor:
@@ -384,11 +319,10 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
         # set up model
         model.train()
         model.to(device)
-        
+
         for epoch in range(epochs):
             epoch_loss = 0
             for (batch,) in loader:
-
                 batch = batch.to(device=device)
 
                 optimizer.zero_grad()
