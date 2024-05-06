@@ -54,11 +54,11 @@ class GainLossAsymetry(stylized_fact.StylizedFact):
         log_price = np.log(base)
         if log_price.dtype.name == "float32":
             boosted = boosted_stats.gain_loss_asym_float(
-                log_price, self._max_lag, self._theta, True
+                log_price, self._max_lag, self._theta, False
             )
         if log_price.dtype.name == "float64":
             boosted = boosted_stats.gain_loss_asym_double(
-                log_price, self._max_lag, self._theta, True
+                log_price, self._max_lag, self._theta, False
             )
         else:
             raise ValueError(f"Unsupported data type: {log_price.dtype.name}")
