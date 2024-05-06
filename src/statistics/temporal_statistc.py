@@ -19,6 +19,19 @@ class TemporalStatistic(base_statistic.BaseStatistic):
         self._legend_postfix = legend_postfix
         self._plot_color = color
 
+    def set_statistics(self, data: pd.DataFrame | pd.Series):
+        """Sets the statistic as the data
+
+        Args:
+            data (pd.DataFrame | pd.Series): stock prices
+        """
+        self.check_data_validity(data)
+        if isinstance(data, pd.Series):
+            data = data.to_frame()
+        self._symbols = data.columns.to_list()
+        self._dates = data.index.to_list()
+        self._statistic = data.to_numpy()
+
     def restore_time_plot(self, ax: plt.Axes):
         """Clears the axis and the artist series
 

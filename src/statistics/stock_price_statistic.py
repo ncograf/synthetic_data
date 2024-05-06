@@ -6,7 +6,9 @@ import temporal_statistc
 class StockPriceStatistic(
     quantile_statistic.QuantileStatistic, temporal_statistc.TemporalStatistic
 ):
-    def __init__(self, quantile: float, legend_postfix: str = "", color: str = "green"):
+    def __init__(
+        self, quantile: float = 0.01, legend_postfix: str = "", color: str = "green"
+    ):
         temporal_statistc.TemporalStatistic.__init__(
             self, legend_postfix=legend_postfix, color=color
         )
