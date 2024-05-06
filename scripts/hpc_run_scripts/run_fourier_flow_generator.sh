@@ -9,4 +9,4 @@
 
 module load eth_proxy
 
-poetry run python scripts/train_fourier_flows.py --learning-rate 1e-2 --gamma 0.999 --epochs 1000 --batch-size 128 --hidden-dim 200 --num-layer 10 --lag 1 --seq-len 101 --dtype float32 --symbol MSFT
+poetry run python scripts/train_fourier_flows.py --learning-rate 1e-2 --gamma 0.999 --epochs 100 --batch-size 128 --hidden-dim 200 --num-layer 10 --lag 1 --seq-len 101 --dtype float32 --symbols MSFT

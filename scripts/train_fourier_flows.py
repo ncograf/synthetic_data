@@ -46,7 +46,7 @@ import real_data_loader as data
 )
 @click.option(
     "-s",
-    "--symbol",
+    "--symbols",
     type=str,
     multiple=True,
     default=["MSFT"],
@@ -67,7 +67,7 @@ def train_fourier_flow(
     lag: int,
     seq_len: int,
     dtype: str,
-    symbol: List[str],
+    symbols: List[str],
     wandb_off: bool,
 ):
     root_dir = Path(__file__).parent.parent
@@ -88,7 +88,9 @@ def train_fourier_flow(
         "Adj Close", data_path=root_dir / "data/raw_yahoo_data"
     )
 
-    index_generator = fourier_flow_index_generator.FourierFlowIndexGenerator()
+    index_generator = fourier_flow_index_generator.FourierFlowIndexGenerator(
+        "data/cache"
+    )
 
     # fit all symbols in the index and store them on wandb
     config = {
@@ -102,7 +104,7 @@ def train_fourier_flow(
         "seq_len": seq_len,
     }
     index_generator.fit_index(
-        price_index_data=price_data.loc[:, symbol], fit_params=config, dtype=dtype
+        price_index_data=price_data.loc[:, symbols], train_config=config, dtype=dtype
     )
 
 

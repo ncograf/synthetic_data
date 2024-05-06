@@ -43,10 +43,14 @@ class FourierFlow(nn.Module):
         self.n_layer = n_layer
 
         self.latent_size = T // 2 + 1
-        mu = torch.zeros(2 * self.latent_size, dtype=self.dtype)
-        sigma = torch.eye(2 * self.latent_size, dtype=self.dtype)
+        self.mu = nn.Parameter(
+            torch.zeros(2 * self.latent_size, dtype=self.dtype), requires_grad=False
+        )
+        self.sigma = nn.Parameter(
+            torch.eye(2 * self.latent_size, dtype=self.dtype), requires_grad=False
+        )
 
-        self.dist_z = MultivariateNormal(mu, sigma)
+        self.dist_z = MultivariateNormal(self.mu, self.sigma)
 
         self.layers = nn.ModuleList(
             [
@@ -63,18 +67,6 @@ class FourierFlow(nn.Module):
         self.dft_shift = dft_shift
 
         self.apply(self._init_weights)
-
-    def to(self, device: torch.device | str):
-        """Moves the model to the device
-
-        Args:
-            device (torch.device | str): Device to move model on.
-        """
-        super(self.__class__, self).to(device)
-        mu = torch.zeros(2 * self.latent_size, dtype=self.dtype, device=device)
-        sigma = torch.eye(2 * self.latent_size, dtype=self.dtype, device=device)
-
-        self.dist_z = MultivariateNormal(mu, sigma)
 
     def _init_weights(self, module: nn.Module):
         """Initialize weights for module
