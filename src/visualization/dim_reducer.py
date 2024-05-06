@@ -3,6 +3,8 @@ from typing import Literal
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
+import pandas as pd
+import plotter
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 
@@ -59,3 +61,58 @@ class DimReducer:
         low_dim = self.reduce(X)
         ax.scatter(low_dim[:, 0], low_dim[:, 1], **kwargs)
         ax.legend()
+
+    def visualize_dim_reduction(
+        self,
+        data_one: pd.DataFrame,
+        data_two: pd.DataFrame,
+    ) -> plotter.Plotter:
+        """Draw dimensionality reduction for two datasets
+
+        Args:
+            data_one (pd.DataFrame): First dataset
+            data_two (pd.DataFrame): Second dataset
+
+        Returns:
+            Plotter: plotter containing the dimensionality reduction
+        """
+        plot = plotter.Plotter(
+            cache="data/cache",
+            figure_style={
+                "figure.figsize": (16, 10),
+                "figure.titlesize": 24,
+                "axes.titlesize": 20,
+                "axes.labelsize": 18,
+                "font.size": 18,
+                "xtick.labelsize": 16,
+                "ytick.labelsize": 16,
+                "figure.dpi": 96,
+                "figure.constrained_layout.use": True,
+                "figure.constrained_layout.h_pad": 0.1,
+                "figure.constrained_layout.hspace": 0,
+                "figure.constrained_layout.w_pad": 0.1,
+                "figure.constrained_layout.wspace": 0,
+            },
+            figure_title="TSNE Projections",
+            subplot_layout={
+                "ncols": 1,
+                "nrows": 1,
+                "sharex": "all",
+                "sharey": "all",
+            },
+        )
+
+        ax = plot.axes
+
+        style_one = {
+            "color": "blue",
+        }
+
+        style_two = {
+            "color": "red",
+        }
+
+        self.draw_reduction(ax, data_one, **style_one)
+        self.draw_reduction(ax, data_two, **style_two)
+
+        return plot
