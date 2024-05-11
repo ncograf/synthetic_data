@@ -40,7 +40,7 @@ def visualize_tail(
             "figure.constrained_layout.w_pad": 0.1,
             "figure.constrained_layout.wspace": 0,
         },
-        figure_name=plot_name("-", "_"),
+        figure_name=plot_name.replace("-", "_"),
         figure_title=plot_name,
         subplot_layout={
             "ncols": 2,

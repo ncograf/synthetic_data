@@ -1,17 +1,15 @@
 import time
 from datetime import date
-import os
 from pathlib import Path
-from typing import Dict, List, Tuple
-import multiprocessing.pool as mp
+from typing import Dict, List
 
 import cpuinfo
 import fourier_flow_generator
 import numpy as np
 import pandas as pd
 import stylized_facts_visualizer
-import temporal_series_visualizer
 import tail_dist_visualizer
+import temporal_series_visualizer
 import torch
 import utils.type_converter as type_converter
 from accelerate import Accelerator
@@ -149,13 +147,18 @@ class FourierFlowIndexGenerator:
             )
         elif len(runs) > 1:
             run_list = ["/".join(r.path) for r in runs]
+            run_list_str = "\n".join(run_list)
             raise RuntimeError(
-                f"Multiple runs found for run name {train_run}:\n{'\n'.join(run_list)}"
+                f"Multiple runs found for run name {train_run}:\n{run_list_str}"
             )
 
         trained_run = runs[0]
-        model_artifacts = [a for a in trained_run.artifacts if a.type == "model"]
-        dataset_artifacts = [a for a in trained_run.artifacts if a.type == "dataset"]
+        model_artifacts = [
+            a for a in trained_run.logged_artifacts() if a.type == "model"
+        ]
+        dataset_artifacts = [
+            a for a in trained_run.logged_artifacts() if a.type == "dataset"
+        ]
 
         if len(dataset_artifacts) > 1:
             print(
@@ -167,7 +170,7 @@ class FourierFlowIndexGenerator:
             )
 
         dataset_dir = dataset_artifacts[0].download()
-        dataset_path = Path(dataset_dir / f"price_index_data.parquet")
+        dataset_path = Path(dataset_dir) / "datasets/price_index_data.parquet"
         price_data = pd.read_parquet(dataset_path)
 
         symbols = [a.metadata["symbol"] for a in model_artifacts]
@@ -220,8 +223,9 @@ class FourierFlowIndexGenerator:
 
             model = FourierFlow(**model_artifact_data["init_params"])
             model.load_state_dict(model_artifact_data["state_dict"])
-
             model.dtype = type_converter.TypeConverter.str_to_torch(dtype)
+            accelerator = Accelerator()
+            model = accelerator.prepare(model)
 
             scale = model_artifact_data["scale"]
             shift = model_artifact_data["shift"]

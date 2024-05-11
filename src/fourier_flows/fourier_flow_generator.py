@@ -121,7 +121,6 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
         self._model = self.train_fourier_flow(
             accelerator=accelerator, run=run, X=X, **config
         )
-        print(f"after train")
 
         # save model after training DO NOT CHANGE THE NAME as we need it when downloading the models
         model_path = self.cache / f"{self.symbol}.pth"
@@ -140,7 +139,7 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
             name=f"fourier_flow_model_{self.symbol}",
             type="model",
             metadata={
-                "symbols": self.symbol,
+                "symbol": self.symbol,
                 "Info": "This information describes the features stored in the artifact",
                 "state_dict": "Model weights to be loaded into a torch Module",
                 "init_params": "Parameters to initialize network",
@@ -187,8 +186,6 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
         """
 
         n = len_ // model.T + 1
-
-        model.to(self.device)
 
         model_output = model.sample(n)
         log_returns = (model_output * scale) + shift
@@ -274,7 +271,7 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
         )
 
         # Bad configuration might make the model collaps
-        assert not model is None
+        assert model is not None
 
         # set up model
         model.train()
