@@ -1,7 +1,6 @@
 import json
 import os
 from pathlib import Path
-from typing import List
 
 import click
 import fourier_flow_index_generator
@@ -23,17 +22,22 @@ import fourier_flow_index_generator
     help="Data type to train the model.",
 )
 @click.option(
-    "-s",
-    "--symbol",
+    "--notes",
     type=str,
-    multiple=True,
-    default=["MSFT"],
-    help="Symbols to be fitted. For each symbol one fit is done.",
+    default="",
+    help="Notes to describe the run",
+)
+@click.option(
+    "--train-run",
+    type=str,
+    required=True,
+    help="Train run to be used for predicting.",
 )
 def eval_fourier_flow(
     num_samples,
     dtype: str,
-    symbol: List[str],
+    notes: str,
+    train_run: str,
 ):
     root_dir = Path(__file__).parent.parent
     api_key_file = root_dir / "wandb_keys.json"
@@ -48,11 +52,12 @@ def eval_fourier_flow(
     index_generator = fourier_flow_index_generator.FourierFlowIndexGenerator()
 
     # compute the evaluations and store it on wandb
-    artifacts = [f"base_fourier_flow_{sym}" for sym in symbol]
-    version = ["latest" for _ in symbol]
-    model_info = list(zip(artifacts, symbol, version))
     index_generator.sample_wandb_index(
-        model_info=model_info, dtype=dtype, sample_len=num_samples
+        train_run=train_run,
+        dtype=dtype,
+        notes=notes,
+        sample_len=num_samples,
+        run_by_id=False,
     )
 
 
