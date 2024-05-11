@@ -1,7 +1,9 @@
 import time
 from datetime import date
+import os
 from pathlib import Path
 from typing import Dict, List, Tuple
+import multiprocessing.pool as mp
 
 import cpuinfo
 import fourier_flow_generator
@@ -9,6 +11,7 @@ import numpy as np
 import pandas as pd
 import stylized_facts_visualizer
 import temporal_series_visualizer
+import tail_dist_visualizer
 import torch
 import utils.type_converter as type_converter
 from accelerate import Accelerator
@@ -22,6 +25,14 @@ class FourierFlowIndexGenerator:
     def __init__(self, cache: str | Path = "data/cache"):
         self.cache = Path(cache) / "ffig"
         self.cache.mkdir(parents=True, exist_ok=True)
+
+    def fit_local(
+        self,
+        generator: fourier_flow_generator.FourierFlowGenerator,
+        data: pd.Series,
+        kwargs: Dict[str, any],
+    ):
+        generator.fit_model(price_data=data, **kwargs)
 
     def fit_index(
         self,
@@ -75,6 +86,8 @@ class FourierFlowIndexGenerator:
             config=general_config,
         )
 
+        run.define_metric("*", step_metric="epoch")
+
         # store dataset
         data_artifact = wandb.Artifact(
             name="price_data",
@@ -88,26 +101,24 @@ class FourierFlowIndexGenerator:
         )
         run.log_artifact(data_artifact)
 
-        for sym in symbols:
-            series = price_index_data.loc[:, sym]
+        train_config["run"] = run
+        train_config["accelerator"] = accelerator
 
-            generator = fourier_flow_generator.FourierFlowGenerator(
-                symbol=sym,
-                name="FourierFlow",
-                dtype=dtype,
-                cache=self.cache,
+        for sym in symbols:
+            data = price_index_data.loc[:, sym]
+            gen = fourier_flow_generator.FourierFlowGenerator(
+                symbol=sym, name="FourierFlow", dtype=dtype, cache=self.cache
             )
-            generator.fit_model(
-                run=run, accelerator=accelerator, price_data=series, **train_config
-            )
+            gen.fit_model(price_data=data, **train_config)
 
     def sample_wandb_index(
         self,
-        model_info: List[Tuple[str, str, str]],
+        train_run: str,
         dtype: str = "float32",
         notes: str = "",
         sample_len: int = 2000,
         verbose: bool = False,
+        run_by_id: bool = False,
     ) -> pd.DataFrame:
         """Generates synthetic data for the whole index
 
@@ -124,16 +135,51 @@ class FourierFlowIndexGenerator:
             pd.DataFrame : DataFrame containing all the columns
         """
 
-        _, symbols, versions = tuple(zip(*model_info))
+        api = wandb.Api()
+        if run_by_id:
+            runs = api.runs(path="ncograf/synthetic_data", filters={"name": train_run})
+        else:
+            runs = api.runs(
+                path="ncograf/synthetic_data", filters={"displayName": train_run}
+            )
+
+        if len(runs) == 0:
+            raise RuntimeError(
+                f"No runs found on wandb for {'run_id' if run_by_id else 'run_name'} {train_run}!"
+            )
+        elif len(runs) > 1:
+            run_list = ["/".join(r.path) for r in runs]
+            raise RuntimeError(
+                f"Multiple runs found for run name {train_run}:\n{'\n'.join(run_list)}"
+            )
+
+        trained_run = runs[0]
+        model_artifacts = [a for a in trained_run.artifacts if a.type == "model"]
+        dataset_artifacts = [a for a in trained_run.artifacts if a.type == "dataset"]
+
+        if len(dataset_artifacts) > 1:
+            print(
+                f"The train run {trained_run.name} contains more than one dataset, the first one is chosen."
+            )
+        if len(dataset_artifacts) == 0:
+            raise RuntimeError(
+                f"The train run {trained_run.name} does not contain a dataset."
+            )
+
+        dataset_dir = dataset_artifacts[0].download()
+        dataset_path = Path(dataset_dir / f"price_index_data.parquet")
+        price_data = pd.read_parquet(dataset_path)
+
+        symbols = [a.metadata["symbol"] for a in model_artifacts]
 
         time_idx = pd.date_range(str(date.today()), periods=sample_len, freq="D")
         generated_returns = pd.DataFrame(
-            data=np.zeros((sample_len, len(model_info))),
+            data=np.zeros((sample_len, len(symbols))),
             columns=symbols,
             index=time_idx,
         )
         generated_prices = pd.DataFrame(
-            data=np.zeros((sample_len, len(model_info))),
+            data=np.zeros((sample_len, len(symbols))),
             columns=symbols,
             index=time_idx,
         )
@@ -149,22 +195,20 @@ class FourierFlowIndexGenerator:
             config={
                 "len": sample_len,
                 "burn": 0,
-                "model_version": versions,
+                "train_run_path": "/".join(trained_run.path),
+                "train_run_name": trained_run.name,
                 "symbols": symbols,
             },
         )
 
         t = time.time()
-        for _, symbol, version in model_info:
+        for artifact in model_artifacts:
             try:
                 # get model
-                model_artifact = run.use_artifact(
-                    f"fourier_flow_model_{symbol}:{version}"
-                )
-                model_dir = model_artifact.download()
-                model_artifact_data = torch.load(Path(model_dir) / "model_state.pth")
-
-                # get dataset
+                run.use_artifact(artifact)
+                model_dir = artifact.download()
+                symbol = artifact.metadata["symbol"]
+                model_artifact_data = torch.load(Path(model_dir) / f"{symbol}.pth")
 
             except wandb.errors.CommError as err:
                 print(f"{err.message}")
@@ -205,6 +249,7 @@ class FourierFlowIndexGenerator:
             generated_prices, [{"linestyle": "-", "linewidth": 1}], "price-simulation"
         )
         wandb.log({"price simulation plot": plot_price.figure})
+
         plot_return = temporal_series_visualizer.visualize_time_series(
             generated_returns, [{"linestyle": "-", "linewidth": 1}], "return-simulation"
         )
@@ -216,6 +261,17 @@ class FourierFlowIndexGenerator:
         )
         image = wandb.Image(plot.figure, caption="Stylized Facts")
         wandb.log({"stylized_facts": image})
+
+        gen_log_returns = np.log(generated_returns)
+        log_returns = np.log(price_data[1:] / price_data[:-1])
+        plot = tail_dist_visualizer.visualize_tail(
+            real_series=log_returns,
+            time_series=gen_log_returns,
+            plot_name="Tail Statistics",
+            quantile=0.01,
+        )
+        image = wandb.Image(plot.figure, caption="Tail Statistics")
+        wandb.log({"tail_stat": image})
 
         if verbose:
             print(f"Sampling took {t - time.time()} seconds.")

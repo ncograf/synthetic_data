@@ -121,9 +121,10 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
         self._model = self.train_fourier_flow(
             accelerator=accelerator, run=run, X=X, **config
         )
+        print(f"after train")
 
         # save model after training DO NOT CHANGE THE NAME as we need it when downloading the models
-        model_path = self.cache / "model_state.pth"
+        model_path = self.cache / f"{self.symbol}.pth"
         model_dict = {
             "state_dict": self._model.state_dict(),
             "init_params": self._model.get_model_info(),
@@ -131,6 +132,7 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
             "scale": self.scale,
             "shift": self.shift,
             "init_price": self._zero_price,
+            "symbol": self.symbol,
         }
 
         torch.save(model_dict, model_path)  # will be compressed automatically
@@ -138,6 +140,7 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
             name=f"fourier_flow_model_{self.symbol}",
             type="model",
             metadata={
+                "symbols": self.symbol,
                 "Info": "This information describes the features stored in the artifact",
                 "state_dict": "Model weights to be loaded into a torch Module",
                 "init_params": "Parameters to initialize network",
@@ -145,11 +148,11 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
                 "scale": "Scaling of the training data X_train = (X - shift) / scale",
                 "shift": "Shift of the training data X_train = (X - shift) / scale",
                 "init_price": "Initial Price for the stock for reconstruction",
+                "symbol_": "The symbol indicates for what symbol(s) the model was fitted",
             },
         )
         model_artifact.add_file(model_path)
         run.log_artifact(model_artifact)
-        run.finish()
 
     def model(self) -> FourierFlow:
         return self._model
@@ -259,16 +262,19 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
         model_ff.set_normilizing(X_scaled)
 
         dataset = TensorDataset(X_scaled)
-        loader = DataLoader(dataset=dataset, batch_size=batch_size, shuffle=True)
+        loader = DataLoader(
+            dataset=dataset, batch_size=batch_size, shuffle=True, pin_memory=True
+        )
 
         optimizer = torch.optim.Adam(model_ff.parameters(), lr=learning_rate)
         scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=gamma)
 
-        accelerator = Accelerator()
-
         loader, model, optimizer, scheduler = accelerator.prepare(
             loader, model_ff, optimizer, scheduler
         )
+
+        # Bad configuration might make the model collaps
+        assert not model is None
 
         # set up model
         model.train()
@@ -290,12 +296,18 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
             epoch_loss = epoch_loss / len(loader)
             last_lr = scheduler.get_last_lr()[0]
 
-            run.log({f"loss/{self.symbol}": epoch_loss, f"lr/{self.symbol}": last_lr})
+            run.log(
+                {
+                    f"loss/{self.symbol}": epoch_loss,
+                    f"lr/{self.symbol}": last_lr,
+                    "epoch": epoch,
+                }
+            )
 
             n = 20
             if epoch % n == n - 1:
                 print(
-                    f"{self.symbol}-epoch: {epoch:>8d}/{epochs},\tlast loss {epoch_loss:>8.4f},\tlast learning rate {last_lr:>8.8f}"
+                    f"{self.symbol}-epoch: {epoch + 1:>8d}/{epochs},\tlast loss {epoch_loss:>8.4f},\tlast learning rate {last_lr:>8.8f}"
                 )
 
         print(f"Finished training {self.symbol}!")

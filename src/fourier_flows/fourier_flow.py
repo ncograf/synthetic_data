@@ -63,10 +63,22 @@ class FourierFlow(nn.Module):
         self.flips = [True if i % 2 else False for i in range(self.n_layer)]
 
         self.dft = FourierTransformLayer(T=self.T)
-        self.dft_scale = dft_scale
-        self.dft_shift = dft_shift
+        self.dft_scale = dft_scale  # float
+        self.dft_shift = dft_shift  # float
 
         self.apply(self._init_weights)
+
+    def _apply(self, fn):
+        """Wraps the inherited apply function to reinitiate the Multivariate Normal
+
+        Args:
+            fn (function): Function to be applied
+        """
+        super(self.__class__, self)._apply(fn)
+
+        # reinitialize the multivariate distribution
+        self.dist_z = MultivariateNormal(self.mu, self.sigma)
+        return self
 
     def _init_weights(self, module: nn.Module):
         """Initialize weights for module
