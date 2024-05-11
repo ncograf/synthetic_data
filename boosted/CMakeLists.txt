@@ -1,5 +1,5 @@
 # Specify minimal cmake version for this project
-cmake_minimum_required(VERSION 3.28)
+cmake_minimum_required(VERSION 3.24)
 
 # Project name and version
 project(boosted_stats VERSION 1.0.0 LANGUAGES CXX)

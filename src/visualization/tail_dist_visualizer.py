@@ -11,7 +11,8 @@ def visualize_tail(
     plot_name: str,
     quantile: float = 0.01,
 ) -> plotter.Plotter:
-    """Plot a stylized fact for two datasets.
+    """Plot a stylized fact for two time series data sets, note that
+    this implies that for example log returns have to be computed beforehand.
 
     Args:
         real_data (pd.DataFrame): First data set refered to as real
