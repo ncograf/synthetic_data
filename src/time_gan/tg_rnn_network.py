@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from type_converter import TypeConverter
 
 
 class TGRNNNetwork(nn.Module):
@@ -11,6 +12,7 @@ class TGRNNNetwork(nn.Module):
         in_dim: int,
         out_dim: int,
         bidirect: bool,
+        dtype: str = "float32",
     ):
         """LSTM embedding transformer
 
@@ -25,13 +27,18 @@ class TGRNNNetwork(nn.Module):
 
         nn.Module.__init__(self)
 
+        if not isinstance(dtype, str):
+            self.dtype_str = TypeConverter.type_to_str(dtype)
+            self.dtype = TypeConverter.str_to_torch(self.dtype_str)
+        else:
+            self.dtype_str = TypeConverter.extract_dtype(dtype)
+            self.dtype = TypeConverter.str_to_torch(self.dtype_str)
+
         self.T = T
         self.in_dim = in_dim
         self.out_dim = out_dim
         self.num_layer = num_layer
         self.hidden_dim = hidden_dim
-        self.device = torch.device("cpu")
-        self.dtype = torch.float32
         self.bidirectional = bidirect
 
         self.rnn = nn.LSTM(
