@@ -1,18 +1,16 @@
 import torch
 import torch.nn as nn
-from type_converter import TypeConverter
 
 
 class TGRNNNetwork(nn.Module):
     def __init__(
         self,
-        T: int,
         hidden_dim: int,
         num_layer: int,
         in_dim: int,
         out_dim: int,
         bidirect: bool,
-        dtype: str = "float32",
+        dtype: torch.dtype,
     ):
         """LSTM embedding transformer
 
@@ -23,23 +21,17 @@ class TGRNNNetwork(nn.Module):
             in_dim (int): input dimensions
             out_dim (int): output dimensions
             bidirect (bool): whether the network should be bidirectional or not
+            dtype (torch.dtype): Type to be used for the model
         """
 
         nn.Module.__init__(self)
 
-        if not isinstance(dtype, str):
-            self.dtype_str = TypeConverter.type_to_str(dtype)
-            self.dtype = TypeConverter.str_to_torch(self.dtype_str)
-        else:
-            self.dtype_str = TypeConverter.extract_dtype(dtype)
-            self.dtype = TypeConverter.str_to_torch(self.dtype_str)
-
-        self.T = T
         self.in_dim = in_dim
         self.out_dim = out_dim
         self.num_layer = num_layer
         self.hidden_dim = hidden_dim
         self.bidirectional = bidirect
+        self.dtype = dtype
 
         self.rnn = nn.LSTM(
             input_size=self.in_dim,
@@ -47,14 +39,12 @@ class TGRNNNetwork(nn.Module):
             num_layers=self.num_layer,
             batch_first=True,
             bidirectional=self.bidirectional,
-            device=self.device,
             dtype=self.dtype,
         )
 
         self.lin = nn.Linear(
             hidden_dim * (2 if self.bidirectional else 1),
             self.out_dim,
-            device=self.device,
             dtype=self.dtype,
         )
         self.act = nn.Sigmoid()
