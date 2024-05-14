@@ -67,8 +67,8 @@ class SpectralFilteringLayer(nn.Module):
         if flip:
             x_re, x_im = x_im, x_re
 
-        log_H = self.H_net(x_re)
-        H = torch.exp(log_H)
+        H = self.H_net(x_re)
+        H = torch.sigmoid(H)
 
         M = self.M_net(x_re)
 
@@ -82,7 +82,7 @@ class SpectralFilteringLayer(nn.Module):
 
         # The jacobian is a diagonal matrix for each time series and hence
         # see https://arxiv.org/abs/1605.08803
-        log_jac_det = torch.sum(log_H, dim=-1)
+        log_jac_det = torch.sum(torch.log(H), dim=-1)
 
         return Y, log_jac_det
 
@@ -104,11 +104,11 @@ class SpectralFilteringLayer(nn.Module):
 
         x_real = y_real
 
-        log_H = self.H_net(y_real)
-        H = torch.exp(-log_H)
+        H = self.H_net(y_real)
+        H = torch.sigmoid(H)
         M = self.M_net(y_real)
 
-        x_imag = (y_imag - M) * H
+        x_imag = (y_imag - M) / H
 
         if flip:
             x_imag, x_real = x_real, x_imag

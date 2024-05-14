@@ -6,6 +6,8 @@ build
 eigen*
 wandb
 wandb_keys.json
+last_train_run
+
 
 .environment
 .env
