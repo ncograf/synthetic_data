@@ -285,8 +285,6 @@ class TimeGanGenerator(base_generator.BaseGenerator):
             loader, model_tg, opt_recon, opt_super, opt_gener, opt_discr
         )
 
-        print("models are loaded")
-
         cross_entropy_loss = CrossEntropyLoss()
 
         # Bad configuration might make the model collaps
@@ -296,8 +294,6 @@ class TimeGanGenerator(base_generator.BaseGenerator):
         for epoch in range(epochs):
             epoch_loss = 0
             epoch_time = time.time()
-
-            print("start first epoch")
 
             for (x,) in loader:
                 opt_recon.zero_grad()
@@ -322,8 +318,6 @@ class TimeGanGenerator(base_generator.BaseGenerator):
                     "epoch": epoch,
                 }
             )
-
-            print(f"epoch took {time.time() - epoch_time}")
 
         # train with supervised lossx.shape + (1)
         # note that this is a hack needed to replace teacher forcing
@@ -352,8 +346,6 @@ class TimeGanGenerator(base_generator.BaseGenerator):
                     "epoch": epoch,
                 }
             )
-
-            print(f"epoch took {time.time() - epoch_time}")
 
         # GAN training
         for epoch in range(epochs):

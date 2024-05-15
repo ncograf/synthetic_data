@@ -39,6 +39,13 @@ import time_gan_index_generator
     "--embed-dim", type=int, default=2, help="Hidden embedding dimension in networks"
 )
 @click.option(
+    "-d",
+    "--dtype",
+    type=click.Choice(["float16", "float32", "float64"]),
+    default="float32",
+    help="Data type to train the model.",
+)
+@click.option(
     "-s",
     "--symbols",
     type=str,
@@ -61,6 +68,7 @@ def train_time_gan(
     lag: int,
     seq_len: int,
     embed_dim: int,
+    dtype : str,
     symbols: List[str],
     wandb_off: bool,
 ):
@@ -97,7 +105,7 @@ def train_time_gan(
         "embed_dim": embed_dim,
     }
     index_generator.fit_index(
-        price_index_data=price_data.loc[:, symbols], train_config=config
+        price_index_data=price_data.loc[:, symbols], dtype=dtype, train_config=config
     )
 
 
