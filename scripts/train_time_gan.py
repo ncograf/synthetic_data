@@ -68,7 +68,7 @@ def train_time_gan(
     lag: int,
     seq_len: int,
     embed_dim: int,
-    dtype : str,
+    dtype: str,
     symbols: List[str],
     wandb_off: bool,
 ):

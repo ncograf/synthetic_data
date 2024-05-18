@@ -29,5 +29,4 @@ class TimeFilter(base_filter.BaseFilter):
             raise ValueError("Data index must be Timestamps")
 
         mask = data.index >= self._first_date
-        print(mask.sum())
         data.drop(data.index[~mask], inplace=True)
