@@ -13,6 +13,7 @@ packages = [
     {include = "*", from = "src/statistics"},
     {include = "*", from = "src/stylized_facts"},
     {include = "*", from = "src/time_gan"},
+    {include = "*", from = "src/conditional_flow"},
     {include = "*", from = "src/utils"},
     {include = "*", from = "src/visualization"},
     {include = "*.so", from = "boosted/boost_modules", format = "wheel"},
