@@ -1,110 +1,112 @@
-import copy
-import multiprocessing as mp
-import time
-from typing import Dict, List, Tuple
+from datetime import date
+from pathlib import Path
+from typing import Dict, Tuple
 
-import base_generator
+import base_index_generator
+import garch_univar_generator
 import numpy as np
-import numpy.typing as npt
 import pandas as pd
+import torch
+from accelerate.utils import set_seed
 
 
-class GarchIndexGenerator:
-    def __init__(self, generator: base_generator.BaseGenerator):
-        self._generator = generator
-        self._problematic_cols = []
-
-    def fit_and_gen(
+class GarchIndexGenerator(base_index_generator.BaseIndexGenerator):
+    def fit(
         self,
-        col_gen_dat: Tuple[str, base_generator.BaseGenerator, pd.Series],
-        fit_params: Dict[str, any] = {},
-        gen_params: Dict[str, any] = {},
-    ) -> Tuple[str, base_generator.BaseGenerator, npt.NDArray, pd.Series]:
-        """Fit and generate data for the given input data
-
-        Note that the col element in the tuple is not used but added for conenience when using
-        a map function.
+        price_data: pd.DataFrame,
+        training_conifg: Dict[str, any],
+        cache: str | Path,
+        seed: int,
+    ) -> Dict[str, any]:
+        """For each column in price data fit a GARCH model and store the models in the cache
 
         Args:
-            col_gen_dat (Tuple[str, base_generator.BaseGenerator, pd.Series]): Tuple with col_name (for convenience, i.e. not used), generator to be fitted, data to fit on.
-            fit_params (Dict[str, any], optional): Extra parameters used for the fit function. Defaults to {}.
-            gen_params (Dict[str, any], optional): Extra parameters used for the generate function. Defaults to {}.
+            price_data (pd.DataFrame): Price data, where column indices are regarded as the chosen stocks
+            training_conifg (Dict[str, any]): Fitting configuration for the GARCH models must contain:
+                'garch_config' :
+                    'q' : integer from standard GARCH
+                    'p' : integer from standard GARCH
+                    'dist' : distribution ['normal', 'studentt']
+            cache (str | Path): cache path
+            seed (int): fix randomness
 
         Returns:
-            Tuple[str, base_generator.BaseGenerator, npt.NDArray, pd.Series]: name, fitted generator, nan_mask, sampled data in the lenght of the input
+            Dict[str, any]: metadata
+                'model_dict': mapping from symbols -> file-name in `cache`
+                'model_set': list of model file names
         """
-        col, generator, train_data = col_gen_dat
-        mask = ~np.isnan(train_data)
-        generator.fit_model(train_data[mask], **fit_params)
-        n_samples = train_data[mask].shape[0]
-        temp_series, _ = generator.generate_data(len=n_samples, burn=500, **gen_params)
-        n = 0
-        while np.isinf(temp_series).any() and n < 100:
-            temp_series, _ = generator.generate_data(
-                len=n_samples, burn=500, **gen_params
+
+        set_seed(seed=seed)
+
+        cache = Path(cache)
+
+        # get model configuration for training
+        model_config = training_conifg["garch_config"]  # p, q, dist
+
+        # accumulate metadata for fit artifact
+        metadata = {"model_dict": {}, "model_set": set()}
+
+        symbols = price_data.columns
+        generator = garch_univar_generator.GarchUnivarGenerator()
+
+        # sample all indices
+        for sym in symbols:
+            temp_dict = generator.fit_model(
+                price_data=price_data.loc[:, sym], config=model_config
             )
-            n += 1
+            temp_dict["symbol"] = sym
+            metadata["model_dict"][sym] = f"{sym}.pt"
+            metadata["model_set"].add(f"{sym}.pt")
 
-        return col, generator, mask, temp_series
+            torch.save(temp_dict, cache / f"{sym}.pt")
 
-    def generate_index(
-        self,
-        data: pd.DataFrame,
-        symbols: List[str] | None = None,
-        n_cpu: int = 1,
-        verbose: bool = False,
-    ) -> pd.DataFrame:
+        return metadata
+
+    def sample(
+        self, n_samples: int, metadata: Dict[str, any], cache: str | Path, seed: int
+    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """Generates synthetic data for the whole index
 
         Args:
-            data (pd.DataFrame): All data in the index
-            symbols (List[str] | None, optional): List of symbols, if None all symbols in the data are considered. Defaults to None
-            n_cpu (int): Number of cpu's to use (note the actual number might deviate based on machine limits).
-            verbose (bool): Print output.
-
-        Raises:
-            ValueError: data must be a DataFrame
+            n_samples (int): Number of samples
+            metadata (Dict[str, any]): Dictonary describing the filenames of the model(s)
+            cache (str | Path): Path to the stored generators / models
+            seed (int): Seed to make the sampling reproducible
 
         Returns:
-            pd.DataFrame : DataFrame containing all the columns
+            Tuple[pd.DataFrame, pd.DataFrame] : Sampled Prices, Sampled Returns
         """
 
-        if not isinstance(data, pd.DataFrame):
-            raise ValueError("Data must be a DataFrame")
+        set_seed(seed)
+        cache = Path(cache)
+        cache.mkdir(parents=True, exist_ok=True)
 
-        if symbols is None:
-            symbols = data.columns
+        n_burn = 300
 
-        generated_data = data.copy(deep=True)  # copy to keep the nans
-        self._problematic_cols = []
+        # read metadata
+        model_dict = metadata["model_dict"]
 
-        n_cpu = max(1, min(mp.cpu_count() - 2, n_cpu))
-        if n_cpu > 1:
-            pool = mp.Pool(n_cpu)
+        symbols = list(model_dict.keys())
 
-        # create the dictonary and split up
-        in_ = [
-            (col, copy.deepcopy(self._generator), data.loc[:, col]) for col in symbols
-        ]
+        generator = garch_univar_generator.GarchUnivarGenerator()
 
-        before_map = time.time()
-        if verbose:
-            print("Before Map")
-        if n_cpu > 1:
-            out = pool.map(self.fit_and_gen, in_)
-        else:
-            out = map(self.fit_and_gen, in_)
-        t = time.time() - before_map
-        if verbose:
-            print(f"Map took {t:.3f} seconds")
+        # take time index starting from today
+        time_idx = pd.date_range(str(date.today()), periods=n_samples + 1, freq="D")
+        generated_prices = pd.DataFrame(
+            np.zeros((n_samples + 1, len(symbols))), columns=symbols, index=time_idx
+        )
+        generated_returns = pd.DataFrame(
+            np.zeros((n_samples, len(symbols))), columns=symbols, index=time_idx[1:]
+        )
 
-        for col, gen, mask, tmp in out:
-            generated_data.loc[mask, col] = tmp
+        for sym in symbols:
+            # model_config with 'garch' : fitted model description (mu, omega, alpha ..)
+            #                   'init_price' : initial price
+            model_config = torch.load(cache / model_dict[sym])
+            price_simulation, return_simulation = generator.sample(
+                n_samples, burn=n_burn, config=model_config
+            )
+            generated_prices.loc[:, sym] = price_simulation
+            generated_returns.loc[:, sym] = return_simulation
 
-            if np.isinf(tmp).any():
-                self._problematic_cols.append(col)
-
-        if verbose:
-            print(f"Stocks containing infinity : {self._problematic_cols}.")
-
-        return generated_data.loc[:, symbols]
+        return generated_prices, generated_returns

@@ -1,6 +1,7 @@
-from typing import Dict, Literal, Tuple
+from typing import Dict, Tuple
 
 import base_generator
+import copula_garch_model
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
@@ -10,128 +11,129 @@ from copulas import multivariate, univariate
 
 
 class GarchCopulaGenerator(base_generator.BaseGenerator):
-    # TODO Make this more efficient
-
-    def __init__(
-        self,
-        p: int = 1,
-        q: int = 1,
-        distribution: Literal["normal", "studentT"] = "studentT",
-        name="GARCHCopula",
-    ):
-        base_generator.BaseGenerator.__init__(self, name)
-
-        self._models: Dict[str, ConstantMean] | None = None
-        self._fitted: Dict[str, ARCHModelResult] | None = None
-
-        if distribution == "normal":
-            self._distribution = Normal()
-            self._maringal_dist = univariate.GaussianUnivariate()
-        elif distribution == "studentT":
-            self._distribution = StudentsT()
-            self._maringal_dist = univariate.StudentTUnivariate()
-        else:
-            ValueError("The chosen distribution is not supported")
-
-        self._p = p
-        self._q = q
-
-        self.copula = None
-
-    def fit_model(self, price_data: pd.DataFrame):
+    def fit_model(
+        self, price_data: pd.DataFrame, config: Dict[str, any]
+    ) -> Dict[str, any]:
         """Fit Garch copula model with the given stock market prices
 
         For each price a Garch model is fitted and for the sampling
-        a copula is fit on top of that
+        a copula is fit on top of that.
+
+        To have suitable data, all rows, containing any nans are dropped.
+
+        Returns the confguration for the copula and the univariate garch models
 
         Args:
-            data (pd.DataFrame): stock market prices for one stock
+            price_data (pd.DataFrame): stock market prices for one stock
+            config (Dict[str, any]): Configuration of the GARCH(p,q) model,
+                Must contain the following parameter:
+                    - p : int
+                    - q : int
+                    - dist : literal['normal', 'studentT']
+
+        Returns:
+            Dict[str, any]: 'copula' : copula_config, 'garch' : garch_configs, 'init_prices' : initial prices
         """
 
+        dist = config["dist"]
+        p = config["p"]
+        q = config["q"]
+
+        if dist.lower() == "normal":
+            distribution = Normal()  # for univariate garch
+            maringal_dist = univariate.GaussianUnivariate()  # for copula
+        elif dist.lower() == "studentt":
+            distribution = StudentsT()  # for univariate garch
+            maringal_dist = univariate.StudentTUnivariate()  # used copula
+        else:
+            ValueError("The chosen distribution is not supported")
+
+        # algorithms only work with dataframes
         if isinstance(price_data, pd.Series):
             price_data = price_data.to_frame()
 
+        # create data
         data = np.array(price_data)
         returns = (data[1:] / data[:-1]) - 1
         percent_returns = returns * 100
         return_mask = ~np.isnan(percent_returns)
         nan_row_mask = np.any(~return_mask, axis=1)
         scaled_returns = percent_returns[~nan_row_mask, :]
-        self._zero_price = data[1:, :][~nan_row_mask, :][0]
+        initial_price = data[1:, :][~nan_row_mask, :][0]
 
-        self._models = {}
-        self._fitted = {}
+        # fit garch models
+        models = {}
+        fitted: Dict[str, ARCHModelResult] = {}
         for i, col in enumerate(price_data.columns):
-            self._models[col] = ConstantMean(percent_returns[return_mask[:, i], i])
-            self._models[col].volatility = GARCH(p=self._p, q=self._q)
-            self._models[col].distribution = self._distribution
-            self._fitted[col] = self._models[col].fit()
+            models[col] = ConstantMean(percent_returns[return_mask[:, i], i])
+            models[col].volatility = GARCH(p=p, q=q)
+            models[col].distribution = distribution
+            fitted[col] = models[col].fit()
             scaled_returns[:, i] = (
                 scaled_returns[:, i]
-                / self._fitted[col].conditional_volatility[
-                    ~nan_row_mask[return_mask[:, i]]
-                ]
+                / fitted[col].conditional_volatility[~nan_row_mask[return_mask[:, i]]]
             )
 
+        # store fitted garch model in minimal format
+        garch_config = {"alpha": {}, "beta": {}, "mu": {}, "omega": {}, "nu": {}}
+        for sym in fitted.keys():
+            garch_config["alpha"][sym] = [
+                fitted[sym].params[f"alpha[{i}]"] for i in range(1, p + 1)
+            ]
+            garch_config["beta"][sym] = [
+                fitted[sym].params[f"beta[{i}]"] for i in range(1, q + 1)
+            ]
+            garch_config["mu"][sym] = fitted[sym].params["mu"]
+            garch_config["omega"][sym] = fitted[sym].params["omega"]
+
+            if dist.lower() == "studentt":
+                garch_config["nu"][sym] = fitted[sym].params["nu"]
+
+        # fit copula with scaled returns
         scaled_returns_df = pd.DataFrame(
             data=scaled_returns,
             columns=price_data.columns,
             index=price_data.iloc[1:].loc[~nan_row_mask].index,
         )
-
-        self.copula = multivariate.GaussianMultivariate(
-            distribution=self._maringal_dist
-        )
+        self.copula = multivariate.GaussianMultivariate(distribution=maringal_dist)
         self.copula.fit(scaled_returns_df)
 
-    def model(self) -> Dict[str, ConstantMean]:
-        return self._models
+        # store copula in minimal format
+        copula_config = self.copula.to_dict()
 
-    def check_model(self):
-        if self._models is None:
-            raise RuntimeError("Model must bet set before.")
+        all_config = {
+            "copula": copula_config,
+            "garch": garch_config,
+            "init_prices": initial_price,
+        }
+        return all_config
 
-    def generate_data(
-        self, lenght: int = 500, burn: int = 100, seed: int | None = None
+    def sample(
+        self, length: int, burn: int, config: Dict[str, any]
     ) -> Tuple[npt.NDArray, npt.NDArray]:
         """Generate data from garch copula
 
         Args:
-            lenght (int, optional): Number of samples. Defaults to 500.
-            burn (int, optional): Number of samples in the beginning to be neglected. Defaults to 100.
-            seed (int | None, optional): Seed for sampling. Defaults to None.
+            length (int): Number of samples.
+            burn (int): Number of samples in the beginning to be neglected.
+            config (Dict[str, any]): Garch copula configuration with two dictionaries and an arraylike
+                "copula" : Dict containing copula config
+                "garch" : Dict containing the univariate garch configurations
+                "init_prices": Arraylike initial prices
 
         Returns:
             Tuple[npt.NDArray, npt.NDArray]: price simulations and return simulations
         """
 
-        if seed is not None:
-            np.random.seed(seed)
+        copula_dict = config["copula"]
+        garch_dict = config["garch"]
+        initial_prices = config["init_prices"]
+        model = copula_garch_model.CopulaGarchModel(
+            copula_dict=copula_dict, garch_dict=garch_dict, initial_price=initial_prices
+        )
 
-        copula_sample = np.array(self.copula.sample(lenght + burn))
-        cols = self.copula.columns
-
-        return_simulation = np.zeros((lenght, len(cols)), dtype=np.float64)
-        price_simulation = np.zeros((lenght + 1, len(cols)), dtype=np.float64)
-        price_simulation[0] = self._zero_price
-
-        mu = np.array([self._fitted[col].params["mu"] for col in cols])
-        omega = np.array([self._fitted[col].params["omega"] for col in cols])
-        alpha = np.array([self._fitted[col].params["alpha[1]"] for col in cols])
-        beta = np.array([self._fitted[col].params["beta[1]"] for col in cols])
-
-        var_t = omega / (1 - (alpha + beta))
-
-        for i in range(burn):
-            z = copula_sample[i, :]
-            epsilon_t = np.sqrt(var_t) * z
-            var_t = omega + alpha * epsilon_t**2 + beta * var_t
-
-        for i in range(lenght):
-            z = copula_sample[i + burn, :]
-            epsilon_t = np.sqrt(var_t) * z
-            return_simulation[i, :] = mu + epsilon_t
-            var_t = omega + alpha * epsilon_t**2 + beta * var_t
-            price_simulation[i + 1] = price_simulation[i] * return_simulation[i]
+        price_simulation, return_simulation = model.sample(
+            length=length, burn=burn, dtype=np.float64
+        )
 
         return price_simulation, return_simulation
