@@ -19,7 +19,6 @@ from wandb.sdk import wandb_run as wr
 class ConditionalFlowGenerator(base_generator.BaseGenerator):
     def __init__(
         self,
-        name: str = "conditional_flow",
         dtype: str = "float32",
         cache: str | Path = "data/cache",
     ):
@@ -31,7 +30,6 @@ class ConditionalFlowGenerator(base_generator.BaseGenerator):
             dtype (str, optional): dtype of model. Defaults to 'float32'.
             cache (str | Path, optional): cache location to store model and artifacts. Defaults to 'data/cache'.
         """
-        base_generator.BaseGenerator.__init__(self, name)
         self.shift = 0
         self.scale = 1
 

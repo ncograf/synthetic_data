@@ -31,7 +31,6 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
             dtype (str, optional): dtype of model. Defaults to 'float64'.
             cache (str | Path, optional): cache location to store model and artifacts. Defaults to 'data/cache'.
         """
-        base_generator.BaseGenerator.__init__(self, name)
         self.shift = 0
         self.scale = 1
 
