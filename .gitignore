@@ -13,6 +13,7 @@ last_train_run
 .env
 .python-version
 .vscode
+.coverage
 
 # output files
 *.out
