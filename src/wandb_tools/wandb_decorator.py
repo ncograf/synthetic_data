@@ -13,11 +13,8 @@ import temporal_series_visualizer
 import wandb
 
 
-def setup_wandb_api(wandb_off: bool):
-    if wandb_off:
-        os.environ["WANDB_MODE"] = "disabled"
-
-    elif not os.getenv("WANDB_MODE") == "disabled":
+def _setup_wandb_api():
+    if not os.getenv("WANDB_MODE") == "disabled":
         if os.getenv("WANDB_API_KEY") is None:
             raise EnvironmentError("WANDB_API_KEY is not set!")
 
@@ -30,17 +27,14 @@ def setup_wandb_api(wandb_off: bool):
 
 def wandb_run(func):
     """Runs function in a wandb run
-    Can be turned off with the function argument `wandb_off`
-    or by setting the environment variable WANDB_MODE='disabled'
+    the wrapper has no effect if environment
+    variable WANDB_MODE='disabled' is set
     """
 
-    @functools.wraps(func)  # type hints? / inception
+    @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        if "wandb_off" in kwargs.keys():
-            setup_wandb_api(wandb_off=kwargs["wandb_off"])
-        else:
-            # run wandb by default
-            setup_wandb_api(wandb_off=False)
+        # check environment variables
+        _setup_wandb_api()
 
         # wrap function in a wandb run
         with wandb.init():
@@ -57,22 +51,35 @@ def wandb_fit(func):
     the BaseIndexGenerator fit function.
 
     Args:
-        func (callable): Function with specific arguments
+        func (callable): Function with specific arguments:
+                price_data : pd.DataFrame
+                training_config : Dict[str, any]
+                cache : str | Path
+                seed : int
+            The output must contain a dictonary with keys:
+                model_dict : mapping from symbol to model
+                model_set : set of all the model in the fit
+                model_desc : short description of the model
+                model_name : name of the model
+                fit_scores : fitting scores of the models
     """
 
     _DATA_PARAM = "price_data"
     _DATA_DESC = "Time series for stocks which has to be sliced."
     _CACHE_PARAM = "cache"
-    _CONFIG_PARAM = "training_config"
-    _SEED_PARAM = "seed"
+    _CONFIG_PARAM = "train_config"
+
+    _SYMBOL_TO_MODEL_KEY = "model_dict"  # mapping from symbols to model
+    _MODEL_SET_KEY = "model_set"  # model set / list key
+    _MODEL_DESC_KEY = "model_desc"  # model description key
+    _MODEL_NAME_KEY = "model_name"  # model name key
+    _FIT_SCORES_KEY = "fit_scores"  # fit scores key
 
     # get function signature
     sig = inspect.signature(func)
 
     # check for correct function signature
-    if not {_DATA_PARAM, _CACHE_PARAM, _CONFIG_PARAM, _SEED_PARAM}.issubset(
-        sig.parameters
-    ):
+    if not {_DATA_PARAM, _CACHE_PARAM, _CONFIG_PARAM}.issubset(sig.parameters):
         raise TypeError(
             f"Function {func.__name__} cannot be wrapped (wrong arguments)!"
         )
@@ -86,11 +93,9 @@ def wandb_fit(func):
         data = ba.arguments.get(_DATA_PARAM)
         cache_dir = Path(ba.arguments.get(_CACHE_PARAM))
         config = ba.arguments.get(_CONFIG_PARAM)
-        seed = ba.arguments.get(_SEED_PARAM)
 
         # update wandb config
         wandb.config[_CONFIG_PARAM] = config
-        wandb.config[_SEED_PARAM] = seed
 
         # store dataset
         data_artifact = wandb.Artifact(
@@ -98,7 +103,7 @@ def wandb_fit(func):
             type="dataset",
             description=_DATA_DESC,
         )
-        data_path = cache_dir / "data.parquet"
+        data_path = cache_dir / "train_data.parquet"
         data.to_parquet(data_path, compression="gzip")
 
         # log locally stored dataset
@@ -107,9 +112,13 @@ def wandb_fit(func):
 
         metadata = func(*args, **kwargs)
 
-        if not {"model_dict", "model_set", "model_desc", "model_name"}.issubset(
-            metadata
-        ):
+        if not {
+            _SYMBOL_TO_MODEL_KEY,
+            _MODEL_SET_KEY,
+            _MODEL_DESC_KEY,
+            _MODEL_NAME_KEY,
+            _FIT_SCORES_KEY,
+        }.issubset(metadata):
             raise TypeError(
                 (
                     f"Function {func.__name__}"
@@ -118,20 +127,22 @@ def wandb_fit(func):
                 )
             )
 
-        model_name = metadata["model_name"]
+        model_name = metadata[_MODEL_NAME_KEY]
         model_artifact = wandb.Artifact(
             name=model_name, type="model", metadata=metadata
         )
 
-        wandb.tags = wandb.tags + [model_name]
+        wandb.run.tags = wandb.run.tags + (model_name,)
 
         # store all models in the model set
-        for name in metadata["model_set"]:
+        for name in metadata[_MODEL_SET_KEY]:
             path = cache_dir / name
             if path.exists():
                 model_artifact.add_file(path, name=f"{model_name}/{name}")
             else:
                 warn(f"Model {name} was not found in {str(path)}.")
+
+        wandb.log({"score": np.mean(metadata[_FIT_SCORES_KEY])})
 
         return metadata
 
@@ -142,23 +153,26 @@ def wandb_eval(func):
     """Evaluation function to wrap the sample function.
     This will store the result to wandb
 
+    The decorator does not accept function which have a `real_data` parameter.
+    However the parameter `real_data`will be added to the function when applying the decorator.
+
     Args:
-        func: Function with parameter requirements
+        func(callable): Function with parameters:
+            sample_config : dictonary containing `n_samples`, `seed`, ...
+            metadata : dictonary containing the fitted model information
+            cache : path to the cache
     """
 
-    _N_SAMPLE_PARAM = "n_samples"
+    _CONFIG_PARAM = "sample_config"
     _METADATA_PARAM = "metadata"
     _CACHE_PARAM = "cache"
-    _SEED_PARAM = "seed"
     _REAL_DATA_PARAM = "real_data"
 
     # get function signature
     sig = inspect.signature(func)
 
     # check for correct function signature
-    if not {_N_SAMPLE_PARAM, _CACHE_PARAM, _METADATA_PARAM, _SEED_PARAM}.issubset(
-        sig.parameters
-    ):
+    if not {_CONFIG_PARAM, _CACHE_PARAM, _METADATA_PARAM}.issubset(sig.parameters):
         raise TypeError(
             f"Function {func.__name__} cannot be wrapped (wrong arguments)!"
         )
@@ -168,35 +182,46 @@ def wandb_eval(func):
             f"Function {func.__name__} already takes the argument {_REAL_DATA_PARAM}, cannot be wrapped!"
         )
 
+    # add annotation
+    func.__annotations__[_REAL_DATA_PARAM] = pd.DataFrame
+
     # Real wrapper function
     @functools.wraps(func)
     def wrapper(*args, real_data: pd.DataFrame, **kwargs):
         # log data if given as an argument
         ba = sig.bind(*args, **kwargs)
 
-        seed = ba.arguments.get(_SEED_PARAM)
-        n_samples = ba.arguments.get(_N_SAMPLE_PARAM)
+        cache = Path(ba.arguments.get(_CACHE_PARAM))
+        config = ba.arguments.get(_CONFIG_PARAM)
 
         # update wandb config
-        wandb.config["sample_seed"] = seed
-        wandb.config["n_samples"] = n_samples
+        wandb.config[_CONFIG_PARAM] = config
 
         generated_prices, generated_returns = func(*args, **kwargs)
 
         plot_price = temporal_series_visualizer.visualize_time_series(
-            generated_prices, [{"linestyle": "-", "linewidth": 1}], "price-simulation"
+            generated_prices,
+            [{"linestyle": "-", "linewidth": 1}],
+            "price-simulation",
+            y_axis_name="Stock Price",
         )
         wandb.log({"price simulation plot": plot_price.figure})
+        plot_price.figure.savefig(cache / "price_simulation.png")
 
         plot_return = temporal_series_visualizer.visualize_time_series(
-            generated_returns, [{"linestyle": "-", "linewidth": 1}], "return-simulation"
+            generated_returns,
+            [{"linestyle": "-", "linewidth": 1}],
+            "return-simulation",
+            y_axis_name="Returns",
         )
         wandb.log({"return simulation plot": plot_return.figure})
+        plot_return.figure.savefig(cache / "return_simulation.png")
 
         # compute stylized facts
         plot = stylized_facts_visualizer.visualize_all(
             stock_data=generated_prices, name="Stylized Facts simulation."
         )
+        plot.figure.savefig(cache / "stylized_facts.png")
         image = wandb.Image(plot.figure, caption="Stylized Facts")
         wandb.log({"stylized_facts": image})
 
@@ -208,6 +233,7 @@ def wandb_eval(func):
             plot_name="Tail Statistics",
             quantile=0.01,
         )
+        plot.figure.savefig(cache / "tail_stats.png")
         image = wandb.Image(plot.figure, caption="Tail Statistics")
         wandb.log({"tail_stat": image})
 
@@ -220,7 +246,7 @@ def wandb_eval(func):
 def get_train_run(train_run: str, verbose: bool):
     api = wandb.Api()
 
-    setup_wandb_api(wandb_off=False)
+    _setup_wandb_api(wandb_off=False)
 
     runs = api.runs(
         path=f'{os.getenv("WANDB_ENTITY")}/{os.getenv("WANDB_PROJECT")}',
