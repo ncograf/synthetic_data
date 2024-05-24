@@ -68,7 +68,7 @@ class GarchCopulaGenerator(base_generator.BaseGenerator):
             models[col] = ConstantMean(percent_returns[return_mask[:, i], i])
             models[col].volatility = GARCH(p=p, q=q)
             models[col].distribution = distribution
-            fitted[col] = models[col].fit()
+            fitted[col] = models[col].fit(disp="off")
             scaled_returns[:, i] = (
                 scaled_returns[:, i]
                 / fitted[col].conditional_volatility[~nan_row_mask[return_mask[:, i]]]

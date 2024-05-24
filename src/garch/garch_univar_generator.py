@@ -59,15 +59,16 @@ class GarchUnivarGenerator(base_generator.BaseGenerator):
         returns = (data[1:] / data[:-1]) - 1
         percent_returns = returns * 100
         return_mask = ~np.isnan(percent_returns).flatten()
-        scaled_returns = percent_returns[return_mask]
-        initial_price = data[1:][return_mask][0]
+        initial_price = data[~np.isnan(data)][0]
 
         # fit garch models
         model = ConstantMean(percent_returns[return_mask])
         model.volatility = GARCH(p=p, q=q)
         model.distribution = distribution
-        fitted = model.fit()
-        scaled_returns = scaled_returns / fitted.conditional_volatility[return_mask]
+        fitted = model.fit(disp="off")
+
+        scaled_returns = percent_returns[return_mask]
+        scaled_returns = scaled_returns / fitted.conditional_volatility
 
         # store fitted garch model in minimal format
         garch_config = {}
@@ -81,7 +82,11 @@ class GarchUnivarGenerator(base_generator.BaseGenerator):
 
         garch_config["dist"] = dist
 
-        out_dict = {"garch": garch_config, "init_price": initial_price}
+        out_dict = {
+            "garch": garch_config,
+            "init_price": initial_price,
+            "fit_score": fitted.loglikelihood,
+        }
         return out_dict
 
     def sample(

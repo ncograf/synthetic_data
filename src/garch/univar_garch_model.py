@@ -37,8 +37,15 @@ class UnivarGarchModel:
 
         dist = garch_dict["dist"]
         if dist.lower() == "studentt":
-            nu = garch_dict["nu"]
-            self.sampler = lambda n: scipy.stats.t.rvs(df=nu, size=n)
+            self.nu = garch_dict["nu"]
+
+            if self.nu <= 2:
+                raise ValueError(
+                    f"The degrees of freedom ({self.nu}) must be larger than 2 for studentT fit."
+                )
+            # see arch for implemtation details
+            std = np.sqrt(self.nu / (self.nu - 2))
+            self.sampler = lambda n: scipy.stats.t.rvs(df=self.nu, size=n) / std
         elif dist.lower() == "normal":
             self.sampler = lambda n: scipy.stats.norm.rvs(size=n)
         else:
@@ -76,47 +83,34 @@ class UnivarGarchModel:
 
         samples = self.sampler(length + burn)
 
-        sigma_simulations = np.zeros((length + burn), dtype=dtype)
+        min_lag = np.maximum(len(self.beta), len(self.alpha))
+
+        sigma_simulations = np.ones((length + burn), dtype=dtype)
         return_simulation = np.zeros((length + burn), dtype=dtype)
         price_simulation = np.zeros((length + 1), dtype=dtype)
 
-        sigma_simulations[0] = self.omega / (1 - (self.alpha[0] + self.beta[0]))
-        return_simulation[0] = sigma_simulations[0] * samples[0]
+        # initialization copied from https://github.com/bashtage/arch/blob/main/arch/univariate/volatility.py#L1138
+        persistence = np.sum(self.alpha) + np.sum(self.beta)
+        sigma_simulations[:min_lag] = (
+            self.omega if persistence > 1 else self.omega / (1.0 - persistence)
+        )
+        return_simulation[:min_lag] = (
+            np.sqrt(sigma_simulations[:min_lag]) * samples[:min_lag]
+        )
         price_simulation[0] = self.initial_price
 
-        def compute_sigma(i: int, sigmas: npt.NDArray, returns: npt.NDArray):
-            """Compute variance for a given timestep, variances and epsilon
-
-            Args:
-                i (int): index for which to compute the variance
-                sigmas (npt.NDArray): (past) standard deviation of size at least i
-                returns (npt.NDArray): (past) return series of size at least i
-            """
-
-            assert i > 0
-
-            # start with lower variance
-            n_alpha = np.minimum(self.alpha.shape[0], i)
-            n_beta = np.minimum(self.beta.shape[0], i)
-
-            # alpha: p, beta: q
-            variance = (
-                self.omega
-                + np.dot(self.alpha[:n_alpha], returns[i - n_alpha : i] ** 2)
-                + np.dot(self.beta[:n_beta], sigmas[i - n_beta : i] ** 2)
-            )
-
-            return np.sqrt(variance)
-
         # apply garch
-        for i in range(1, burn + length):
-            z = samples[i]
-            sigma_simulations[i] = compute_sigma(
-                i, sigma_simulations, return_simulation
+        n_alpha = len(self.alpha)
+        n_beta = len(self.beta)
+        for t in range(min_lag, length + burn):
+            sigma_simulations[t] = (
+                self.omega
+                + np.dot(self.alpha, np.flip(return_simulation[t - n_alpha : t] ** 2))
+                + np.dot(self.beta, np.flip(sigma_simulations[t - n_beta : t]))
             )
-            return_simulation[i] = z * sigma_simulations[i]
+            return_simulation[t] = samples[t] * np.sqrt(sigma_simulations[t])
 
-        return_simulation = return_simulation[burn:] + self.mu
+        return_simulation = 1 + (self.mu + return_simulation[burn:]) / 100.0
 
         # compute prices
         for i in range(1, length + 1):

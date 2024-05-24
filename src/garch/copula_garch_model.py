@@ -80,57 +80,48 @@ class CopulaGarchModel:
         copula_sample = np.array(self.copula.sample(length + burn))
         cols = self.copula.columns
 
-        sigma_simulations = np.zeros((length + burn, len(cols)), dtype=dtype)
+        sigma2_simulations = np.zeros((length + burn, len(cols)), dtype=dtype)
         return_simulation = np.zeros((length + burn, len(cols)), dtype=dtype)
         price_simulation = np.zeros((length + 1, len(cols)), dtype=dtype)
 
-        sigma_simulations[0] = self.omega[0] / (
-            1 - (self.alpha[:, 0] + self.beta[:, 0])
+        # assume fits of the same sort for every stock
+        min_lag = np.maximum(self.beta.shape[1], self.alpha.shape[1])
+
+        # initialization copied from https://github.com/bashtage/arch/blob/main/arch/univariate/volatility.py#L1138
+        persistence = np.sum(self.alpha, axis=1) + np.sum(self.beta, axis=1)
+        sigma2_simulations[:min_lag] = np.where(
+            persistence > 1, self.omega, self.omega / (1.0 - persistence)
         )
-        return_simulation[0] = sigma_simulations[0] * copula_sample[0]
+        return_simulation[:min_lag] = (
+            np.sqrt(sigma2_simulations[:min_lag]) * copula_sample[:min_lag]
+        )
         price_simulation[0] = self.initial_price
 
-        def compute_sigma(i: int, sigmas: npt.NDArray, returns: npt.NDArray):
-            """Compute variance for a given timestep, variances and epsilon
+        # start with lower variance
+        n_alpha = self.alpha.shape[1]
+        n_beta = self.beta.shape[1]
 
-            Args:
-                i (int): index for which to compute the variance
-                sigmas (npt.NDArray): (past) standard deviations (i x D)
-                returns (npt.NDArray): (past) return series (i x D)
-            """
-
-            assert i > 0
-
-            # start with lower variance
-            n_alpha = np.minimum(self.alpha.shape[1], i)
-            n_beta = np.minimum(self.beta.shape[1], i)
-
+        # apply garch
+        for i in range(1, burn + length):
             # alpha: D x p, beta: D x q
-            variance = (
+            sigma2_simulations[i, :] = (
                 self.omega
                 + np.einsum(
                     "kl,lk->k",
                     self.alpha[:, :n_alpha],
-                    returns[i - n_alpha : i, :] ** 2,
+                    return_simulation[i - n_alpha : i, :] ** 2,
                 )
                 + np.einsum(
                     "kl,lk->k",
                     self.beta[:, :n_beta],
-                    sigmas[i - n_beta : i, :] ** 2,
+                    sigma2_simulations[i - n_beta : i, :],
                 )
             )
-
-            return np.sqrt(variance)
-
-        # apply garch
-        for i in range(1, burn + length):
-            z = copula_sample[i, :]
-            sigma_simulations[i, :] = compute_sigma(
-                i, sigma_simulations, return_simulation
+            return_simulation[i, :] = copula_sample[i, :] * np.sqrt(
+                sigma2_simulations[i, :]
             )
-            return_simulation[i, :] = z * sigma_simulations[i, :]
 
-        return_simulation = return_simulation[burn:] + self.mu
+        return_simulation = 1 + (self.mu + return_simulation[burn:]) / 100.0
 
         # compute prices
         for i in range(1, length + 1):
