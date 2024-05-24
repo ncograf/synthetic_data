@@ -144,6 +144,7 @@ class TemporalStatistic(base_statistic.BaseStatistic):
             "linewidth": 1,
         },
     ):
+        style_plot = style_plot.copy()
         if "label" not in style_plot.keys():
             style_plot["label"] = symbol + self._legend_postfix
 

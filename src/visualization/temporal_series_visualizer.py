@@ -10,8 +10,10 @@ def visualize_time_series(
     time_series: pd.DataFrame,
     styles: List[Dict[str, str]],
     figure_name: str = "time-series",
+    y_axis_name="No-Name",
 ) -> plotter:
     temp_stat = temporal_statistc.TemporalStatistic()
+    temp_stat._name = y_axis_name  # HACK for setting the plot name. TODO Fix this
     temp_stat.set_statistics(time_series)
 
     plot = plotter.Plotter(

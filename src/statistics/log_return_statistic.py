@@ -55,6 +55,6 @@ class LogReturnStatistic(
             raise ValueError("Data must be either dataframe or Series")
 
         data = data.to_numpy()
-        _log_returns = np.log(data[1:] / (data[:-1] + 1e-9) + 1e-9)
+        _log_returns = np.log(data[1:] / (data[:-1] + 1e-9) + 1e-6)
 
         return _log_returns
