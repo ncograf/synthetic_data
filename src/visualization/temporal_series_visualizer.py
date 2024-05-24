@@ -44,6 +44,11 @@ def visualize_time_series(
     )
     n_styles = len(styles)
     for i, symbol in enumerate(temp_stat.symbols):
-        temp_stat.draw_series(plot.axes, symbol=symbol, style_plot=styles[i % n_styles])
+        temp_stat.draw_series(
+            plot.axes,
+            symbol=symbol,
+            style_plot=styles[i % n_styles],
+            grow_only=(i != 0),
+        )
 
     return plot
