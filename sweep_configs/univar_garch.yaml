@@ -1,0 +1,59 @@
+program: src/wandb_tools/sweeps_trainer.py
+name: garch_sweep
+method: random
+metric:
+  goal: minimize
+  name: score
+parameters:
+  # general settings
+  model:
+    value: univar_garch 
+  cache:
+    value: data/cache/univar_garch
+    
+  # training data settings
+  train_data:
+    parameters:
+      symbols:
+        value:
+          - MSFT
+          - AMZN
+          - TSLA
+          - GOOGL
+          - BLK
+      first_date:
+        value: '1990-01-01'
+      min_len:
+        value: 3000
+      nan_allowed:
+        value: true
+        
+  # training configuration
+  train_config:
+    parameters:
+      garch_config:
+        parameters:
+          q:
+            distribution: int_uniform
+            min: 1
+            max: 6
+          p:
+            distribution: int_uniform
+            min: 1
+            max: 6
+          dist:
+            values: 
+              - studentt
+              - normal
+      train_seed:
+        value: 10
+    
+  # evaluation configuration
+  sample_config:
+    parameters:
+      n_sample:
+        value: 2000
+      n_burn:
+        value: 500
+      sample_seed:
+        value: 99 

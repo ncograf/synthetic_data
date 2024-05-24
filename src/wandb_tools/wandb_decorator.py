@@ -90,7 +90,7 @@ def wandb_fit(func):
         # log data if given as an argument
         ba = sig.bind(*args, **kwargs)
 
-        data = ba.arguments.get(_DATA_PARAM)
+        data: pd.DataFrame = ba.arguments.get(_DATA_PARAM)
         cache_dir = Path(ba.arguments.get(_CACHE_PARAM))
         config = ba.arguments.get(_CONFIG_PARAM)
 
@@ -132,7 +132,7 @@ def wandb_fit(func):
             name=model_name, type="model", metadata=metadata
         )
 
-        wandb.run.tags = wandb.run.tags + (model_name,)
+        wandb.run.tags = wandb.run.tags + (model_name,) + tuple(data.columns)
 
         # store all models in the model set
         for name in metadata[_MODEL_SET_KEY]:

@@ -83,16 +83,22 @@ def wandb_train(
 ):
     """Train run of index generator with wandb logging and integrated evaluation
 
+    This function can be used to start runs outside of a sweep environment
+
     Args:
         index_generator (base_index_generator.BaseIndexGenerator): generator to be fitted
         price_data (pd.DataFrame): price data to fit on
-        train_config (Dict[str, Any]): training configuration according to the generator including `sample_config` key
+        train_config (Dict[str, Any]): training configuration according to the generator
+            including `sample_config` key
+            including `train_config` key
         cache (str | Path): local cache directory
     """
 
     @wandb_decorator.wandb_run
     def _train(price_data, train_config, cache, **kwargs):
-        metadata = wandb_fit(index_generator, price_data, train_config, cache, **kwargs)
+        metadata = wandb_fit(
+            index_generator, price_data, train_config["train_config"], cache, **kwargs
+        )
 
         wandb_eval(
             index_generator,

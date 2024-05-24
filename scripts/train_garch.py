@@ -24,8 +24,10 @@ def main(
     )
 
     train_config = {
-        "garch_config": {"q": 2, "p": 3, "dist": "studentt"},
-        "train_seed": 10,
+        "train_config": {
+            "garch_config": {"q": 2, "p": 3, "dist": "studentt"},
+            "train_seed": 10,
+        },
         "sample_config": {"n_sample": 2000, "n_burn": 500, "sample_seed": 99},
     }
 
