@@ -12,8 +12,8 @@ class FourierFlow(nn.Module):
     def __init__(
         self,
         hidden_dim: int,
-        T: int,
-        n_layer: int,
+        seq_len: int,
+        num_layer: int,
         dtype: str = "float64",
         dft_scale: float = 1,
         dft_shift: float = 0,
@@ -22,7 +22,7 @@ class FourierFlow(nn.Module):
 
         Args:
             hidden_dim (int): dimension of the hidden layers
-            T (int): Time series size
+            seq_len (int): Time series size
             n_layer (int): number of spectral layers to be used
             dtype (torch.dtype, optional): type of data. Defaults to torch.float64.
             dft_scale (float, optional): Amount to scale dft signal. Defaults to 1.
@@ -38,11 +38,11 @@ class FourierFlow(nn.Module):
             self.dtype_str = TypeConverter.extract_dtype(dtype)
             self.dtype = TypeConverter.str_to_torch(self.dtype_str)
 
-        self.T = T
+        self.T = seq_len
         self.hidden_dim = hidden_dim
-        self.n_layer = n_layer
+        self.n_layer = num_layer
 
-        self.latent_size = T // 2 + 1
+        self.latent_size = seq_len // 2 + 1
         self.mu = nn.Parameter(
             torch.zeros(2 * self.latent_size, dtype=self.dtype), requires_grad=False
         )
@@ -106,8 +106,8 @@ class FourierFlow(nn.Module):
 
         dict_ = {
             "hidden_dim": self.hidden_dim,
-            "n_layer": self.n_layer,
-            "T": self.T,
+            "num_layer": self.n_layer,
+            "seq_len": self.T,
             "dtype": self.dtype_str,
             "dft_shift": self.dft_shift,
             "dft_scale": self.dft_scale,
