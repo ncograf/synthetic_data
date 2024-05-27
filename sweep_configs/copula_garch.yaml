@@ -1,5 +1,5 @@
 program: src/wandb_tools/sweeps_trainer.py
-name: univar_garch_sweep
+name: copula_garch_sweep
 method: random
 metric:
   goal: minimize
@@ -7,9 +7,9 @@ metric:
 parameters:
   # general settings
   model:
-    value: univar_garch 
+    value: copula_garch 
   cache:
-    value: "data/cache/univar_garch"
+    value: data/cache/copula_garch
     
   # training data settings
   train_data:
