@@ -7,7 +7,7 @@ import pandas as pd
 
 class BaseGenerator:
     @abstractmethod
-    def fit_model(self, price_data: pd.DataFrame, **kwargs):
+    def fit(self, price_data: pd.DataFrame, **kwargs):
         """Fit local Model model with the given stock market price data
 
         Args:
@@ -18,7 +18,9 @@ class BaseGenerator:
         )
 
     @abstractmethod
-    def sample(self, len: int, burn: int, **kwargs) -> Tuple[npt.NDArray, npt.NDArray]:
+    def sample(
+        self, length: int, burn: int, **kwargs
+    ) -> Tuple[npt.NDArray, npt.NDArray]:
         """Generates synthetic data with the previously trained model
 
         Args:
