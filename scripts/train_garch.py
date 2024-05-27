@@ -1,6 +1,9 @@
 import os
+import time
 from pathlib import Path
+from typing import Literal
 
+import garch_copula_index_generator
 import garch_index_generator
 import real_data_loader as data
 import wandb_train
@@ -14,6 +17,7 @@ import wandb_train
 # )
 def main(
     wandb_off: bool,
+    model: Literal["univar_garch", "copula_garch"],
 ):
     root_dir = Path(__file__).parent.parent
 
@@ -31,7 +35,7 @@ def main(
         "sample_config": {"n_sample": 2000, "n_burn": 500, "sample_seed": 99},
     }
 
-    cache = root_dir / "data/cache/garch_train"
+    cache = root_dir / f"data/cache/train_{model}_{time.time()}"
     cache.mkdir(parents=True, exist_ok=True)
 
     price_data = price_data.loc[:, ["MSFT", "AMZN", "TSLA", "A"]].iloc[-4000:, :]
@@ -39,7 +43,12 @@ def main(
     if wandb_off:
         os.environ["WANDB_MODE"] = "disabled"
 
-    generator = garch_index_generator.GarchIndexGenerator()
+    if model == "univar_garch":
+        generator = garch_index_generator.GarchIndexGenerator()
+    elif model == "copula_garch":
+        generator = garch_copula_index_generator.GarchCopulaIndexGenerator()
+    else:
+        raise ValueError(f"The given model {model} is not supported.")
 
     wandb_train.wandb_train(
         index_generator=generator,
@@ -50,4 +59,4 @@ def main(
 
 
 if __name__ == "__main__":
-    main(False)
+    main(True, "copula_garch")
