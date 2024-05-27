@@ -102,7 +102,7 @@ class CopulaGarchModel:
         n_beta = self.beta.shape[1]
 
         # apply garch
-        for i in range(1, burn + length):
+        for i in range(min_lag, burn + length):
             # alpha: D x p, beta: D x q
             sigma2_simulations[i, :] = (
                 self.omega

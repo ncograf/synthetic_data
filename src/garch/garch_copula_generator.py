@@ -63,6 +63,7 @@ class GarchCopulaGenerator(base_generator.BaseGenerator):
 
         # fit garch models
         models = {}
+        log_likelyhoods = []
         fitted: Dict[str, ARCHModelResult] = {}
         for i, col in enumerate(price_data.columns):
             models[col] = ConstantMean(percent_returns[return_mask[:, i], i])
@@ -73,6 +74,7 @@ class GarchCopulaGenerator(base_generator.BaseGenerator):
                 scaled_returns[:, i]
                 / fitted[col].conditional_volatility[~nan_row_mask[return_mask[:, i]]]
             )
+            log_likelyhoods.append(fitted[col].loglikelihood)
 
         # store fitted garch model in minimal format
         garch_config = {"alpha": {}, "beta": {}, "mu": {}, "omega": {}, "nu": {}}
@@ -105,6 +107,7 @@ class GarchCopulaGenerator(base_generator.BaseGenerator):
             "copula": copula_config,
             "garch": garch_config,
             "init_prices": initial_price,
+            "fit_score": log_likelyhoods,
         }
         return all_config
 
