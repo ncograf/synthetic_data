@@ -68,7 +68,9 @@ def wandb_sweep_run():
             mask = np.any(np.isnan(np.array(price_data)), axis=1)
             price_data.drop(index=price_data.index[mask], inplace=True)
 
-        cache = Path(config["cache"])
+        cache = Path(
+            config["cache"] + f"_{datetime.datetime.now().strftime('%d%m%y%H%M%S')}"
+        )
         cache.mkdir(parents=True, exist_ok=True)
 
         metadata = wandb_train.wandb_fit(
