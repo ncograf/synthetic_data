@@ -19,7 +19,7 @@ class GarchCopulaIndexGenerator(base_index_generator.BaseIndexGenerator):
     def fit(
         self,
         price_data: pd.DataFrame,
-        train_conifg: Dict[str, any],
+        train_config: Dict[str, any],
         cache: str | Path,
     ) -> Dict[str, any]:
         """For each column in price data fit a GARCH model and store the models in the cache
@@ -33,7 +33,6 @@ class GarchCopulaIndexGenerator(base_index_generator.BaseIndexGenerator):
                     'p' : integer from standard GARCH
                     'dist' : distribution ['normal', 'studentt']
             cache (str | Path): cache path
-            **kwargs : ignored
 
         Returns:
             Dict[str, any]: metadata
@@ -43,13 +42,13 @@ class GarchCopulaIndexGenerator(base_index_generator.BaseIndexGenerator):
 
         _MODEL_NAME = "copula_garch.pt"
 
-        set_seed(train_conifg["train_seed"])
+        set_seed(train_config["train_seed"])
 
         cache = Path(cache)
         cache.mkdir(parents=True, exist_ok=True)
 
         # get model configuration for training
-        model_config = train_conifg["garch_config"]  # p, q, dist
+        model_config = train_config["garch_config"]  # p, q, dist
 
         # accumulate metadata for fit artifact
         metadata = {
