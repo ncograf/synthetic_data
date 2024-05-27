@@ -69,7 +69,7 @@ def wandb_sweep_run():
             price_data.drop(index=price_data.index[mask], inplace=True)
 
         cache = Path(
-            config["cache"] + f"_{datetime.datetime.now().strftime('%d%m%y%H%M%S')}"
+            config["cache"] + f"_{datetime.datetime.now().strftime(r'%d%m%y%H%M%S')}"
         )
         cache.mkdir(parents=True, exist_ok=True)
 
