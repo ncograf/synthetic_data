@@ -71,15 +71,15 @@ class TestGarchGenerator:
 
         generator = garch_index_generator.GarchIndexGenerator()
         garch_config = {"q": 2, "p": 2, "dist": "normal"}
-        training_config = {"garch_config": garch_config}
+        training_config = {"garch_config": garch_config, "train_seed": 20}
         metadata = generator.fit(
             real_data,
-            training_conifg=training_config,
+            train_config=training_config,
             cache="tests/testdata/cache",
-            seed=10,
         )
+        sample_config = {"n_sample": 100, "n_burn": 10, "sample_seed": 10}
         samples = generator.sample(
-            n_samples=100, metadata=metadata, cache="tests/testdata/cache", seed=10
+            sample_config=sample_config, metadata=metadata, cache="tests/testdata/cache"
         )
 
         assert samples[0].shape[0] == 101

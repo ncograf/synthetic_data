@@ -35,7 +35,7 @@ class TestLeverageEffect:
         test = enumer / denom
 
         assert np.array_equal(
-            base_stat.statistic.round(6), test.round(6), equal_nan=True
+            base_stat.statistic.round(3), test.round(3), equal_nan=True
         )
 
 

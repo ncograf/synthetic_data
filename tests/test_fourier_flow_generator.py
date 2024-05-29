@@ -2,6 +2,7 @@ import os
 
 import fourier_flow_generator
 import real_data_loader as data
+from accelerate import Accelerator
 
 
 class TestFourierFlowGenerator:
@@ -29,33 +30,33 @@ class TestFourierFlowGenerator:
         # fit close dates
         data_ = data_dict["SPY"].loc[:, "Close"]
         data_ = data_.iloc[:100]
-        model = fourier_flow_generator.FourierFlowGenerator(symbol="MSFT")
+        model = fourier_flow_generator.FourierFlowGenerator()
         config = {
-            "hidden_dim": 20,
-            "num_layer": 2,
+            "fourier_flow_config": {
+                "hidden_dim": 20,
+                "seq_len": 32,
+                "num_layer": 2,
+            },
+            "dtype": "float32",
             "batch_size": 128,
             "epochs": 10,
-            "learning_rate": 0.001,
-            "gamma": 0.999,
-            "seq_len": 11,
+            "optim_config": {
+                "lr": 0.001,
+            },
+            "lr_config": {
+                "gamma": 0.999,
+            },
             "lag": 1,
+            "sym": "MSFT",
         }
-        model.fit_model(price_data=data_, **config)
 
-        try:
-            model.check_model()
-        except:  # noqa E722
-            assert False, "No error should be raised as the model is set"
-
-        gen_price, gen_ret = model.generate_data(
-            model=model.model(),
-            scale=model.data_amplitude,
-            shift=model.data_min,
-            init_price=model._zero_price,
-            len_=20,
+        os.environ["WANDB_MODE"] = "disabled"
+        model_dict = model.fit(
+            price_data=data_, config=config, accelerator=Accelerator()
         )
+        gen_price, gen_ret = model.sample(config=model_dict, length=20, burn=0)
 
-        assert gen_price.shape[0] == 20
+        assert gen_price.shape[0] == 21
         assert gen_ret.shape[0] == 20
 
 
