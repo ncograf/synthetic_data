@@ -39,8 +39,8 @@ fi
 # create sweep
 if [[ -z $N ]]
 then
-    wandb agent $1
+    poetry run wandb agent $1
 else
-    wandb agent --count $N $3
+    poetry run wandb agent --count $N $3
 fi
     

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #SBATCH --ntasks=1
-##SBATCH --gpus=rtx_4090:1
+#SBATCH --gpus=rtx_4090:1
 #SBATCH --mem-per-cpu=1500M
 #SBATCH --time=5:00:00
 #SBATCH --output=run_output.out

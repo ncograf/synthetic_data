@@ -27,5 +27,4 @@ then
 fi
 
 # create sweep
-export WANDB_SWEEP_ID=$(wandb sweep $1 2>&1 | awk '{for(i=1;i<=NF;i++)if($i~/ID:/)print $(i+1)}')
-echo $WANDB_SWEEP_ID
+wandb sweep $1

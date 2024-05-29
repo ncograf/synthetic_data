@@ -20,7 +20,10 @@ parameters:
           - AMZN
           - TSLA
           - GOOGL
-          - BLK
+          - AAPL
+          - ADBE
+          - CSCO
+          - INTC
       first_date:
         value: '1990-01-01'
       min_len:
@@ -38,38 +41,40 @@ parameters:
       fourier_flow_config:
         parameters:
           hidden_dim:
-            distribution: int_uniform
-            min: 100
-            max: 200
+            values: [64, 96, 128, 192, 256, 384, 512]
           seq_len:
-            value: 201
+            values: [256, 512, 1024, 2048]
           num_layer:
             distribution: int_uniform
-            min: 2
-            max: 4
+            min: 4
+            max: 10
       dtype:
         value: float32
       batch_size:
-        value: 512
+        values: [128, 256, 512]
       lag:
         value: 1
       epochs:
-        value: 10
+        values: [512, 768, 1024]
       optim_config:
         parameters:
           lr:
-            value: 0.001
+            distribution: log_uniform
+            min: -9
+            max: -6
       lr_config:
         parameters:
           gamma:
-            value: 0.995
+            distribution: uniform
+            min: 0.99
+            max: 1
         
     
   # evaluation configuration
   sample_config:
     parameters:
       n_sample:
-        value: 2000
+        value: 3000
       n_burn:
         value: 500
       sample_seed:
