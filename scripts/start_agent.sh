@@ -15,7 +15,7 @@ help()
     echo "n     Number of runs the agent should do."
     echo
     echo "Example:"
-    echo "start_agent 2kafwer3 -n 20"
+    echo "start_agent -n 20 2kafwer3"
     echo
 }
 
@@ -41,6 +41,6 @@ if [[ -z $N ]]
 then
     wandb agent $1
 else
-    wandb agent --count $N $1
+    wandb agent --count $N $3
 fi
     
