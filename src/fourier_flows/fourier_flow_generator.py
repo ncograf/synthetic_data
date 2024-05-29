@@ -15,7 +15,11 @@ import wandb
 
 class FourierFlowGenerator(base_generator.BaseGenerator):
     def fit(
-        self, price_data: pd.DataFrame, config: Dict[str, Any], accelerator: Accelerator
+        self,
+        price_data: pd.DataFrame,
+        config: Dict[str, Any],
+        accelerator: Accelerator,
+        sym: str = "",
     ) -> Dict[str, Any]:
         """Fit a Fourier Flow Neural Network. I.e. Train the network on the given data.
 
@@ -27,6 +31,7 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
                     seq_len : int
                     num_layer : int
                 dtype: str
+                epochs: int
                 batch_size : int
                 lag : int
                 optim_config: config for adam optimizer (e.g. lr : float)
@@ -73,7 +78,7 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
 
         # train model
         model, shift, scale, last_epoch_loss = self.train_fourier_flow(
-            accelerator=accelerator, X=X, config=config
+            accelerator=accelerator, X=X, config=config, sym=sym
         )
 
         # save model after training DO NOT CHANGE THE NAME as we need it when downloading the models
@@ -85,6 +90,7 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
             "shift": shift,
             "init_price": zero_price,
             "fit_score": last_epoch_loss,
+            "symbol": sym,
         }
 
         return model_dict
@@ -163,12 +169,13 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
         Args:
             X (torch.Tensor): Training data
             config(Dict[str, Any]): configuration for training run:
-                model_config:
+                fourier_flow_config:
                     hidden_dim : int
                     seq_len : int
                     num_layer : int
                 dtype: str
                 batch_size : int
+                epochs : int
                 optim_config: config for adam optimizer (e.g. lr : float)
                 lr_config : config for exponential lr_scheduler (e.g. gamma : float)
             accelerator (Accelerator): For fast training
@@ -222,13 +229,14 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
             epoch_loss = epoch_loss / len(loader)
             last_lr = scheduler.get_last_lr()[0]
 
-            wandb.log(
-                {
-                    f"loss/{sym}": epoch_loss,
-                    f"lr/{sym}": last_lr,
-                    "epoch": epoch,
-                }
-            )
+            if wandb.run is not None:
+                wandb.log(
+                    {
+                        f"loss/{sym}": epoch_loss,
+                        f"lr/{sym}": last_lr,
+                        "epoch": epoch,
+                    }
+                )
 
             n = 20
             if epoch % n == n - 1:

@@ -62,7 +62,7 @@ class FourierFlow(nn.Module):
         )
         self.flips = [True if i % 2 else False for i in range(self.n_layer)]
 
-        self.dft = FourierTransformLayer(T=self.T)
+        self.dft = FourierTransformLayer(seq_len=self.T)
         self.dft_scale = dft_scale  # float
         self.dft_shift = dft_shift  # float
 

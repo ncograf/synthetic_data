@@ -3,27 +3,17 @@ import torch.nn as nn
 
 
 class FourierTransformLayer(nn.Module):
-    def __init__(self, T: int):
+    def __init__(self, seq_len: int):
         nn.Module.__init__(self)
 
-        self.T = T
-
-        if T % 2 == 0:
-            raise ValueError(
-                "Fourier Transforms of even seqence lenghts are not supported"
-            )
-
-        # if self.n_freq % 2 == 0 the output will be larger by TWO (than input)
-        # if self.n_freq % 2 == 1 the output will be larger by ONE (than input)
-        # Add one as the constant frequency must be present
-        self.n_non_redundant = self.T // 2 + 1
+        self.seq_len = seq_len
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Applies a fourier transformation on a D-dimensional sigmal x
         and outputs DFT(x) applied on each signal
 
         Args:
-            x (torch.Tensor): DxT dimensional signal
+            x (torch.Tensor): Bxseq_len dimensional signal
 
         Returns:
             torch.Tensor: Dx(T // 2 + 1)x2 freqency tensor
@@ -34,13 +24,11 @@ class FourierTransformLayer(nn.Module):
 
         # fouriertransform along the second axis and then
         # make sure the lower freqencies and on the left
-        fft_x = torch.fft.fftshift(torch.fft.fft(x, dim=1), dim=1)
-
-        # crop the redundant data
-        fft_x = fft_x[:, : self.n_non_redundant]
+        assert x.shape[1] == self.seq_len
+        fft_x = torch.fft.rfft(x, dim=1, norm="forward")
 
         # extract real and imaginary part an scale
-        fft_real, fft_imag = torch.real(fft_x) / self.T, torch.imag(fft_x) / self.T
+        fft_real, fft_imag = torch.real(fft_x), torch.imag(fft_x)
 
         # stack in the first dimension
         fft_x = torch.stack([fft_real, fft_imag], dim=-1)
@@ -61,18 +49,11 @@ class FourierTransformLayer(nn.Module):
 
         # get real an imaginary component and extend the cutted parts
         fft_real, fft_imag = fft_x[:, :, 0], fft_x[:, :, 1]
-        fft_real = torch.cat([fft_real, torch.flip(fft_real, dims=[1])[:, 1:]], dim=1)
-        fft_imag = torch.cat([fft_imag, -torch.flip(fft_imag, dims=[1])[:, 1:]], dim=1)
 
         # fouriertransform along the second axis and then
         # make sure the lower freqencies and on the left
-        x = (
-            torch.real(
-                torch.fft.ifft(
-                    torch.fft.ifftshift(fft_real + 1j * fft_imag, dim=1), dim=1
-                )
-            )
-            * self.T
+        x = torch.fft.irfft(
+            fft_real + 1j * fft_imag, n=self.seq_len, dim=1, norm="forward"
         )
 
         return x

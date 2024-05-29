@@ -82,7 +82,7 @@ class FourierFlowIndexGenerator:
         for sym in symbols:
             data = price_data.loc[:, sym]
             model_dict = gen.fit(
-                price_data=data, config=train_config, accelerator=accelerator
+                price_data=data, config=train_config, accelerator=accelerator, sym=sym
             )
             model_dict["symbol"] = sym
             metadata["model_dict"][sym] = f"{sym}.pt"
