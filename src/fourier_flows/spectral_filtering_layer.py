@@ -32,21 +32,16 @@ class SpectralFilteringLayer(nn.Module):
 
         self.H_net = nn.Sequential(
             nn.Linear(self.split_size, hidden_dim, dtype=self.dtype),
-            nn.LayerNorm(hidden_dim, dtype=self.dtype),
             nn.Sigmoid(),
             nn.Linear(hidden_dim, hidden_dim, dtype=self.dtype),
-            nn.LayerNorm(hidden_dim, dtype=self.dtype),
             nn.Sigmoid(),
             nn.Linear(hidden_dim, self.split_size, dtype=self.dtype),
-            nn.Tanh(),
         )
 
         self.M_net = nn.Sequential(
             nn.Linear(self.split_size, hidden_dim, dtype=self.dtype),
-            nn.LayerNorm(hidden_dim, dtype=self.dtype),
             nn.Sigmoid(),
             nn.Linear(hidden_dim, hidden_dim, dtype=self.dtype),
-            nn.LayerNorm(hidden_dim, dtype=self.dtype),
             nn.Sigmoid(),
             nn.Linear(hidden_dim, self.split_size, dtype=self.dtype),
         )
@@ -67,8 +62,8 @@ class SpectralFilteringLayer(nn.Module):
         if flip:
             x_re, x_im = x_im, x_re
 
-        H = self.H_net(x_re)
-        H = torch.sigmoid(H)
+        H_ = self.H_net(x_re)
+        H = torch.nn.functional.softplus(H_)
 
         M = self.M_net(x_re)
 
@@ -105,7 +100,7 @@ class SpectralFilteringLayer(nn.Module):
         x_real = y_real
 
         H = self.H_net(y_real)
-        H = torch.sigmoid(H)
+        H = torch.nn.functional.softplus(H)
         M = self.M_net(y_real)
 
         x_imag = (y_imag - M) / H

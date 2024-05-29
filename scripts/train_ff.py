@@ -29,16 +29,16 @@ def main(
     train_config = {
         "train_config": {
             "use_cuda": True,
-            "train_seed": 10,
+            "train_seed": 99,
             "fourier_flow_config": {
-                "hidden_dim": 100,
-                "seq_len": 201,
-                "num_layer": 3,
+                "hidden_dim": 256,
+                "seq_len": 512,
+                "num_layer": 8,
             },
             "dtype": "float32",
             "batch_size": 512,
             "lag": 1,
-            "epochs": 10,
+            "epochs": 100,
             "optim_config": {
                 "lr": 0.001,
             },
@@ -50,7 +50,7 @@ def main(
     cache = root_dir / f"data/cache/train_{model}_{time.time()}"
     cache.mkdir(parents=True, exist_ok=True)
 
-    price_data = price_data.loc[:, ["MSFT", "AMZN", "TSLA", "A"]].iloc[-4000:, :]
+    price_data = price_data.loc[:, ["MSFT", "AMZN"]].iloc[-4000:, :]
 
     if wandb_off:
         os.environ["WANDB_MODE"] = "disabled"
