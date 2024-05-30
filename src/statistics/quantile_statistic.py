@@ -189,7 +189,7 @@ class QuantileStatistic(base_statistic.BaseStatistic, base_outlier_set.BaseOutli
             self.point_artist = axes.axvline()
 
         x = self.get_statistic(point)
-        self.point_artist.set_xdata(x)
+        self.point_artist.set_xdata([x])
         self.point_artist.set_label(
             f"{point.symbol} at {point.date.strftime('%Y-%m-%d')}"
         )

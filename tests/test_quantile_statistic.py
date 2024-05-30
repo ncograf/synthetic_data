@@ -81,3 +81,7 @@ class TestQuantileStatistic:
             assert False, "Value error expected."
         except ValueError as ex:
             assert "The quantile must be" in str(ex)
+
+
+if __name__ == "__main__":
+    TestQuantileStatistic().test_plot_point()
