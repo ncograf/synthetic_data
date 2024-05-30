@@ -139,11 +139,11 @@ def wandb_fit(func):
             path = cache_dir / name
             if path.exists():
                 model_artifact.add_file(path, name=f"{model_name}/{name}")
-                wandb.log_artifact(model_artifact)
             else:
                 warn(f"Model {name} was not found in {str(path)}.")
 
         wandb.log({"score": np.mean(metadata[_FIT_SCORES_KEY])})
+        wandb.log_artifact(model_artifact)
 
         return metadata
 
