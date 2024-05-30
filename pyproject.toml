@@ -21,7 +21,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "3.10.4"
+python = "3.11.6"
 yfinance = "0.2.37"
 pandas = "^2.2.1"
 numpy = "^1.26.4"
