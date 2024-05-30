@@ -93,6 +93,7 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
             "symbol": sym,
         }
 
+        accelerator.free_memory()
         return model_dict
 
     def sample(
@@ -101,9 +102,9 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
         """Generate data from the trained model
 
         Args:
-            len (int): lengh of generated seqence.
+            length (int): lengh of generated seqence.
             burn (int): ignored.
-            config (Dict[str, Any]): sample configuration:
+            config (Dict[str, Any]): sample model configuration:
                 state_dict : torch model weights
                 init_params : model init params
                 scale : data scaling
@@ -179,7 +180,7 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
                 optim_config: config for adam optimizer (e.g. lr : float)
                 lr_config : config for exponential lr_scheduler (e.g. gamma : float)
             accelerator (Accelerator): For fast training
-            sym : symbol for logging
+            sym (str, optional) : symbol for logging. Defaults to ""
 
         Returns:
             Tuple[FourierFlow, float, float, float]: Trained network ready for sampling, shift, scale, last_loss

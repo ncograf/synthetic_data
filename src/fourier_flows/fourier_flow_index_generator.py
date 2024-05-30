@@ -63,11 +63,12 @@ class FourierFlowIndexGenerator:
 
         symbols = list(price_data.columns)
 
-        wandb.config["train_config.cpu"] = cpu_name
-        wandb.config["train_config.gpu"] = cuda_name
-        wandb.config["train_config.device"] = device
+        if wandb.run is not None:
+            wandb.config["train_config.cpu"] = cpu_name
+            wandb.config["train_config.gpu"] = cuda_name
+            wandb.config["train_config.device"] = device
 
-        wandb.define_metric("*", step_metric="epoch")
+            wandb.define_metric("*", step_metric="epoch")
 
         # accumulate metadata for fit artifact
         metadata = {
@@ -93,6 +94,7 @@ class FourierFlowIndexGenerator:
 
         metadata["fit_scores"] = log_likelyhood
 
+        accelerator.free_memory()
         return metadata
 
     def sample(
