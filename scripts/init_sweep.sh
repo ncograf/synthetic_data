@@ -27,4 +27,4 @@ then
 fi
 
 # create sweep
-wandb sweep $1
+poetry run wandb sweep $1

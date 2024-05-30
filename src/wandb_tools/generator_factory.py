@@ -1,6 +1,7 @@
 import fourier_flow_index_generator
 import garch_copula_index_generator
 import garch_index_generator
+import time_gan_index_generator
 
 
 def generator_factory(model: str):
@@ -10,5 +11,7 @@ def generator_factory(model: str):
         return garch_copula_index_generator.GarchCopulaIndexGenerator()
     if model == "fourier_flow":
         return fourier_flow_index_generator.FourierFlowIndexGenerator()
+    if model == "time_gan":
+        return time_gan_index_generator.TimeGanIndexGenerator()
     else:
         raise ValueError(f"{model} could not be converted to a generator!")
