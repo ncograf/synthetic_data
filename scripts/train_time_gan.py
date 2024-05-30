@@ -31,19 +31,19 @@ def main(
             "use_cuda": True,
             "train_seed": 99,
             "time_gan_config": {
-                "hidden_dim": 8,
-                "num_layer": 8,
-                "embed_dim": 8,
+                "hidden_dim": 24,
+                "num_layer": 3,
+                "embed_dim": 6,
                 "n_stocks": 1,
             },
-            "seq_len": 16,
+            "seq_len": 24,
             "dtype": "float32",
-            "epochs": 100,
-            "batch_size": 512,
+            "epochs": 200,
+            "batch_size": 128,
             "lag": 1,
             "gamma": 1,
             "optim_config": {
-                "lr": 0.0005,
+                "lr": 0.001,
             },
             "lr_config": {"gamma": 0.995},
         },
@@ -69,4 +69,4 @@ def main(
 
 
 if __name__ == "__main__":
-    main(True)
+    main(False)

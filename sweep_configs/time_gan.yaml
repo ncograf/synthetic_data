@@ -1,0 +1,76 @@
+program: src/wandb_tools/sweeps_trainer.py
+name: time_gan
+method: random
+metric:
+  goal: minimize
+  name: score
+parameters:
+  # general settings
+  model:
+    value: time_gan
+  cache:
+    value: "data/cache/time_gan"
+    
+  # training data settings
+  train_data:
+    parameters:
+      symbols:
+        value:
+          - MSFT
+          - AMZN
+          - TSLA
+          - GOOGL
+      first_date:
+        value: '1990-01-01'
+      min_len:
+        value: 3000
+      nan_allowed:
+        value: true
+        
+  # training configuration
+  train_config:
+    parameters:
+      use_cuda:
+        value: true
+      train_seed:
+        value: 100
+      time_gan_config:
+        parameters:
+          hidden_dim:
+            value: 24
+          num_layer:
+            value: 3
+          embed_dim:
+            value: 6
+          n_stocks:
+            value: 1
+      seq_len:
+        value: 24
+      dtype:
+        value: float32
+      epochs:
+        value: 2000
+      batch_size:
+        value: 128
+      lag:
+        value: 1
+      gamma:
+        value: 1
+      optim_config:
+        parameters:
+          lr:
+            value: 0.001
+      lr_config:
+        parameters:
+          gamma:
+            value: 0.999 
+    
+  # evaluation configuration
+  sample_config:
+    parameters:
+      n_sample:
+        value: 3000
+      n_burn:
+        value: 500
+      sample_seed:
+        value: 99 
