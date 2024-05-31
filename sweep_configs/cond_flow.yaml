@@ -1,0 +1,76 @@
+program: src/wandb_tools/sweeps_trainer.py
+name: cond_flow
+method: random
+metric:
+  goal: minimize
+  name: score
+parameters:
+  # general settings
+  model:
+    value: cond_flow
+  cache:
+    value: "data/cache/cond_flow"
+    
+  # training data settings
+  train_data:
+    parameters:
+      symbols:
+        value: # should be evenaand match the output_dim
+          - MSFT
+          - AMZN
+          - TSLA
+          - GOOGL
+          - AAPL
+          - ADBE
+          - CSCO
+          - INTC
+      first_date:
+        value: '1990-01-01'
+      min_len:
+        value: 3000
+      nan_allowed:
+        value: true
+        
+  # training configuration
+  train_config:
+    parameters:
+      use_cuda:
+        value: true
+      train_seed:
+        value: 10
+      fourier_flow_config:
+        parameters:
+          hidden_dim:
+            values: [64, 96, 128, 192, 256, 384, 512]
+          n_layer:
+            distribution: int_uniform
+            min: 4
+            max: 10
+          output_dim:
+            value: 8 # this should match the number of stocks
+          dtype:
+            value: float32
+      seq_len:
+        values: [256, 512, 1024, 2048]
+      batch_size:
+        values: [128, 256, 512]
+      lag:
+        value: 1
+      epochs:
+        value: 2048
+      optim_config:
+        parameters:
+          lr:
+            distribution: log_uniform
+            min: -9
+            max: -6
+    
+  # evaluation configuration
+  sample_config:
+    parameters:
+      n_sample:
+        value: 3000
+      n_burn:
+        value: 500
+      sample_seed:
+        value: 99 

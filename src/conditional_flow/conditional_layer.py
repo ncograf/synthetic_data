@@ -36,15 +36,17 @@ class ConditionalLayer(nn.Module):
         self.s = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim, dtype=self.dtype),
             nn.Sigmoid(),
+            nn.Linear(hidden_dim, hidden_dim, dtype=self.dtype),
+            nn.Sigmoid(),
             nn.Linear(hidden_dim, output_dim // 2, dtype=self.dtype),
-            nn.Tanh(),
         )
 
         self.t = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim, dtype=self.dtype),
             nn.Sigmoid(),
+            nn.Linear(hidden_dim, hidden_dim, dtype=self.dtype),
+            nn.Sigmoid(),
             nn.Linear(hidden_dim, output_dim // 2, dtype=self.dtype),
-            nn.Tanh(),
         )
 
         self.pos_f = torch.nn.Softplus(beta=1, threshold=30)

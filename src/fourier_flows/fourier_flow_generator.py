@@ -37,6 +37,7 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
                 optim_config: config for adam optimizer (e.g. lr : float)
                 lr_config : config for exponential lr_scheduler (e.g. gamma : float)
             accelerator (Accelerator): accelerator for speedup
+            sym (str): symbol of the fitted price data
 
         Raises:
             ValueError: If the input is no a single price seqence
@@ -48,6 +49,7 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
                 scale : data scaling
                 shift : data shift
                 init_price : initial price for sampling
+                fit_score : score of the fit
                 symbol : symbol name for model
                 network : network name
         """

@@ -2,6 +2,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Dict
 
+import base_index_generator
 import cpuinfo
 import fourier_flow_generator
 import numpy as np
@@ -14,7 +15,7 @@ import wandb
 import wandb.errors
 
 
-class FourierFlowIndexGenerator:
+class FourierFlowIndexGenerator(base_index_generator.BaseIndexGenerator):
     def __init__(self):
         self.model_desc = "Fourier Flow Base Model"
         self.model_name = "fourier_flow_base"
@@ -42,6 +43,13 @@ class FourierFlowIndexGenerator:
                     lr_config : config for exponential lr_scheduler (e.g. gamma : float)
 
             cache (str | Path): cache path
+
+        Returns:
+            Dict[str, Any]: Metadata with keys:
+                model_dict: mapping from symbols to models
+                model_set: set of all models
+                model_name:
+                model_desc: description of the model
         """
 
         set_seed(train_config["train_seed"])
