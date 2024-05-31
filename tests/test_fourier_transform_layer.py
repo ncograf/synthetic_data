@@ -5,7 +5,7 @@ import torch
 
 class TestFourierTransformLayer:
     def test_simple_signal_odd(self):
-        layer = fourier_transform_layer.FourierTransformLayer(7)
+        layer = fourier_transform_layer.FourierTransformLayer(7, False)
 
         data = torch.tensor([[1, 2, 3, 1, 2, 3, 1]])
 
@@ -18,7 +18,7 @@ class TestFourierTransformLayer:
     def test_random(self):
         T = 11
         D = 20
-        layer = fourier_transform_layer.FourierTransformLayer(T)
+        layer = fourier_transform_layer.FourierTransformLayer(T, True)
 
         data = torch.rand((D, T))
 
