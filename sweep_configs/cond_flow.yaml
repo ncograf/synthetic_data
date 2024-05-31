@@ -38,7 +38,7 @@ parameters:
         value: true
       train_seed:
         value: 10
-      fourier_flow_config:
+      cond_flow_config:
         parameters:
           hidden_dim:
             values: [64, 96, 128, 192, 256, 384, 512]
