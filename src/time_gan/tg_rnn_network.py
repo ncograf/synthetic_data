@@ -47,7 +47,6 @@ class TGRNNNetwork(nn.Module):
             self.out_dim,
             dtype=self.dtype,
         )
-        self.act = nn.Sigmoid()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through rnn
@@ -70,7 +69,5 @@ class TGRNNNetwork(nn.Module):
         x, _ = self.rnn(x)
 
         x = self.lin(x)
-
-        x = self.act(x)
 
         return x
