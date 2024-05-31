@@ -1,20 +1,34 @@
-from typing import Tuple
+from typing import Literal, Tuple
 
+import filter_networks
 import torch
 import torch.nn as nn
 from type_converter import TypeConverter
 
 
 class SpectralFilteringLayer(nn.Module):
-    def __init__(self, T: int, hidden_dim: int, dtype: str = "float64"):
+    def __init__(
+        self,
+        seq_len: int,
+        hidden_dim: int,
+        arch: Literal["MLP", "LSTM"],
+        num_model_layer: int,
+        dtype: str = "float64",
+        bidirect: bool = True,
+        n_stocks: int = 1,
+    ):
         """Spectral filtering layer for seqences
 
         see https://arxiv.org/abs/1605.08803 for implementation details
 
         Args:
-            D (int): Number of series
-            T (int): individual series lenght
+            seq_len (int): individual series lenght
             hidden_dim (int): size of the hidden layers in neural network
+            arch (Literal['MLP', 'LSTM']): network architectures for H and M
+            num_model_layer (int): number of layers in the model
+            dtype (str, optional): type used for the layer. Defaults to 'float64'
+            bidirect (bool, optional): Only used for rnn. Defaults to True.
+            n_stock (int, optional): Number of stocks considered only used for rnn. Defaults to 1.
         """
 
         if not isinstance(dtype, str):
@@ -28,23 +42,20 @@ class SpectralFilteringLayer(nn.Module):
 
         self.count = 0
 
-        self.split_size = T // 2 + 1
+        self.split_size = seq_len // 2 + 1
 
-        self.H_net = nn.Sequential(
-            nn.Linear(self.split_size, hidden_dim, dtype=self.dtype),
-            nn.Sigmoid(),
-            nn.Linear(hidden_dim, hidden_dim, dtype=self.dtype),
-            nn.Sigmoid(),
-            nn.Linear(hidden_dim, self.split_size, dtype=self.dtype),
-        )
+        config = {
+            "seq_len": seq_len,
+            "hidden_dim": hidden_dim,
+            "arch": arch,
+            "num_model_layer": num_model_layer,
+            "dtype": dtype,
+            "bidirect": bidirect,
+            "n_stocks": n_stocks,
+        }
 
-        self.M_net = nn.Sequential(
-            nn.Linear(self.split_size, hidden_dim, dtype=self.dtype),
-            nn.Sigmoid(),
-            nn.Linear(hidden_dim, hidden_dim, dtype=self.dtype),
-            nn.Sigmoid(),
-            nn.Linear(hidden_dim, self.split_size, dtype=self.dtype),
-        )
+        self.H_net = filter_networks.model_factory(config)
+        self.M_net = filter_networks.model_factory(config)
 
     def forward(self, x: torch.Tensor, flip: bool) -> Tuple[torch.Tensor, torch.Tensor]:
         """Compute foward step of method proposed in

@@ -126,7 +126,7 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
         model.load_state_dict(config["state_dict"])
         model.dtype = TC.str_to_torch(dtype)
 
-        n = length // model.T + 1
+        n = length // model.seq_len + 1
         model_output = model.sample(n)
         log_returns = (model_output * scale) + shift
         log_returns = log_returns.detach().cpu().numpy().flatten()
@@ -176,6 +176,9 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
                     hidden_dim : int
                     seq_len : int
                     num_layer : int
+                    num_model_layer: int
+                    arch : 'MLP or 'LSTM'
+                    bidirect : bool
                 dtype: str
                 batch_size : int
                 epochs : int

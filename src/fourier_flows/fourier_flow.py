@@ -1,4 +1,4 @@
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Literal, Tuple
 
 import torch
 import torch.nn as nn
@@ -14,19 +14,29 @@ class FourierFlow(nn.Module):
         hidden_dim: int,
         seq_len: int,
         num_layer: int,
-        dtype: str = "float64",
+        num_model_layer: int,
+        arch: Literal["MLP", "LSTM"],
+        dtype: str = "float32",
+        use_dft: bool = True,
         dft_scale: float = 1,
         dft_shift: float = 0,
+        bidirect: int = True,
+        n_stocks: int = 1,
     ):
         """Fourier Flow network for one dimensional time series
 
         Args:
             hidden_dim (int): dimension of the hidden layers
             seq_len (int): Time series size
-            n_layer (int): number of spectral layers to be used
+            num_layer (int): number of spectral layers to be used
+            num_model_layer (int): number of layers in the model
+            arch (Literal['MLP', 'LSTM']): model architecture
             dtype (torch.dtype, optional): type of data. Defaults to torch.float64.
+            use_dft (bool, optional): Flag whether or not to use fourier transform.
             dft_scale (float, optional): Amount to scale dft signal. Defaults to 1.
             dft_shift (float, optional): Amount to shift dft signal. Defaults to 0.
+            bidirect (bool, optional): in case of rnn model whether or not bidirectional. Defaults to True.
+            n_stocks (int, optional): number of stocks in model (must match input). Defaults to 1.
         """
 
         nn.Module.__init__(self)
@@ -38,9 +48,14 @@ class FourierFlow(nn.Module):
             self.dtype_str = TypeConverter.extract_dtype(dtype)
             self.dtype = TypeConverter.str_to_torch(self.dtype_str)
 
-        self.T = seq_len
+        self.seq_len = seq_len
         self.hidden_dim = hidden_dim
         self.n_layer = num_layer
+        self.arch = arch
+        self.num_model_layer = num_model_layer
+        self.bidirect = bidirect
+        self.n_stocks = n_stocks
+        self.use_dft = use_dft
 
         self.latent_size = seq_len // 2 + 1
         self.mu = nn.Parameter(
@@ -55,14 +70,20 @@ class FourierFlow(nn.Module):
         self.layers = nn.ModuleList(
             [
                 SpectralFilteringLayer(
-                    T=self.T, hidden_dim=self.hidden_dim, dtype=dtype
+                    seq_len=self.seq_len,
+                    hidden_dim=self.hidden_dim,
+                    arch=arch,
+                    num_model_layer=num_model_layer,
+                    dtype=self.dtype,
+                    bidirect=bidirect,
+                    n_stocks=n_stocks,
                 )
                 for _ in range(self.n_layer)
             ]
         )
         self.flips = [True if i % 2 else False for i in range(self.n_layer)]
 
-        self.dft = FourierTransformLayer(seq_len=self.T)
+        self.dft = FourierTransformLayer(seq_len=self.seq_len, use_dft=use_dft)
         self.dft_scale = dft_scale  # float
         self.dft_shift = dft_shift  # float
 
@@ -107,10 +128,15 @@ class FourierFlow(nn.Module):
         dict_ = {
             "hidden_dim": self.hidden_dim,
             "num_layer": self.n_layer,
-            "seq_len": self.T,
+            "num_model_layer": self.num_model_layer,
+            "bidirect": self.bidirect,
+            "n_stocks": self.n_stocks,
+            "arch": self.arch,
+            "seq_len": self.seq_len,
             "dtype": self.dtype_str,
             "dft_shift": self.dft_shift,
             "dft_scale": self.dft_scale,
+            "use_dft": self.use_dft,
         }
 
         return dict_
@@ -132,7 +158,10 @@ class FourierFlow(nn.Module):
             Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: transformed tensor
         """
 
-        x_fft: torch.Tensor = self.dft(x)
+        if self.dft:
+            x_fft: torch.Tensor = self.dft(x)
+        else:
+            x_fft = x
 
         x_fft = (x_fft - self.dft_shift) / self.dft_scale
 
