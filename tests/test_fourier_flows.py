@@ -17,6 +17,9 @@ class TestFourierFlows:
             num_layer=1,
             dtype=dtype,
             num_model_layer=1,
+            drop_out=0.5,
+            activation="relu",
+            norm="layer",
             arch="MLP",
         )
 
@@ -35,6 +38,9 @@ class TestFourierFlows:
             num_layer=1,
             dtype=dtype,
             num_model_layer=2,
+            drop_out=0,
+            activation="celu",
+            norm="batch",
             arch="MLP",
         )
 
@@ -53,7 +59,10 @@ class TestFourierFlows:
             seq_len=data.shape[1],
             num_layer=1,
             dtype=dtype,
-            num_model_layer=1,
+            num_model_layer=3,
+            drop_out=0.9,
+            activation="sigmoid",
+            norm="none",
             arch="LSTM",
         )
 
@@ -69,9 +78,12 @@ class TestFourierFlows:
         model = fourier_flow.FourierFlow(
             1,
             seq_len=data.shape[1],
-            num_layer=1,
+            num_layer=2,
             dtype=dtype,
             num_model_layer=2,
+            drop_out=0.2,
+            activation="tanh",
+            norm="layer",
             arch="LSTM",
         )
 
