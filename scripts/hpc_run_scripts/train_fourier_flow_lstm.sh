@@ -9,4 +9,4 @@
 
 module load eth_proxy
 
-poetry run accelerate launch --config_file accelerate.yaml --no_python ./scripts/start_agent.sh -n 10 bl2h015f
+poetry run accelerate launch --config_file accelerate.yaml --no_python ./scripts/start_agent.sh -n 5 6mnt2ipw

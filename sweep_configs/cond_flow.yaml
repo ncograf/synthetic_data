@@ -41,29 +41,35 @@ parameters:
       cond_flow_config:
         parameters:
           hidden_dim:
-            values: [64, 96, 128, 192, 256, 384, 512]
-          n_layer:
-            distribution: int_uniform
-            min: 4
-            max: 10
-          output_dim:
+            values: [16, 32, 64, 96, 128]
+          dim:
             value: 8 # this should match the number of stocks
+          conditional_dim:
+            values: [32, 64, 96]
+          n_layer:
+            values: [3, 4, 5]
+          num_model_layer:
+            values: [2, 3, 4]
+          drop_out: 
+            values: [0, 0.1, 0.3]
+          activation:
+            values: ['sigmoid', 'celu', 'tanh']
+          norm:
+            values: ['none', 'layer', 'batch']
           dtype:
             value: float32
       seq_len:
-        values: [256, 512, 1024, 2048]
+        values: [16, 32, 64]
       batch_size:
         values: [128, 256, 512]
       lag:
         value: 1
       epochs:
-        value: 2048
+        value: 1024
       optim_config:
         parameters:
           lr:
-            distribution: log_uniform
-            min: -9
-            max: -6
+            value: 0.001
     
   # evaluation configuration
   sample_config:

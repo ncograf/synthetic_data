@@ -41,20 +41,24 @@ parameters:
       fourier_flow_config:
         parameters:
           hidden_dim:
-            values: [256, 384, 512]
+            values: [256, 384]
           seq_len:
-            values: [256, 512, 1024, 2048]
+            values: [128, 256]
           num_layer:
-            distribution: int_uniform
-            min: 4
-            max: 10
+            values: [5, 6]
           num_model_layer:
-            values: [2, 3, 4, 5]
+            values: [2, 3, 4]
+          drop_out:
+            values: [0, 0.1, 0.2]
           arch:
             value: LSTM
-          bidirect:
+          activation:
+            values: ['sigmoid', 'celu', 'tanh']
+          use_dft:
             value: True
-          use_dft: 
+          norm:
+            values: ['none', 'batch', 'layer']
+          bidirect:
             value: True
       dtype:
         value: float32
@@ -63,18 +67,15 @@ parameters:
       lag:
         value: 1
       epochs:
-        values: [512, 768, 1024]
+        value: 1024
       optim_config:
         parameters:
           lr:
-            values: [0.0005, 0.001, 0.002]
+            value: 0.001
       lr_config:
         parameters:
           gamma:
-            distribution: uniform
-            min: 0.99
-            max: 1
-        
+            value: 0.999 
     
   # evaluation configuration
   sample_config:
