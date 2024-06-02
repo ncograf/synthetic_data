@@ -15,12 +15,15 @@ class FourierFlow(nn.Module):
         seq_len: int,
         num_layer: int,
         num_model_layer: int,
+        drop_out: float,
         arch: Literal["MLP", "LSTM"],
+        activation: Literal["sigmoid", "tanh", "softplus", "celu", "relu"],
         dtype: str = "float32",
         use_dft: bool = True,
         dft_scale: float = 1,
         dft_shift: float = 0,
         bidirect: int = True,
+        norm: Literal["layer", "batch", "none"] = "none",
         n_stocks: int = 1,
     ):
         """Fourier Flow network for one dimensional time series
@@ -30,12 +33,15 @@ class FourierFlow(nn.Module):
             seq_len (int): Time series size
             num_layer (int): number of spectral layers to be used
             num_model_layer (int): number of layers in the model
+            drop_out (float): rate in [0,1)
             arch (Literal['MLP', 'LSTM']): model architecture
+            activation (Literal['sigmoid', 'tanh', 'relu', ...]): activation funciton to be used
             dtype (torch.dtype, optional): type of data. Defaults to torch.float64.
             use_dft (bool, optional): Flag whether or not to use fourier transform.
             dft_scale (float, optional): Amount to scale dft signal. Defaults to 1.
             dft_shift (float, optional): Amount to shift dft signal. Defaults to 0.
             bidirect (bool, optional): in case of rnn model whether or not bidirectional. Defaults to True.
+            norm (Literal['layer', 'batch', 'none'], optional): normalization to be used. Defaults to None.
             n_stocks (int, optional): number of stocks in model (must match input). Defaults to 1.
         """
 
@@ -54,7 +60,10 @@ class FourierFlow(nn.Module):
         self.arch = arch
         self.num_model_layer = num_model_layer
         self.bidirect = bidirect
+        self.drop_out = drop_out
+        self.norm = norm
         self.n_stocks = n_stocks
+        self.activation = activation
         self.use_dft = use_dft
 
         self.latent_size = seq_len // 2 + 1
@@ -74,8 +83,11 @@ class FourierFlow(nn.Module):
                     hidden_dim=self.hidden_dim,
                     arch=arch,
                     num_model_layer=num_model_layer,
+                    drop_out=drop_out,
                     dtype=self.dtype,
+                    activation=self.activation,
                     bidirect=bidirect,
+                    norm=norm,
                     n_stocks=n_stocks,
                 )
                 for _ in range(self.n_layer)
@@ -129,9 +141,12 @@ class FourierFlow(nn.Module):
             "hidden_dim": self.hidden_dim,
             "num_layer": self.n_layer,
             "num_model_layer": self.num_model_layer,
+            "activation": self.activation,
             "bidirect": self.bidirect,
             "n_stocks": self.n_stocks,
             "arch": self.arch,
+            "drop_out": self.drop_out,
+            "norm": self.norm,
             "seq_len": self.seq_len,
             "dtype": self.dtype_str,
             "dft_shift": self.dft_shift,
@@ -158,10 +173,8 @@ class FourierFlow(nn.Module):
             Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: transformed tensor
         """
 
-        if self.dft:
-            x_fft: torch.Tensor = self.dft(x)
-        else:
-            x_fft = x
+        # if use_dft false, then this will just resize x to have the right size
+        x_fft: torch.Tensor = self.dft(x)
 
         x_fft = (x_fft - self.dft_shift) / self.dft_scale
 
@@ -212,12 +225,15 @@ class FourierFlow(nn.Module):
             Tensor: signals in the signal space
         """
 
-        z = self.dist_z.rsample(sample_shape=(n,))
+        self.eval()
 
-        z_real = z[:, : self.latent_size]
-        z_imag = z[:, self.latent_size :]
-        z_complex = torch.stack([z_real, z_imag], dim=-1)
+        with torch.no_grad():
+            z = self.dist_z.rsample(sample_shape=(n,))
 
-        signals = self.inverse(z_complex)
+            z_real = z[:, : self.latent_size]
+            z_imag = z[:, self.latent_size :]
+            z_complex = torch.stack([z_real, z_imag], dim=-1)
+
+            signals = self.inverse(z_complex)
 
         return signals

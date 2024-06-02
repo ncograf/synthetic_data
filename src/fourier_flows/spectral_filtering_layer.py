@@ -1,6 +1,6 @@
 from typing import Literal, Tuple
 
-import filter_networks
+import networks
 import torch
 import torch.nn as nn
 from type_converter import TypeConverter
@@ -12,7 +12,10 @@ class SpectralFilteringLayer(nn.Module):
         seq_len: int,
         hidden_dim: int,
         arch: Literal["MLP", "LSTM"],
+        activation: str,
         num_model_layer: int,
+        drop_out: float,
+        norm: Literal["layer", "batch", "none"] = "none",
         dtype: str = "float64",
         bidirect: bool = True,
         n_stocks: int = 1,
@@ -22,10 +25,13 @@ class SpectralFilteringLayer(nn.Module):
         see https://arxiv.org/abs/1605.08803 for implementation details
 
         Args:
-            seq_len (int): individual series lenght
-            hidden_dim (int): size of the hidden layers in neural network
-            arch (Literal['MLP', 'LSTM']): network architectures for H and M
-            num_model_layer (int): number of layers in the model
+            seq_len (int): individual series lenght.
+            hidden_dim (int): size of the hidden layers in neural network.
+            arch (Literal['MLP', 'LSTM']): network architectures for H and M.
+            activation (str): activation function to be used
+            num_model_layer (int): number of layers in the model.
+            drop_out (float): in [0, 1) dropout rate to be used in model.
+            norm (Literal['layer', 'batch', 'none']): normalization to be used in model.
             dtype (str, optional): type used for the layer. Defaults to 'float64'
             bidirect (bool, optional): Only used for rnn. Defaults to True.
             n_stock (int, optional): Number of stocks considered only used for rnn. Defaults to 1.
@@ -44,18 +50,29 @@ class SpectralFilteringLayer(nn.Module):
 
         self.split_size = seq_len // 2 + 1
 
+        if arch == "MLP":
+            input_dim = self.split_size
+            output_dim = input_dim
+        else:
+            input_dim = n_stocks
+            output_dim = n_stocks
+
         config = {
-            "seq_len": seq_len,
+            "input_dim": input_dim,
+            "output_dim": output_dim,
             "hidden_dim": hidden_dim,
             "arch": arch,
+            "activation": activation,
             "num_model_layer": num_model_layer,
             "dtype": dtype,
             "bidirect": bidirect,
+            "drop_out": drop_out,
+            "norm": norm,
             "n_stocks": n_stocks,
         }
 
-        self.H_net = filter_networks.model_factory(config)
-        self.M_net = filter_networks.model_factory(config)
+        self.H_net = networks.model_factory(config)
+        self.M_net = networks.model_factory(config)
 
     def forward(self, x: torch.Tensor, flip: bool) -> Tuple[torch.Tensor, torch.Tensor]:
         """Compute foward step of method proposed in

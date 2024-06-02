@@ -1,3 +1,4 @@
+import time
 from typing import Any, Dict, Tuple
 
 import base_generator
@@ -218,6 +219,7 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
         # set up model
         model.train()
         for epoch in range(epochs):
+            epoch_time = time.time()
             epoch_loss = 0
             for (batch,) in loader:
                 optimizer.zero_grad()
@@ -240,6 +242,7 @@ class FourierFlowGenerator(base_generator.BaseGenerator):
                     {
                         f"loss/{sym}": epoch_loss,
                         f"lr/{sym}": last_lr,
+                        f"epoch_time/{sym}": time.time() - epoch_time,
                         "epoch": epoch,
                     }
                 )
