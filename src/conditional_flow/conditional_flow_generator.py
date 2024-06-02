@@ -262,7 +262,7 @@ class ConditionalFlowGenerator(base_generator.BaseGenerator):
             n = 20
             if epoch % n == n - 1:
                 print(
-                    f"epoch: {epoch + 1:>8d}/{epochs},\tlast loss {epoch_loss:>8.4f},\tlast learning rate {last_lr:>8.8f}tests/test_fourier_flow_generator.py tests/test_fourier_flows.py tests/test_fourier_transform_layer.py"
+                    f"epoch: {epoch + 1:>8d}/{epochs},\tlast loss {epoch_loss:>8.4f},\tlast learning rate {last_lr:>8.8f}"
                 )
 
         print("Finished training!")
