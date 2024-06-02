@@ -54,8 +54,8 @@ class TestUnivarGarchModel:
         model_dict = {
             "mu": 0.1,
             "omega": 0.1,
-            "alpha": [0, 0.2],
-            "beta": [0, 0.4, 0.4],
+            "alpha": [0, 0.1],
+            "beta": [0, 0.3, 0.1],
             "dist": "studentt",
             "nu": 3,
         }
