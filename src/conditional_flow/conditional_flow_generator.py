@@ -27,10 +27,17 @@ class ConditionalFlowGenerator(base_generator.BaseGenerator):
             price_data (pd.DataFrame): Stock marked price datsa
             config(Dict[str, Any]): configuration for training run:
                 cond_flow_config:
-                    hidden_dim : int
-                    output_dim: int
-                    n_layer : int
-                    dtype: str
+                    hidden_dim (int): dimension of the hidden layers needs to be even
+                    dim (int): dimension of the output / input (equals to the number of stocks to predict)
+                    conditional_dim (int): size of the conditional latent representation.
+                    n_layer (int): number of spectral layers to be used
+                    num_model_layer(int): number of model layer
+                    drop_out (float): dropout rate in [0, 1).
+                    activation (str): string indicationg the activation function.
+                    norm (Literal['layer', 'batch', 'none']): normalization layer to be used.
+                    dtype (torch.dtype, optional): type of data. Defaults to torch.float64.
+                    dft_scale (float, optional): Amount to scale dft signal. Defaults to 1.
+                    dft_shift (float, optional): Amount to shift dft signal. Defaults to 0.
                 seq_len : int
                 epochs: int
                 batch_size : int
@@ -242,7 +249,7 @@ class ConditionalFlowGenerator(base_generator.BaseGenerator):
             epoch_loss = epoch_loss / len(loader)
             last_lr = scheduler.get_last_lr()[0]
 
-            if wandb is not None:
+            if wandb.run is not None:
                 wandb.log(
                     {
                         "loss": epoch_loss,
@@ -255,7 +262,7 @@ class ConditionalFlowGenerator(base_generator.BaseGenerator):
             n = 20
             if epoch % n == n - 1:
                 print(
-                    f"epoch: {epoch + 1:>8d}/{epochs},\tlast loss {epoch_loss:>8.4f},\tlast learning rate {last_lr:>8.8f}"
+                    f"epoch: {epoch + 1:>8d}/{epochs},\tlast loss {epoch_loss:>8.4f},\tlast learning rate {last_lr:>8.8f}tests/test_fourier_flow_generator.py tests/test_fourier_flows.py tests/test_fourier_transform_layer.py"
                 )
 
         print("Finished training!")

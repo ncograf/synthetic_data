@@ -1,53 +1,35 @@
-from typing import Tuple
+from typing import Any, Dict, Tuple
 
+import networks
 import torch
 import torch.nn as nn
-from type_converter import TypeConverter
 
 
 class ConditionalLayer(nn.Module):
-    def __init__(self, output_dim, conditional_dim: int, dtype: str = "float32"):
+    def __init__(self, model_config: Dict[str, Any]):
         """Spectral filtering layer for seqences
 
-        see http://arxiv.org/abs/1912.00042 for implementation details
-
         Args:
-            D (int): Number of series
-            T (int): individual series lenght
-            hidden_dim (int): size of the hidden layers in neural network
+            model_config (Dict[str, Any]): configuration for models
+                arch : model architecture
+                num_model_layer : number of model layers
+                hidden_dim : size of hidden layer
+                dtype : torch dtype
+                output_dim : output dimension (note different behaviours of MLP and RNN)
+                input_dim : input dimension (note different behaviours of RNN)
+                drop_out : float in [0,1) rate
+                activation : (str) activation functions 'sigmoid', 'tanh', 'relu', 'softplus'
+                norm : (optional) choice 'layer', 'batch', 'None' Default: 'None' only used in MLP
+                reduction : (int | Literal['mean', 'sum', 'max', 'min', 'none']) reduction used for for rnn.
+                bidirect : (optional) only used for rnn models. Defaults to True
         """
-
-        if not isinstance(dtype, str):
-            self.dtype_str = TypeConverter.type_to_str(dtype)
-            self.dtype = TypeConverter.str_to_torch(self.dtype_str)
-        else:
-            self.dtype_str = TypeConverter.extract_dtype(dtype)
-            self.dtype = TypeConverter.str_to_torch(self.dtype_str)
 
         nn.Module.__init__(self)
 
-        self.output_dim = output_dim
+        self.output_dim = model_config["output_dim"]
 
-        if not output_dim % 2 == 0:
-            raise ValueError("The output dimension must be an even number!")
-
-        hidden_dim = output_dim // 2 + conditional_dim
-
-        self.s = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim, dtype=self.dtype),
-            nn.Sigmoid(),
-            nn.Linear(hidden_dim, hidden_dim, dtype=self.dtype),
-            nn.Sigmoid(),
-            nn.Linear(hidden_dim, output_dim // 2, dtype=self.dtype),
-        )
-
-        self.t = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim, dtype=self.dtype),
-            nn.Sigmoid(),
-            nn.Linear(hidden_dim, hidden_dim, dtype=self.dtype),
-            nn.Sigmoid(),
-            nn.Linear(hidden_dim, output_dim // 2, dtype=self.dtype),
-        )
+        self.s = networks.model_factory(model_config)
+        self.t = networks.model_factory(model_config)
 
         self.pos_f = torch.nn.Softplus(beta=1, threshold=30)
 
@@ -65,7 +47,7 @@ class ConditionalLayer(nn.Module):
             Tuple[torch.Tensor, torch.Tensor]: latent variable Z and det(J(f))
         """
 
-        z0, z1 = z[:, : self.output_dim // 2], z[:, self.output_dim // 2 :]
+        z0, z1 = z[:, : self.output_dim], z[:, self.output_dim :]
         if flip:
             z0, z1 = z1, z0
 
@@ -99,7 +81,7 @@ class ConditionalLayer(nn.Module):
             torch.Tensor: input tensor of original sequence
         """
 
-        y0, y1 = y[:, : self.output_dim // 2], y[:, self.output_dim // 2 :]
+        y0, y1 = y[:, : self.output_dim], y[:, self.output_dim :]
 
         if flip:
             y1, y0 = y0, y1
@@ -109,7 +91,7 @@ class ConditionalLayer(nn.Module):
         M = self.t(z1_x)
 
         z0 = (y0 - M) / H
-        z1 = z1_x[:, : self.output_dim // 2]
+        z1 = z1_x[:, : self.output_dim]
 
         if flip:
             z1, z0 = z0, z1
