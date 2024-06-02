@@ -1,5 +1,5 @@
 program: src/wandb_tools/sweeps_trainer.py
-name: fourier_flow
+name: real_flow
 method: random
 metric:
   goal: minimize
@@ -9,7 +9,7 @@ parameters:
   model:
     value: fourier_flow
   cache:
-    value: "data/cache/fourier_flow"
+    value: "data/cache/real_flow"
     
   # training data settings
   train_data:
@@ -51,9 +51,11 @@ parameters:
           num_model_layer:
             values: [2, 3, 4, 5]
           arch:
-            value: MLP
+            value: LSTM
           bidirect:
             value: True
+          use_dft: 
+            value: False
       dtype:
         value: float32
       batch_size:
