@@ -44,7 +44,7 @@ def main(
             "seq_len": 64,
             "batch_size": 512,
             "lag": 1,
-            "epochs": 2000,
+            "epochs": 20,
             "optim_config": {
                 "lr": 0.001,
             },

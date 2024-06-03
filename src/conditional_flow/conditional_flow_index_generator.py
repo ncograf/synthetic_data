@@ -32,10 +32,17 @@ class ConditionalFlowIndexGenerator(base_index_generator.BaseIndexGenerator):
                 use_cuda: bool
                 train_seed: int
                 cond_flow_config:
-                    hidden_dim : int
-                    output_dim: int
-                    n_layer : int
-                    dtype: str
+                    hidden_dim (int): dimension of the hidden layers needs to be even
+                    dim (int): dimension of the output / input (equals to the number of stocks to predict)
+                    conditional_dim (int): size of the conditional latent representation.
+                    n_layer (int): number of spectral layers to be used
+                    num_model_layer(int): number of model layer
+                    drop_out (float): dropout rate in [0, 1).
+                    activation (str): string indicationg the activation function.
+                    norm (Literal['layer', 'batch', 'none']): normalization layer to be used.
+                    dtype (torch.dtype, optional): type of data. Defaults to torch.float64.
+                    dft_scale (float, optional): Amount to scale dft signal. Defaults to 1.
+                    dft_shift (float, optional): Amount to shift dft signal. Defaults to 0.
                 seq_len : int
                 epochs: int
                 batch_size : int
@@ -59,7 +66,7 @@ class ConditionalFlowIndexGenerator(base_index_generator.BaseIndexGenerator):
         # check out cpu the main process is running on
         device = torch.device("cpu")
         cpu_name = cpuinfo.get_cpu_info()["brand_raw"]
-        print("Fourier Flow Generator is using:")
+        print("Conditional Flow Generator is using:")
         print(f"CPU : {cpu_name}")
 
         # initialize accelerator tool

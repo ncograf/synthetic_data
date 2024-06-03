@@ -224,6 +224,24 @@ class ConditionalFlow(nn.Module):
 
         return z
 
+    def sample_single(self, z: torch.Tensor, signal: torch.Tensor) -> torch.Tensor:
+        """Sample for a single signal
+
+        Args:
+            z (torch.Tensor): random sample for one more ouput
+            signal (torch.Tensor): signal to be used as condition
+
+        Returns:
+            torch.Tensor: new sample
+        """
+        x_fft: torch.Tensor = self.dft(signal)
+        x_fft = (x_fft - self.dft_shift) / self.dft_scale
+        x_cond = self.g(x_fft)
+        sigma = self.sigma(x_cond) ** 2
+        mu = self.mu(x_cond)
+        z_ = z * sigma + mu
+        return self.inverse(z_, x_cond)
+
     def sample(self, n: int, x: torch.Tensor) -> torch.Tensor:
         """Sample new series from the learn distribution with
         given initial series x
@@ -254,12 +272,7 @@ class ConditionalFlow(nn.Module):
             signals[0, :n_x, :] = x
             for i in range(z.shape[0]):
                 start = max(0, n_x + i - 1536)
-                x_fft: torch.Tensor = self.dft(signals[0:, start : n_x + i, :])
-                x_fft = (x_fft - self.dft_shift) / self.dft_scale
-                x_cond = self.g(x_fft)
-                sigma = self.sigma(x_cond) ** 2
-                mu = self.mu(x_cond)
-                z_ = z[i] * sigma + mu
-                signals[0, n_x + i, :] = self.inverse(z_, x_cond)
+                curr_signal = signals[0:, start : n_x + i, :]
+                signals[0, n_x + i, :] = self.sample_single(z[i], curr_signal)
 
         return signals[0, n_x:, :]

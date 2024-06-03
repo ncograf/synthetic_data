@@ -131,7 +131,10 @@ class ConditionalFlowGenerator(base_generator.BaseGenerator):
         Returns:
             Tuple[npt.NDArray, npt.NDArray]: price data and return data
         """
-        dtype = config["dtype"] if "dtype" in config else "float64"
+        if "dtype" not in config["init_params"]:
+            config["init_params"]["dtype"] = "float32"
+
+        dtype = config["init_params"]["dtype"]
         scale = config["scale"]
         shift = config["shift"]
         init_price = config["init_price"]
@@ -139,7 +142,6 @@ class ConditionalFlowGenerator(base_generator.BaseGenerator):
 
         model = ConditionalFlow(**config["init_params"])
         model.load_state_dict(config["state_dict"])
-        model.dtype = TypeConverter.str_to_torch(dtype)
 
         init_samples = (init_log_returns - shift) / scale
         model_output = model.sample(n=length + burn, x=init_samples)
@@ -188,11 +190,17 @@ class ConditionalFlowGenerator(base_generator.BaseGenerator):
             X (torch.Tensor): Training data
             config(Dict[str, Any]): configuration for training run:
                 cond_flow_config:
-                    hidden_dim : int
-                    seq_len : int
-                    n_layer : int
-                    output_dim : int
-                    dtype: str
+                    hidden_dim (int): dimension of the hidden layers needs to be even
+                    dim (int): dimension of the output / input (equals to the number of stocks to predict)
+                    conditional_dim (int): size of the conditional latent representation.
+                    n_layer (int): number of spectral layers to be used
+                    num_model_layer(int): number of model layer
+                    drop_out (float): dropout rate in [0, 1).
+                    activation (str): string indicationg the activation function.
+                    norm (Literal['layer', 'batch', 'none']): normalization layer to be used.
+                    dtype (torch.dtype, optional): type of data. Defaults to torch.float64.
+                    dft_scale (float, optional): Amount to scale dft signal. Defaults to 1.
+                    dft_shift (float, optional): Amount to shift dft signal. Defaults to 0.
                 batch_size : int
                 epochs : int
                 optim_config: config for adam optimizer (e.g. lr : float)
