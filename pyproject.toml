@@ -14,6 +14,7 @@ packages = [
     {include = "*", from = "src/stylized_facts"},
     {include = "*", from = "src/time_gan"},
     {include = "*", from = "src/conditional_flow"},
+    {include = "*", from = "src/regime_cond_flow"},
     {include = "*", from = "src/utils"},
     {include = "*", from = "src/visualization"},
     {include = "*", from = "src/wandb_tools"},
