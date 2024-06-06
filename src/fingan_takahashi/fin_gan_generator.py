@@ -263,8 +263,10 @@ class FinGanGenerator(base_generator.BaseGenerator):
                 )
                 y = torch.cat(
                     [
-                        torch.rand(size=(b_size,)) * 0.2 + 0.9,
-                        torch.rand(size=(b_size,)) * 0.2 + 0.1,
+                        torch.rand(size=(b_size,), device=accelerator.device) * 0.2
+                        + 0.9,
+                        torch.rand(size=(b_size,), device=accelerator.device) * 0.2
+                        + 0.1,
                     ],
                     dim=0,
                 )
