@@ -32,67 +32,128 @@ def model_factory(config: Dict[str, Any]) -> nn.Module:
         nn.Module: neural net ready to train
     """
 
+    # store keys for convenience
+    conf_keys = set([k.lower() for k in config.keys()])
+
+    # architecture must be present in the model description
     arch = config["arch"]
-    hidden_dim = config["hidden_dim"]
-    num_model_layer = config["num_model_layer"]
+
+    # get standard elements
     dtype = config["dtype"]
     input_dim = config["input_dim"]
     output_dim = config["output_dim"]
-    drop_out = config["drop_out"]
-    activation = config["activation"]
+    drop_out = config["drop_out"] if "drop_out" in conf_keys else 0
 
-    if activation == "relu":
-        sigma = nn.ReLU()
-    elif activation == "tanh":
-        sigma = nn.Tanh()
-    elif activation == "softplus":
-        sigma = nn.Softplus()
-    elif activation == "celu":
-        sigma = nn.CELU()
-    else:
-        sigma = nn.Sigmoid()
+    match config["activation"]:
+        case "relu":
+            sigma = nn.ReLU()
+        case "tanh":
+            sigma = nn.Tanh()
+        case "softplus":
+            sigma = nn.Softplus()
+        case "celu":
+            sigma = nn.CELU()
+        case {"leaky_relu": slope}:
+            sigma = nn.LeakyReLU(slope)
+        case _:
+            sigma = nn.Sigmoid()
 
-    if arch == "MLP":
+    if arch.lower() == "mlp":
+        if set(["hidden_dim", "num_model_layer"]) <= conf_keys:
+            layers = [config["hidden_dim"]] * config["num_model_layer"]
+        elif "layers" in conf_keys:
+            layers = config["layers"]
+
+        # check norm
         norm = None
-        if "norm" in config.keys():
+        if "norm" in conf_keys:
             if config["norm"].lower() == "batch":
                 norm = nn.BatchNorm1d
             if config["norm"].lower() == "layer":
                 norm = nn.LayerNorm
 
-        model_layer = [nn.Linear(input_dim, hidden_dim, dtype=dtype)]
+        model_layer = [nn.Linear(input_dim, layers[0], dtype=dtype)]
 
-        for _ in range(num_model_layer):
+        drop_out = config["drop_out"] if "drop_out" in conf_keys else 0
+        for i in range(1, len(layers)):
             if drop_out > 0 and drop_out < 1:
                 model_layer.append(nn.Dropout1d(drop_out))
-            model_layer.append(nn.Linear(hidden_dim, hidden_dim, dtype=dtype))
+            model_layer.append(nn.Linear(layers[i - 1], layers[i], dtype=dtype))
             if norm is not None:
-                model_layer.append(norm(hidden_dim, dtype=dtype))
+                model_layer.append(norm(layers[i], dtype=dtype))
             model_layer.append(sigma)
 
-        model_layer.append(nn.Linear(hidden_dim, output_dim, dtype=dtype))
+        model_layer.append(nn.Linear(layers[-1], output_dim, dtype=dtype))
         net = nn.Sequential(*model_layer)
 
-    if arch == "LSTM":
-        if "bidirect" in config.keys():
-            bidirect = config["bidirect"]
-        else:
-            bidirect = True
-
-        if "reduction" in config.keys():
-            reduction = config["reduction"]
-        else:
-            reduction = "none"
+    elif arch.lower() == "lstm":
+        # check for optional arguments
+        bidirect = config["bidirect"] if "bidirect" in conf_keys else True
+        reduction = config["reduction"] if "reduction" in conf_keys else "none"
 
         net = LSTM(
-            hidden_dim=hidden_dim,
-            dtype=dtype,
-            num_rnn_layer=num_model_layer,
+            hidden_dim=config["hidden_dim"],
+            dtype=config["dtype"],
+            num_rnn_layer=config["num_model_layer"],
             bidirect=bidirect,
-            drop_out=drop_out,
-            output_dim=output_dim,
-            input_dim=input_dim,
+            drop_out=config["drop_out"],
+            output_dim=config["output_dim"],
+            input_dim=config["input_dim"],
             reduction=reduction,
+        )
+
+    elif arch.lower() == "fin_gan_disc":
+        in_channels = 1
+        input_dim = config["input_dim"]
+        kernel_size = 16
+        padding = ((kernel_size - 1) // 2,)
+        net = nn.Sequential(
+            nn.Conv1d(
+                in_channels=in_channels,
+                out_channels=64,
+                stride=8,
+                padding=padding,
+                kernel_size=kernel_size,
+                dtype=dtype,
+            ),
+            # seq len input_dim // 8
+            sigma,
+            nn.Conv1d(
+                in_channels=64,
+                out_channels=128,
+                stride=8,
+                padding=padding,
+                kernel_size=kernel_size,
+                dtype=dtype,
+            ),
+            # seq len input_dim // 64
+            sigma,
+            nn.Conv1d(
+                in_channels=128,
+                out_channels=64,
+                stride=8,
+                padding=padding,
+                kernel_size=kernel_size,
+                dtype=dtype,
+            ),
+            # seq len input_dim // 512
+            sigma,
+            nn.Conv1d(
+                in_channels=64,
+                out_channels=32,
+                stride=8,
+                padding=padding,
+                kernel_size=kernel_size,
+                dtype=dtype,
+            ),
+            # seq len input_dim // 2048
+            sigma,
+            nn.Flatten(),
+            nn.Linear((input_dim // 4096) * 32, 32, dtype=dtype),
+            sigma,
+            nn.Dropout(drop_out),
+            nn.Linear(32, 1, dtype=dtype),
+            nn.Sigmoid(),
         )
 
     return net

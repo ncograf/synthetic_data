@@ -13,6 +13,7 @@ packages = [
     {include = "*", from = "src/statistics"},
     {include = "*", from = "src/stylized_facts"},
     {include = "*", from = "src/time_gan"},
+    {include = "*", from = "src/fingan_takahashi"},
     {include = "*", from = "src/conditional_flow"},
     {include = "*", from = "src/regime_cond_flow"},
     {include = "*", from = "src/utils"},
