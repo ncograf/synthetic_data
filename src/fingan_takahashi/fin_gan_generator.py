@@ -223,8 +223,8 @@ class FinGanGenerator(base_generator.BaseGenerator):
         batch_size = config["batch_size"]
         epochs = config["epochs"]
 
-        y_real = torch.rand(size=(X.shape[0],), device=accelerator.device) * 0.2 + 0.1
-        y_fake = torch.rand(size=(X.shape[0],), device=accelerator.device) * 0.2 + 0.9
+        y_real = torch.rand(size=(X.shape[0],)) * 0.2 + 0.1
+        y_fake = torch.rand(size=(X.shape[0],)) * 0.2 + 0.9
         y = torch.stack([y_real, y_fake], dim=1)
         dataset = TensorDataset(X, y)
         loader = DataLoader(
