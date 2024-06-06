@@ -222,7 +222,11 @@ class FinGanGenerator(base_generator.BaseGenerator):
 
         batch_size = config["batch_size"]
         epochs = config["epochs"]
-        dataset = TensorDataset(X)
+
+        y_real = torch.rand(size=(X.shape[0],), device=accelerator.device) * 0.2 + 0.1
+        y_fake = torch.rand(size=(X.shape[0],), device=accelerator.device) * 0.2 + 0.9
+        y = torch.stack([y_real, y_fake], dim=1)
+        dataset = TensorDataset(X, y)
         loader = DataLoader(
             dataset=dataset, batch_size=batch_size, shuffle=True, pin_memory=True
         )
@@ -249,7 +253,7 @@ class FinGanGenerator(base_generator.BaseGenerator):
             epoch_loss = 0
             epoch_time = time.time()
 
-            for (real_series,) in loader:
+            for real_series, y in loader:
                 b_size = real_series.shape[0]
 
                 gen_optim.zero_grad()
@@ -259,19 +263,11 @@ class FinGanGenerator(base_generator.BaseGenerator):
                 real_series = torch.nan_to_num(real_series)
 
                 all_series = torch.unsqueeze(
-                    torch.cat([gen_series, real_series], dim=0), dim=1
-                )
-                y = torch.cat(
-                    [
-                        torch.rand(size=(b_size,), device=accelerator.device) * 0.2
-                        + 0.9,
-                        torch.rand(size=(b_size,), device=accelerator.device) * 0.2
-                        + 0.1,
-                    ],
-                    dim=0,
+                    torch.cat([real_series, gen_series], dim=0), dim=1
                 )
 
                 disc_y = model.disc(all_series)
+                y = torch.cat([y[:, 0], y[:, 1]], dim=0)
 
                 loss = cross_entropy_loss(disc_y.flatten(), y)
                 epoch_loss += loss.item()
