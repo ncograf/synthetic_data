@@ -101,7 +101,7 @@ class RegimeCondFlowGenerator(base_generator.BaseGenerator):
             "shift": shift,
             "init_price": zero_price,
             "init_log_returns": log_returns[
-                :seq_len
+                : (seq_len - 1)
             ],  # take the first rows of the training data
             "fit_score": last_epoch_loss,
             "symbols": symbols,
@@ -271,7 +271,7 @@ class RegimeCondFlowGenerator(base_generator.BaseGenerator):
                             f"loss/regime_{i}": epoch_loss,
                             f"lr/regime_{i}": last_lr,
                             f"epoch_time/regime_{i}": time.time() - epoch_time,
-                            f"epoch/regime_{i}": epoch,
+                            "epoch": epoch,
                         }
                     )
 

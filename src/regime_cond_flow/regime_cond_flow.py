@@ -175,7 +175,7 @@ class RegimeCondFlow(nn.Module):
             for i in range(z.shape[0]):
                 start = max(0, n_x + i - 1536)
                 current_signal = signals[0:, start : n_x + i, :]
-                regime = self.regime_detector.classify(current_signal)
+                regime = self.regime_detector.classify(current_signal[0, :])
                 signals[0, n_x + i, :] = self.regimes[regime].sample_single(
                     z[i], current_signal
                 )
@@ -228,5 +228,5 @@ class BaseRegimeDetector:
         if self.thresh is None:
             raise RuntimeError("The Regime detector needs to be fit before used!")
 
-        abs_value = torch.nanmean(torch.abs(data))
+        abs_value = torch.abs(torch.mean(data[:-1, :], axis=1))
         return int(abs_value > self.thresh)

@@ -24,17 +24,17 @@ def main(
         "Adj Close", data_path=root_dir / "data/raw_yahoo_data"
     )
 
-    model = "cond_flow"
+    model = "regime_cond_flow"
 
     train_config = {
         "train_config": {
             "use_cuda": True,
             "train_seed": 99,
             "regime_cond_flow_config": {
-                "hidden_dim": 64,
+                "hidden_dim": 192,
                 "dim": 2,
                 "conditional_dim": 64,
-                "n_layer": 4,
+                "n_layer": 8,
                 "num_model_layer": 3,
                 "drop_out": 0,
                 "regime_config": {
@@ -44,16 +44,16 @@ def main(
                 "norm": "layer",
                 "dtype": "float32",
             },
-            "seq_len": 24,
+            "seq_len": 9,
             "batch_size": 512,
             "lag": 1,
-            "epochs": 20,
+            "epochs": 100,
             "optim_config": {
                 "lr": 0.001,
             },
             "lr_config": {"gamma": 0.995},
         },
-        "sample_config": {"n_sample": 2000, "n_burn": 500, "sample_seed": 99},
+        "sample_config": {"n_sample": 200, "n_burn": 0, "sample_seed": 99},
     }
 
     cache = root_dir / f"data/cache/train_{model}_{time.time()}"
