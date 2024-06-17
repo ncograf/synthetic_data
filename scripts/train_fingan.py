@@ -33,15 +33,15 @@ def main(
             "fingan_config": {
                 "input_dim": 100,
                 "arch": "MLP",
-                "layers": [128, 2048],
+                "layers": [1028, 2048],
                 "drop_out": 0,
                 "norm": "none",
                 "activation": "tanh",
             },
             "dtype": "float32",
-            "seq_len": 8192,
+            "seq_len": 4096,
             "batch_size": 16,
-            "epochs": 1000,
+            "epochs": 10,
             "optim_gen_config": {
                 "lr": 2e-4,
                 "betas": (0.5, 0.999),
@@ -54,13 +54,13 @@ def main(
                 "gamma": 0.999,
             },
         },
-        "sample_config": {"n_sample": 8192, "n_burn": 0, "sample_seed": 99},
+        "sample_config": {"n_sample": 4096, "n_burn": 0, "sample_seed": 99},
     }
 
     cache = root_dir / f"data/cache/train_{model}_{time.time()}"
     cache.mkdir(parents=True, exist_ok=True)
 
-    price_data = price_data.loc[:, ["MSFT", "AMZN"]].iloc[-9000:, :]
+    price_data = price_data.loc[:, ["MSFT"]].iloc[-9000:, :]
 
     if wandb_off:
         os.environ["WANDB_MODE"] = "disabled"

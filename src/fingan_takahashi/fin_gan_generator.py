@@ -181,7 +181,6 @@ class FinGanGenerator(base_generator.BaseGenerator):
         """Train a Time Gan network with given parameters
 
         Args:
-            run (wr.Run): Wandb run for logging.
             X (torch.Tensor): Training data
             config (Dict[str, Any]): configuration for training run:
                 fingan_config:
@@ -267,6 +266,8 @@ class FinGanGenerator(base_generator.BaseGenerator):
                 )
 
                 disc_y = model.disc(all_series)
+
+                # y will contain labels for real and synthetic data already
                 y = torch.cat([y[:, 0], y[:, 1]], dim=0)
 
                 loss = cross_entropy_loss(disc_y.flatten(), y)

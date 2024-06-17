@@ -44,7 +44,7 @@ def main(
             "seq_len": 64,
             "batch_size": 512,
             "lag": 1,
-            "epochs": 20,
+            "epochs": 10,
             "optim_config": {
                 "lr": 0.001,
             },
@@ -72,4 +72,4 @@ def main(
 
 
 if __name__ == "__main__":
-    main(wandb_off=True)
+    main(wandb_off=False)

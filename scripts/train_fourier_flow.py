@@ -31,32 +31,32 @@ def main(
             "use_cuda": True,
             "train_seed": 99,
             "fourier_flow_config": {
-                "hidden_dim": 256,
-                "seq_len": 512,
+                "hidden_dim": 512,
+                "seq_len": 4096,
                 "num_layer": 8,
-                "num_model_layer": 3,
+                "num_model_layer": 4,
                 "drop_out": 0.2,
                 "arch": "MLP",
                 "activation": "sigmoid",
                 "use_dft": True,
-                "norm": "batch",
+                "norm": "None",
             },
             "dtype": "float32",
             "batch_size": 512,
             "lag": 1,
-            "epochs": 200,
+            "epochs": 1000,
             "optim_config": {
                 "lr": 0.001,
             },
             "lr_config": {"gamma": 0.999},
         },
-        "sample_config": {"n_sample": 2000, "n_burn": 500, "sample_seed": 99},
+        "sample_config": {"n_sample": 4096, "n_burn": 0, "sample_seed": 99},
     }
 
     cache = root_dir / f"data/cache/train_{model}_{time.time()}"
     cache.mkdir(parents=True, exist_ok=True)
 
-    price_data = price_data.loc[:, ["MSFT", "AMZN"]].iloc[-4000:, :]
+    price_data = price_data.loc["1988-01-01":, ["MSFT"]]
 
     if wandb_off:
         os.environ["WANDB_MODE"] = "disabled"
@@ -72,4 +72,4 @@ def main(
 
 
 if __name__ == "__main__":
-    main(True)
+    main(False)
