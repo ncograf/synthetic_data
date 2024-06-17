@@ -11,6 +11,7 @@ last_train_run
 
 .environment
 .env
+.cache
 .python-version
 .vscode
 .coverage
