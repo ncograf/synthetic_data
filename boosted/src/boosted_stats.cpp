@@ -14,10 +14,10 @@ namespace boosted_stats {
 /** Comptue Leverage effect
  *
  *  ```
- *  $L(k) = \frac{\langle r_t r_{t+k}² \rangle}{\langle r_{t+k}^2 \rangle^2}$
+ *  $L(k) = \frac{\langle r_t |r_{t+k}|^2 - \langle r(t) \rangle \langle |r(t)|^2 \rangle \rangle}{\langle r_{t+k}^2 \rangle^2}$
  *  ```
- *
- *  This formula is obtained from DOI:10.1016/j.physa.2016.12.021, note that
+ *  
+ *  This formula is obtained from https://doi.org/10.1103/PhysRevE.73.065103, note that
  *  it deviates from other papers.
  *
  */
@@ -61,7 +61,7 @@ np::ndarray leverage_effect(np::ndarray arr, int max_lag, bool verbose) {
   
   // squared array
   Eigen::Array<Scalar, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>
-      squared = mat * mat;
+      squared = mat.abs() * mat.abs();
 
   // out array
   Eigen::Array<Scalar, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> out(
@@ -74,6 +74,10 @@ np::ndarray leverage_effect(np::ndarray arr, int max_lag, bool verbose) {
     std::cout << "Prep Time :" << d1.count() << "ms\n";
 
   // std::cout << "Matrix \n" << mat << std::endl;
+  Eigen::Array<Scalar, Eigen::Dynamic, Eigen::Dynamic> squared_mean =
+        squared.colwise().sum() / count;
+  Eigen::Array<Scalar, Eigen::Dynamic, Eigen::Dynamic> mean =
+        mat.colwise().sum() / count;
 
   t1 = std::chrono::high_resolution_clock::now();
   for (int lag = 1; lag <= max_lag; lag++) {
@@ -84,11 +88,8 @@ np::ndarray leverage_effect(np::ndarray arr, int max_lag, bool verbose) {
     Eigen::Array<Scalar, Eigen::Dynamic, Eigen::Dynamic> enumerator =
         (mat.topRows(n_row - lag) * squared.bottomRows(n_row - lag))
             .colwise()
-            .sum() /
-        (count - ones * lag);
-    Eigen::Array<Scalar, Eigen::Dynamic, Eigen::Dynamic> denominator =
-        (squared.colwise().sum() / count);
-    out.row(lag - 1) = enumerator / (denominator * denominator);
+            .sum() / (count - ones * lag);
+    out.row(lag - 1) = -(enumerator - mean * squared_mean) / (squared_mean * squared_mean);
     // std::cout << "Enum \n" << enumerator << std::endl;
     // std::cout << "Top Squared \n" << squared.topRows(n_row - lag) <<
     // std::endl;
@@ -254,7 +255,7 @@ np::ndarray lag_prod_mean_two(np::ndarray arr_pos_lag, np::ndarray arr,
   mat_pos_lag = (mat_pos_lag.isNaN()).select(0, mat_pos_lag);
 
   Eigen::Array<Scalar, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> out(
-      max_lag, n_col);
+      max_lag + 1, n_col);
   out.setZero();
 
   t2 = std::chrono::high_resolution_clock::now();
@@ -265,13 +266,13 @@ np::ndarray lag_prod_mean_two(np::ndarray arr_pos_lag, np::ndarray arr,
   Eigen::Array<Scalar, 1, Eigen::Dynamic> curr_count = count;
 
   t1 = std::chrono::high_resolution_clock::now();
-  for (int lag = 1; lag <= max_lag; lag++) {
+  for (int lag = 0; lag <= max_lag; lag++) {
 
     // lag of the positive count nans are ignored
     curr_count = count.min(count_pos_lag + lag);
 
     // r_t * r_{t-lag}
-    out.row(lag - 1) =
+    out.row(lag) =
         (mat_pos_lag.bottomRows(n_row - lag) * mat_arr.topRows(n_row - lag))
             .colwise()
             .sum() /
@@ -289,7 +290,7 @@ np::ndarray lag_prod_mean_two(np::ndarray arr_pos_lag, np::ndarray arr,
 
   t1 = std::chrono::high_resolution_clock::now();
   // copy data to the newly generated numpy array
-  std::copy(out.data(), out.data() + max_lag * n_col,
+  std::copy(out.data(), out.data() + (max_lag + 1) * n_col,
             reinterpret_cast<Scalar *>(out_arr.get_data()));
   t2 = std::chrono::high_resolution_clock::now();
   d1 = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);

@@ -13,11 +13,11 @@ class TestBoosted:
         r_t_2 = r_t**2
 
         test = np.zeros((max_k, cols))
-        test[:] = np.nan
         for k in range(1, max_k + 1):
-            test[k - 1, :] = np.nanmean(r_t[:-k] * r_t_2[k:], axis=0) / (
-                np.nanmean(r_t_2, axis=0) ** 2
-            )
+            test[k - 1, :] = -(
+                np.nanmean(r_t[:-k] * r_t_2[k:], axis=0)
+                - np.nanmean(r_t_2, axis=0) * np.nanmean(r_t, axis=0)
+            ) / (np.nanmean(r_t_2, axis=0) ** 2)
 
         boosted = boosted_stats.leverage_effect_double(r_t, max_k, False)
 
@@ -37,9 +37,10 @@ class TestBoosted:
         test = np.zeros((max_k, cols))
         test[:] = np.nan
         for k in range(1, max_k + 1):
-            test[k - 1, :] = np.nanmean(r_t[:-k] * r_t_2[k:], axis=0) / (
-                np.nanmean(r_t_2, axis=0) ** 2
-            )
+            test[k - 1, :] = -(
+                np.nanmean(r_t[:-k] * r_t_2[k:], axis=0)
+                - np.nanmean(r_t_2, axis=0) * np.nanmean(r_t, axis=0)
+            ) / (np.nanmean(r_t_2, axis=0) ** 2)
 
         boosted = boosted_stats.leverage_effect_double(r_t, max_k, False)
 
@@ -61,11 +62,15 @@ class TestBoosted:
             num_nan = np.random.randint(0, rows - 100)
             r_t[:num_nan, col] = np.nan
 
-        test = np.zeros((max_k, cols))
+        test = np.zeros((max_k + 1, cols))
         test[:] = np.nan
 
-        for k in range(1, max_k + 1):
-            test[k - 1, :] = np.nanmean(q_t[k:] * r_t[:-k], axis=0)
+        for k in range(0, max_k + 1):
+            test[k, :] = (
+                np.nanmean(q_t[k:] * r_t[:-k], axis=0)
+                if k != 0
+                else np.nanmean(q_t * r_t, axis=0)
+            )
 
         boosted = boosted_stats.lag_prod_mean_double(q_t, r_t, max_k, False)
 
@@ -76,7 +81,7 @@ class TestBoosted:
 
         boosted = boosted_stats.lag_prod_mean_double(r_t, max_k, False)
 
-        assert np.array_equal(test.round(8), boosted.round(8), equal_nan=True)
+        assert np.array_equal(test[:-1].round(8), boosted.round(8), equal_nan=True)
 
     def test_gain_loss_asym(self):
         rows = 500
@@ -125,5 +130,6 @@ class TestBoosted:
 
 if __name__ == "__main__":
     TestBoosted().test_gain_loss_asym()
+    TestBoosted().test_levearge_effect_simple_simple()
     TestBoosted().test_levearge_effect()
     TestBoosted().test_lag_prod_two()

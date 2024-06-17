@@ -1,117 +1,86 @@
 import boosted_stats
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import stylized_fact
-import temporal_statistc
 
 
-class CoarseFineVolatility(stylized_fact.StylizedFact):
-    def __init__(
-        self,
-        max_lag: int,
-        tau: int,
-        underlaying: temporal_statistc.TemporalStatistic,
-        title_postfix: str = "",
-    ):
-        stylized_fact.StylizedFact.__init__(self)
+def corse_fine_volatility(log_returns: pd.DataFrame, tau: int, max_lag: int):
+    log_returns = np.array(log_returns)
 
-        self._ax_style = {
-            "title": "coarse-fine volatility correlation" + title_postfix,
-            "ylabel": r"$\rho(k)$",
-            "xlabel": r"lag $k$",
-            "xscale": "linear",
-            "yscale": "linear",
-        }
-        self._max_lag = max_lag
-        self._tau = tau
-        self._underlaying = underlaying
-        self.styles = [
-            {
-                "alpha": 1,
-                "marker": "o",
-                "color": "blue",
-                "markersize": 1,
-                "linestyle": "None",
-            },
-            {
-                "alpha": 1,
-                "marker": "None",
-                "color": "orange",
-                "markersize": 1,
-                "linestyle": "-",
-            },
-        ]
+    # hack by setting nans to 0
+    nan_mask = np.isnan(log_returns)
+    log_returns[nan_mask] = 0
 
-    def set_statistics(self, data: pd.DataFrame | pd.Series | None = None):
-        # get statistic usually log returns
-        self._underlaying.check_statistic()
-        base = self._underlaying.statistic
-        self._symbols = self._underlaying.symbols
+    nan_mask_shifted = np.isnan(log_returns[:-tau])
 
-        nan_mask = np.isnan(base)
-        base[nan_mask] = 0
-        nan_mask_shifted = np.isnan(base[: -self._tau])
+    # compute coarse volatiltiy |sum r_t|
+    cum_sum = np.cumsum(log_returns, axis=0)
+    v_c_tau = np.abs(cum_sum[tau:] - cum_sum[:-tau])
+    v_c_tau[nan_mask_shifted] = np.nan
 
-        cs_base = np.cumsum(base, axis=0)
-        v_c_tau = np.abs(cs_base[self._tau :] - cs_base[: -self._tau])
-        v_c_tau[nan_mask_shifted] = np.nan
-        v_c_mean = np.nanmean(v_c_tau, axis=0)
-        v_c_std = np.nanstd(v_c_tau, axis=0)
-        v_c_tau = v_c_tau - v_c_mean
+    # compute fine volatiltiy sum |r_t|
+    abs_log_return = np.abs(log_returns)
+    abs_cumsum = np.cumsum(abs_log_return, axis=0)
+    v_f_tau = abs_cumsum[tau:] - abs_cumsum[:-tau]
+    v_f_tau[nan_mask_shifted] = np.nan
 
-        abs_base = np.abs(base)
-        cs_abs_base = np.cumsum(abs_base, axis=0)
-        v_f_tau = cs_abs_base[self._tau :] - cs_abs_base[: -self._tau]
-        v_f_tau[nan_mask_shifted] = np.nan
-        v_f_mean = np.nanmean(v_f_tau, axis=0)
-        v_f_std = np.nanstd(v_f_tau, axis=0)
-        v_f_tau = v_f_tau - v_f_mean
+    # center variables
+    v_c_mean = np.nanmean(v_c_tau, axis=0)
+    v_c_tau_centered = v_c_tau - v_c_mean
 
-        # compute the (r_{t+k} - mu) part of the correlation and the (r_t - mu) part separately
-        if base.dtype.name == "float32":
-            stat_pos = boosted_stats.lag_prod_mean_float(
-                v_c_tau, v_f_tau, self._max_lag, False
-            )
-            stat_neg = boosted_stats.lag_prod_mean_float(
-                v_f_tau, v_c_tau, self._max_lag, False
-            )
-        elif base.dtype.name == "float64":
-            stat_pos = boosted_stats.lag_prod_mean_double(
-                v_c_tau, v_f_tau, self._max_lag, False
-            )
-            stat_neg = boosted_stats.lag_prod_mean_double(
-                v_f_tau, v_c_tau, self._max_lag, False
-            )
+    v_f_mean = np.nanmean(v_f_tau, axis=0)
+    v_f_tau_centered = v_f_tau - v_f_mean
 
-        stat_neg = stat_neg / (v_c_std * v_f_std)
-        stat_pos = stat_pos / (v_c_std * v_f_std)
-        stat = np.concatenate([np.flip(stat_neg, axis=0), stat_pos], axis=0)
-        ticks = np.arange(1, self._max_lag + 1)
-        ticks = np.concatenate([-np.flip(ticks), ticks])
-        self._x_ticks = ticks
-        self._statistic = stat
-
-        self._lead_lag = (
-            self.statistic[: self._max_lag] - self.statistic[self._max_lag :]
+    # compute the (r_{t+k} - mu) part of the correlation and the (r_t - mu) part separately
+    if log_returns.dtype.name == "float32":
+        stat_pos = boosted_stats.lag_prod_mean_float(
+            v_c_tau_centered, v_f_tau_centered, max_lag, False
         )
-        # TODO compute outlier if needed
+        stat_neg = boosted_stats.lag_prod_mean_float(
+            v_f_tau_centered, v_c_tau_centered, max_lag, False
+        )
+    elif log_returns.dtype.name == "float64":
+        stat_pos = boosted_stats.lag_prod_mean_double(
+            v_c_tau_centered, v_f_tau_centered, max_lag, False
+        )
+        stat_neg = boosted_stats.lag_prod_mean_double(
+            v_f_tau_centered, v_c_tau_centered, max_lag, False
+        )
 
-    def draw_stylized_fact(
-        self,
-        ax: plt.Axes,
-    ):
-        """Draws the averaged statistic over all symbols on the axes
+    # normalize to get correlation
+    v_f_std = np.nanstd(v_f_tau, axis=0)
+    v_c_std = np.nanstd(v_c_tau, axis=0)
+    stat_neg = stat_neg / (v_c_std * v_f_std)
+    stat_pos = stat_pos / (v_c_std * v_f_std)
 
-        Args:
-            ax (plt.Axes): Axis to draw onto
-        """
+    stat = np.concatenate([np.flip(stat_neg, axis=0), stat_pos[1:]], axis=0)
+    lead_lag = stat_pos - stat_neg
 
-        self.check_statistic()
-        data = np.mean(self.statistic, axis=1)
-        lead_log = np.mean(self._lead_lag, axis=1)
-        lead_log_x = np.arange(1, self._max_lag + 1)
+    lead_lag_x = np.arange(max_lag + 1)
+    stat_x = np.concatenate([-np.flip(lead_lag_x), lead_lag_x[1:]])
 
-        ax.set(**self.ax_style)
-        ax.plot(self.x_ticks, data, **self.styles[0])
-        ax.plot(lead_log_x, lead_log, **self.styles[1])
+    return stat, stat_x, lead_lag, lead_lag_x
+
+
+cf_vol_axes_setting = {
+    "title": "coarse-fine volatility",
+    "ylabel": r"$\rho(k)$",
+    "xlabel": "lag k",
+    "xscale": "linear",
+    "yscale": "linear",
+}
+cf_vol_plot_setting = {
+    "alpha": 1,
+    "marker": "o",
+    "color": "blue",
+    "markersize": 1,
+    "linestyle": "None",
+    "label": r"$\rho(k)$",
+}
+lead_lag_plot_setting = {
+    "alpha": 1,
+    "marker": "None",
+    "color": "orange",
+    "markersize": 0,
+    "linestyle": "-",
+    "label": r"$\Delta \rho(k)$",
+}

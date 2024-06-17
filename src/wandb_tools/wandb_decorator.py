@@ -6,9 +6,7 @@ from warnings import warn
 
 import numpy as np
 import pandas as pd
-import stylized_facts_visualizer
-import tail_dist_visualizer
-import temporal_series_visualizer
+import wandb_logging
 
 import wandb
 
@@ -200,43 +198,27 @@ def wandb_eval(func):
 
         generated_prices, generated_returns = func(*args, **kwargs)
 
-        plot_price = temporal_series_visualizer.visualize_time_series(
-            generated_prices,
-            [{"linestyle": "-", "linewidth": 1}],
-            "price-simulation",
-            y_axis_name="Stock Price",
+        wandb_logging.log_stylized_facts(
+            local_path=cache / "stylized_facts",
+            wandb_path="stylized_facts",
+            figure_title="Stylized Facts",
+            price_data=generated_prices,
+            return_data=generated_returns,
         )
-        wandb.log({"price simulation plot": plot_price.figure})
-        plot_price.figure.savefig(cache / "price_simulation.png")
 
-        plot_return = temporal_series_visualizer.visualize_time_series(
-            generated_returns,
-            [{"linestyle": "-", "linewidth": 1}],
-            "return-simulation",
-            y_axis_name="Returns",
+        wandb_logging.log_temp_series(
+            local_path=cache / "price_series",
+            wandb_path="price_series",
+            figure_title="Price Series",
+            temp_data=generated_prices,
         )
-        wandb.log({"return simulation plot": plot_return.figure})
-        plot_return.figure.savefig(cache / "return_simulation.png")
 
-        # compute stylized facts
-        plot = stylized_facts_visualizer.visualize_all(
-            stock_data=generated_prices, name="Stylized Facts simulation."
+        wandb_logging.log_temp_series(
+            local_path=cache / "price_series",
+            wandb_path="price_series",
+            figure_title="Price Series",
+            temp_data=generated_prices,
         )
-        plot.figure.savefig(cache / "stylized_facts.png")
-        image = wandb.Image(plot.figure, caption="Stylized Facts")
-        wandb.log({"stylized_facts": image})
-
-        gen_log_returns = np.log(generated_returns)
-        log_returns = np.log(real_data[1:] / real_data[:-1])
-        plot = tail_dist_visualizer.visualize_tail(
-            real_series=log_returns,
-            time_series=gen_log_returns,
-            plot_name="Tail Statistics",
-            quantile=0.01,
-        )
-        plot.figure.savefig(cache / "tail_stats.png")
-        image = wandb.Image(plot.figure, caption="Tail Statistics")
-        wandb.log({"tail_stat": image})
 
         return generated_prices, generated_returns
 
