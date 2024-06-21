@@ -13,7 +13,7 @@ def gain_loss_asymmetry(price: pd.DataFrame, max_lag: int, theta: float):
     log_price = np.log(price)
     if log_price.dtype.name == "float32":
         boosted = boosted_stats.gain_loss_asym_float(log_price, max_lag, theta, False)
-    if log_price.dtype.name == "float64":
+    elif log_price.dtype.name == "float64":
         boosted = boosted_stats.gain_loss_asym_double(log_price, max_lag, theta, False)
     else:
         raise ValueError(f"Unsupported data type: {log_price.dtype.name}")

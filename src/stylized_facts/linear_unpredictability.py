@@ -1,7 +1,10 @@
+from typing import Any, Dict
+
 import boosted_stats
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
+from scipy.stats import linregress
 
 
 def linear_unpredictability(log_returns: pd.DataFrame, max_lag: int) -> npt.NDArray:
@@ -41,6 +44,27 @@ def linear_unpredictability(log_returns: pd.DataFrame, max_lag: int) -> npt.NDAr
 
     lin_unpred = correlation / var
     return lin_unpred
+
+
+def linear_unpredictability_statistics(
+    log_returns: pd.DataFrame, max_lag: int
+) -> Dict[str, Any]:
+    lin_upred = linear_unpredictability(log_returns=log_returns, max_lag=max_lag)
+    regression = linregress(
+        np.linspace(1, max_lag, max_lag, endpoint=True), np.mean(lin_upred, axis=1)
+    )
+    mean_squared = np.mean(lin_upred**2)
+
+    stats = {
+        "regression_r_score": regression.rvalue,
+        "regression_p_value": regression.pvalue,
+        "regression_slope": regression.slope,
+        "regression_intercept": regression.intercept,
+        "mean_squared_value": mean_squared,
+        "data": lin_upred,
+    }
+
+    return stats
 
 
 lin_upred_axes_setting = {
