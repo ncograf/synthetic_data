@@ -89,7 +89,7 @@ np::ndarray leverage_effect(np::ndarray arr, int max_lag, bool verbose) {
         (mat.topRows(n_row - lag) * squared.bottomRows(n_row - lag))
             .colwise()
             .sum() / (count - ones * lag);
-    out.row(lag - 1) = -(enumerator - mean * squared_mean) / (squared_mean * squared_mean);
+    out.row(lag - 1) = (enumerator - mean * squared_mean) / (squared_mean * squared_mean);
     // std::cout << "Enum \n" << enumerator << std::endl;
     // std::cout << "Top Squared \n" << squared.topRows(n_row - lag) <<
     // std::endl;
