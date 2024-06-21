@@ -64,7 +64,7 @@ class FinGanTrainer:
 
         # log wandb if wandb logging is active
         if wandb.run is not None:
-            wandb.config = config
+            wandb.config.update(config)
             wandb.config["train_config.cpu"] = cpu_name
             wandb.config["train_config.gpu"] = cuda_name
             wandb.config["train_config.device"] = device
@@ -148,7 +148,7 @@ class FinGanTrainer:
                 loc_path.mkdir(parents=True, exist_ok=True)
 
                 # get prices and returns (note the transposition due to batch sampling)
-                log_ret_sim = gen_series.detach().numpy().T
+                log_ret_sim = gen_series.detach().cpu().numpy().T
                 price_sim = np.exp(np.cumsum(log_ret_sim, axis=0))
                 ret_sim = np.exp(log_ret_sim)
 
@@ -223,7 +223,7 @@ class FinGanTrainer:
 
         # sample and bring the returns to the cpu (transpse to get dates in axis 0)
         log_returns = model.sample(n_samples)
-        log_returns = log_returns.detach().numpy().T
+        log_returns = log_returns.detach().cpu().numpy().T
         ret_sim = np.exp(log_returns)
 
         # compute prices from returns (initial price assumed to be 1 and not included)
