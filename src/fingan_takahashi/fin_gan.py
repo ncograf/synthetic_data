@@ -1,6 +1,5 @@
 from typing import Any, Dict
 
-import networks
 import torch
 import torch.nn as nn
 from type_converter import TypeConverter
@@ -35,16 +34,12 @@ class FinGan(nn.Module):
         self.gen_config["dtype"] = self.dtype
         self.disc_config["dtype"] = self.dtype
 
-        # Define necessary networks
-        self.gen = networks.model_factory(self.gen_config)
-        self.disc = networks.model_factory(self.disc_config)
+        self.gen = FinGanMLP(**self.gen_config)
+        self.disc = FinGanDisc(**self.disc_config)
 
-        self.mean = nn.Parameter(
-            torch.zeros(self.gen_config["input_dim"]), requires_grad=False
-        )
-        self.cov = nn.Parameter(
-            torch.eye(self.gen_config["input_dim"]), requires_grad=False
-        )
+        # note that 100 is a fixed value defined in the models
+        self.mean = nn.Parameter(torch.zeros(100), requires_grad=False)
+        self.cov = nn.Parameter(torch.eye(100), requires_grad=False)
 
     def get_model_info(self) -> Dict[str, Any]:
         """Model initialization parameters
@@ -61,15 +56,14 @@ class FinGan(nn.Module):
 
         return dict_
 
-    def sample(self, batch_size: int = 1, burn: int = 0) -> torch.Tensor:
+    def sample(self, batch_size: int = 1) -> torch.Tensor:
         """Generate time series from learned distribution
 
         Args:
-            batch_size (int): Batch size to sample
-            burn (int): ignored
+            batch_size (int, optional): Batch size to sample
 
         Returns:
-            torch.Tensor: time series of the size (batch_size, series_length, n_stocks)
+            torch.Tensor: time series of the size (batch_size x series_length)
         """
 
         dist = torch.distributions.MultivariateNormal(self.mean, self.cov)
@@ -78,3 +72,60 @@ class FinGan(nn.Module):
 
     def forward(self, x):
         self.disc(x)
+
+
+class FinGanDisc(nn.Sequential):
+    def __init__(self, input_dim: int, dtype: torch.dtype):
+        in_channels = 1
+        input_dim = input_dim
+        kernel_size = 10
+        nn.Sequential.__init__(
+            self,
+            nn.Conv1d(
+                in_channels=in_channels,
+                out_channels=64,
+                stride=2,
+                padding=(kernel_size - 1) // 2,
+                kernel_size=kernel_size,
+                dtype=dtype,
+            ),
+            nn.LeakyReLU(0.2),
+            nn.Conv1d(
+                in_channels=64,
+                out_channels=128,
+                stride=4,
+                padding=(kernel_size - 1) // 2,
+                kernel_size=kernel_size,
+                dtype=dtype,
+            ),
+            nn.LeakyReLU(0.2),
+            nn.Conv1d(
+                in_channels=128,
+                out_channels=16,
+                stride=2,
+                padding=(kernel_size - 1) // 2,
+                kernel_size=kernel_size,
+                dtype=dtype,
+            ),
+            nn.LeakyReLU(0.2),
+            nn.Flatten(),
+            nn.Linear(input_dim, 16, dtype=dtype),
+            nn.LeakyReLU(0.2),
+            nn.Dropout(0.5),
+            nn.Linear(16, 1, dtype=dtype),
+            nn.Sigmoid(),
+        )
+
+
+class FinGanMLP(nn.Sequential):
+    def __init__(self, seq_len: int, dtype: torch.dtype):
+        input_dim = 100
+        nn.Sequential.__init__(
+            self,
+            nn.Linear(input_dim, 128, dtype=dtype),
+            nn.Tanh(),
+            nn.Linear(128, 2048, dtype=dtype),
+            nn.Tanh(),
+            nn.Linear(2048, seq_len, dtype=dtype),
+            nn.Tanh(),
+        )

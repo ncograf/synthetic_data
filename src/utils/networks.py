@@ -105,24 +105,21 @@ def model_factory(config: Dict[str, Any]) -> nn.Module:
     elif arch.lower() == "fin_gan_disc":
         in_channels = 1
         input_dim = config["input_dim"]
-        kernel_size = 16
-        padding = ((kernel_size - 1) // 2,)
+        kernel_size = 10
         net = nn.Sequential(
             nn.Conv1d(
                 in_channels=in_channels,
                 out_channels=64,
-                stride=8,
-                padding=padding,
+                padding="same",
                 kernel_size=kernel_size,
                 dtype=dtype,
             ),
-            # seq len input_dim // 8
+            # seq len input_dim
             sigma,
             nn.Conv1d(
                 in_channels=64,
                 out_channels=128,
-                stride=8,
-                padding=padding,
+                padding="same",
                 kernel_size=kernel_size,
                 dtype=dtype,
             ),
@@ -131,25 +128,13 @@ def model_factory(config: Dict[str, Any]) -> nn.Module:
             nn.Conv1d(
                 in_channels=128,
                 out_channels=64,
-                stride=8,
-                padding=padding,
+                padding="same",
                 kernel_size=kernel_size,
                 dtype=dtype,
             ),
-            # seq len input_dim // 512
-            sigma,
-            nn.Conv1d(
-                in_channels=64,
-                out_channels=32,
-                stride=8,
-                padding=padding,
-                kernel_size=kernel_size,
-                dtype=dtype,
-            ),
-            # seq len input_dim // 2048
             sigma,
             nn.Flatten(),
-            nn.Linear((input_dim // 4096) * 32, 32, dtype=dtype),
+            nn.Linear(input_dim * 128, 32, dtype=dtype),
             sigma,
             nn.Dropout(drop_out),
             nn.Linear(32, 1, dtype=dtype),
