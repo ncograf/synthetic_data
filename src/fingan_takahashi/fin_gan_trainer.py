@@ -138,7 +138,7 @@ class FinGanTrainer:
                 )
 
             # log experiments every n epochs
-            n = 1
+            n = 20
             if epoch % n == n - 1 or epoch == epochs - 1:
                 # create pseudo identifier
                 epoch_name = f"epoch_{epoch + 1}" if epoch < epochs - 1 else "final"

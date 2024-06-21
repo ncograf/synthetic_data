@@ -44,10 +44,11 @@ def main(
 
     # define training config and train model
     train_config = {
+        "seq_len": 512,
         "train_seed": 99,
         "dtype": "float32",
-        "batch_size": 24,
         "epochs": 1000,
+        "batch_size": 1,
         "optim_gen_config": {
             "lr": 2e-4,
             "betas": (0.5, 0.999),
@@ -68,4 +69,4 @@ def main(
 
 
 if __name__ == "__main__":
-    main(False)
+    main(True)
