@@ -14,7 +14,7 @@ class TestBoosted:
 
         test = np.zeros((max_k, cols))
         for k in range(1, max_k + 1):
-            test[k - 1, :] = -(
+            test[k - 1, :] = (
                 np.nanmean(r_t[:-k] * r_t_2[k:], axis=0)
                 - np.nanmean(r_t_2, axis=0) * np.nanmean(r_t, axis=0)
             ) / (np.nanmean(r_t_2, axis=0) ** 2)
@@ -37,7 +37,7 @@ class TestBoosted:
         test = np.zeros((max_k, cols))
         test[:] = np.nan
         for k in range(1, max_k + 1):
-            test[k - 1, :] = -(
+            test[k - 1, :] = (
                 np.nanmean(r_t[:-k] * r_t_2[k:], axis=0)
                 - np.nanmean(r_t_2, axis=0) * np.nanmean(r_t, axis=0)
             ) / (np.nanmean(r_t_2, axis=0) ** 2)
