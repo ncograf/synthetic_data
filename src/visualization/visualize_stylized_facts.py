@@ -2,7 +2,7 @@ from typing import List
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
+import numpy.typing as npt
 from coarse_fine_volatility import (
     cf_vol_axes_setting,
     cf_vol_plot_setting,
@@ -34,14 +34,11 @@ from volatility_clustering import (
 )
 
 
-def visualize_stylized_facts(
-    price_data: pd.DataFrame, return_data: pd.DataFrame = None
-) -> plt.Figure:
+def visualize_stylized_facts(log_returns: npt.ArrayLike) -> plt.Figure:
     """Visualizes all stilized facts and returns the plt figure
 
     Args:
-        price_data (pd.DataFrame):  n_timesteps x m_stocks
-        return_data (pd.DataFrame, optional):  n_timesteps x m_stocks return data. Defaults to None
+        log_returns (array_like):  (n_timesteps x m_stocks) or (n_timesteps) return data.
 
     Returns:
         plt.Figure: matplotlib figure ready to plot / save
@@ -76,21 +73,18 @@ def visualize_stylized_facts(
     fig, axes = plt.subplots(**subplot_layout, constrained_layout=True)
 
     # prepare data
-    if isinstance(price_data, pd.Series):
-        price_data = price_data.to_frame()
-    price_data = price_data.to_numpy()
+    log_returns = np.array(log_returns)
+    if log_returns.ndim == 1:
+        log_returns = log_returns.reshape((-1, 1))
+    elif log_returns.ndim > 2:
+        raise RuntimeError(f"Log Returns has {log_returns.ndim} dimensions.")
 
-    if return_data is None:
-        log_returns = np.log(price_data[1:] / price_data[:-1])
-    else:
-        if isinstance(return_data, pd.Series):
-            return_data = return_data.to_frame().to_numpy()
-        log_returns = np.log(return_data)
-    max_lag = log_returns.shape[0] - 1
+    log_price = np.cumsum(log_returns, axis=0)
+    max_ticks = log_returns.shape[0] - 1
 
     # LINEAR UNPREDICTABILITY
     linear_unpredict_data = linear_unpredictability(
-        log_returns=log_returns, max_lag=min(1000, max_lag)
+        log_returns=log_returns, max_lag=min(1000, max_ticks)
     )
     axes[0, 0].set(**lin_upred_axes_setting)
     axes[0, 0].plot(np.mean(linear_unpredict_data, axis=1), **lin_unpred_plot_setting)
@@ -113,7 +107,7 @@ def visualize_stylized_facts(
 
     # VOLATILTIY CLUSTERING
     vol_clust_data = volatility_clustering(
-        log_returns=log_returns, max_lag=min(1000, max_lag)
+        log_returns=log_returns, max_lag=min(1000, max_ticks)
     )
     axes[0, 2].set(**vol_clust_axes_setting)
     axes[0, 2].plot(np.mean(vol_clust_data, axis=1), **vol_clust_plot_setting)
@@ -136,7 +130,7 @@ def visualize_stylized_facts(
 
     # GAIN LOSS ASYMMETRY
     gain_data, loss_data = gain_loss_asymmetry(
-        price=price_data, max_lag=min(1000, max_lag), theta=0.1
+        log_price=log_price, max_lag=min(1000, max_ticks), theta=0.1
     )
     axes[1, 2].set(**gain_loss_axis_setting)  # settings definitions are imported
     axes[1, 2].plot(np.mean(gain_data, axis=1), **gain_plot_setting)
@@ -147,15 +141,14 @@ def visualize_stylized_facts(
 
 
 def visualize_averaged_stylized_facts(
-    price_data_list: List[pd.DataFrame], return_data_list: List[pd.DataFrame] = None
+    log_return_list: List[npt.ArrayLike],
 ) -> plt.Figure:
     """Visualizes all stilized facts and returns the plt figure averaged over the data in the list
 
     Note that alle element in the list must have the same
 
     Args:
-        price_data (List[pd.DataFrame]):  List of prices n_timesteps x m_stocks
-        return_data (List[pd.DataFrame], optional):  List of returns n_timesteps x m_stocks return data. Defaults to None
+        log_return_list (List[array_like]):  List of log returns (n_timesteps x m_stocks) or (n_timesteps) return data.
 
     Returns:
         plt.Figure: matplotlib figure ready to plot / save
@@ -189,28 +182,27 @@ def visualize_averaged_stylized_facts(
     plt.rcParams.update(figure_style)
     fig, axes = plt.subplots(**subplot_layout, constrained_layout=True)
 
-    # prepare data
-    for i, price_data in enumerate(price_data_list):
-        if isinstance(price_data, pd.Series):
-            price_data = price_data.to_frame()
-        price_data_list[i] = price_data.to_numpy()
+    log_price_list = []
+    for idx, log_returns in enumerate(log_return_list):
+        log_returns = np.array(log_returns)
+        if log_returns.ndim == 1:
+            log_returns = log_returns.reshape((-1, 1))
+        elif log_returns.ndim > 2:
+            raise RuntimeError(
+                f"Log Returns in list index {idx} has {log_returns.ndim} dimensions."
+            )
 
-    log_return_list = []
-    if return_data_list is None:
-        for price_data in price_data_list:
-            log_return_list.append(np.log(price_data[:-1] / price_data[1:]))
-    else:
-        for return_data in return_data_list:
-            if isinstance(return_data, pd.Series):
-                return_data = return_data.to_frame().to_numpy()
-            log_return_list.append(np.log(return_data))
-    max_lag = log_return_list[0].shape[0] - 1
+        log_price_list.append(np.cumsum(log_returns, axis=0))
+
+    max_ticks = log_return_list[0].shape[0] - 1
 
     # LINEAR UNPREDICTABILITY
     lin_unpred_list = []
     for log_returns in log_return_list:
         lin_unpred_list.append(
-            linear_unpredictability(log_returns=log_returns, max_lag=min(1000, max_lag))
+            linear_unpredictability(
+                log_returns=log_returns, max_lag=min(1000, max_ticks)
+            )
         )
     lin_unpred_data = np.mean(lin_unpred_list, axis=0)
     axes[0, 0].set(**lin_upred_axes_setting)
@@ -249,7 +241,7 @@ def visualize_averaged_stylized_facts(
     vol_clust_list = []
     for log_returns in log_return_list:
         vol_clust_list.append(
-            volatility_clustering(log_returns=log_returns, max_lag=min(1000, max_lag))
+            volatility_clustering(log_returns=log_returns, max_lag=min(1000, max_ticks))
         )
     vol_clust_data = np.mean(vol_clust_list, axis=0)
     axes[0, 2].set(**vol_clust_axes_setting)
@@ -291,9 +283,9 @@ def visualize_averaged_stylized_facts(
 
     # GAIN LOSS ASYMMETRY
     gd_list, ld_list = [], []
-    for price_data in price_data_list:
+    for log_prices in log_price_list:
         gd, ld = gain_loss_asymmetry(
-            price=price_data, max_lag=min(1000, max_lag), theta=0.1
+            log_price=log_prices, max_lag=min(1000, max_ticks), theta=0.1
         )
         gd_list.append(gd)
         ld_list.append(ld)

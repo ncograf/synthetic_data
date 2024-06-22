@@ -1,10 +1,16 @@
 import boosted_stats
 import numpy as np
-import pandas as pd
+import numpy.typing as npt
 
 
-def corse_fine_volatility(log_returns: pd.DataFrame, tau: int, max_lag: int):
+def corse_fine_volatility(log_returns: npt.ArrayLike, tau: int, max_lag: int):
     log_returns = np.array(log_returns)
+    if log_returns.ndim == 1:
+        log_returns = log_returns.reshape((-1, 1))
+    elif log_returns.ndim > 2:
+        raise RuntimeError(
+            f"Log Returns have {log_returns.ndim} dimensions must have 1 or 2."
+        )
 
     # hack by setting nans to 0
     nan_mask = np.isnan(log_returns)

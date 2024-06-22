@@ -3,11 +3,10 @@ from typing import Any, Dict
 import boosted_stats
 import numpy as np
 import numpy.typing as npt
-import pandas as pd
 from scipy.stats import linregress
 
 
-def linear_unpredictability(log_returns: pd.DataFrame, max_lag: int) -> npt.NDArray:
+def linear_unpredictability(log_returns: npt.ArrayLike, max_lag: int) -> npt.NDArray:
     """Linear unpredictability
 
     :math:`Corr(r_t, r_{t+k}) \approx 0, \quad \text{for } k \geq 1`
@@ -22,8 +21,11 @@ def linear_unpredictability(log_returns: pd.DataFrame, max_lag: int) -> npt.NDAr
         npt.NDArray: max_lag x (log_returns.shape[1]) for each stock
     """
 
-    if isinstance(log_returns, pd.Series):
-        log_returns = log_returns.to_frame()
+    log_returns = np.array(log_returns)
+    if log_returns.ndim == 1:
+        log_returns = log_returns.reshape((-1, 1))
+    elif log_returns.ndim > 2:
+        raise RuntimeError(f"Log Price has {log_returns.ndim} dimensions.")
 
     log_returns = np.array(log_returns)
 
@@ -47,7 +49,7 @@ def linear_unpredictability(log_returns: pd.DataFrame, max_lag: int) -> npt.NDAr
 
 
 def linear_unpredictability_statistics(
-    log_returns: pd.DataFrame, max_lag: int
+    log_returns: npt.ArrayLike, max_lag: int
 ) -> Dict[str, Any]:
     lin_upred = linear_unpredictability(log_returns=log_returns, max_lag=max_lag)
     regression = linregress(

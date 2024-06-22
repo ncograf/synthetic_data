@@ -1,16 +1,18 @@
 import boosted_stats
 import numpy as np
-import pandas as pd
+import numpy.typing as npt
 
 
-def gain_loss_asymmetry(price: pd.DataFrame, max_lag: int, theta: float):
-    if isinstance(price, pd.Series):
-        price = price.to_frame()
-
-    price = np.array(price)
+def gain_loss_asymmetry(log_price: npt.ArrayLike, max_lag: int, theta: float):
+    log_price = np.array(log_price)
+    if log_price.ndim == 1:
+        log_price = log_price.reshape((-1, 1))
+    elif log_price.ndim > 2:
+        raise RuntimeError(
+            f"Log Price has {log_price.ndim} dimensions should have 1 or 2."
+        )
 
     # compute the (r_{t+k} - mu) part of the correlation and the (r_t - mu) part separately
-    log_price = np.log(price)
     if log_price.dtype.name == "float32":
         boosted = boosted_stats.gain_loss_asym_float(log_price, max_lag, theta, False)
     elif log_price.dtype.name == "float64":

@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Any, Dict
 
+import numpy.typing as npt
 import pandas as pd
 import torch
 import visualize_stylized_facts as vst
@@ -13,8 +14,7 @@ def log_stylized_facts(
     local_path: str | Path,
     wandb_path: str,
     figure_title: str,
-    price_data: pd.DataFrame,
-    return_data: pd.DataFrame,
+    log_returns: npt.ArrayLike,
 ):
     """Log stylized facts and catch errors (errors will be printed but not thrown)
 
@@ -22,13 +22,12 @@ def log_stylized_facts(
         local_path (str | Path): local path to store image of stylized facts
         wandb_path (str): wandb path to store stylized facts
         figure_title (str): title of figure with stylized facts
-        price_data (pd.DataFrame): price data
-        return_data (pd.DataFrame): return data
+        log_returns (npt.): return data
     """
 
     # compute stylized facts
     try:
-        plot = vst.visualize_stylized_facts(price_data, return_data)
+        plot = vst.visualize_stylized_facts(log_returns=log_returns)
         plot.suptitle(figure_title)
         plot.savefig(local_path)
         if wandb.run is not None:
@@ -39,7 +38,7 @@ def log_stylized_facts(
 
 
 def log_temp_series(
-    local_path: str | Path, wandb_path: str, figure_title: str, temp_data: pd.DataFrame
+    local_path: str | Path, wandb_path: str, figure_title: str, temp_data: npt.ArrayLike
 ):
     """Log temporal series and catch errors (errors will be printed but not thrown)
 
@@ -47,7 +46,7 @@ def log_temp_series(
         local_path (str | Path): local path to store image of stylized facts
         wandb_path (str): wandb path to store stylized facts
         figure_title (str): title of figure with stylized facts
-        temp_data (pd.DataFrame): temporal data
+        temp_data (npt.ArrayLike): temporal data
     """
 
     try:

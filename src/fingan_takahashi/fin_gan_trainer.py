@@ -138,7 +138,7 @@ class FinGanTrainer:
                 )
 
             # log experiments every n epochs
-            n = 20
+            n = 1
             if epoch % n == n - 1 or epoch == epochs - 1:
                 # create pseudo identifier
                 epoch_name = f"epoch_{epoch + 1}" if epoch < epochs - 1 else "final"
@@ -149,8 +149,6 @@ class FinGanTrainer:
 
                 # get prices and returns (note the transposition due to batch sampling)
                 log_ret_sim = gen_series.detach().cpu().numpy().T
-                price_sim = np.exp(np.cumsum(log_ret_sim, axis=0))
-                ret_sim = np.exp(log_ret_sim)
 
                 # read out model state (NOTE THE DICT KEYS ARE READ FROM THE SAMPLE FUNCTION DON'T CHANGE)
                 model_dict = {
@@ -172,22 +170,23 @@ class FinGanTrainer:
                     local_path=loc_path / "stylized_facts.png",
                     wandb_path=f"{epoch_name}/stylized_facts.png",
                     figure_title=f"Stylized Facts FinGAN Takahashi (epoch {epoch + 1})",
-                    price_data=pd.DataFrame(price_sim),
-                    return_data=pd.DataFrame(ret_sim),
+                    log_returns=log_ret_sim,
                 )
 
                 wandb_logging.log_temp_series(
                     local_path=loc_path / "sample_returns.png",
                     wandb_path=f"{epoch_name}/sample_returns.png",
-                    figure_title=f"Simulated Returns FinGAN Takahashi (epoch {epoch + 1}, flattend 24 samples)",
-                    temp_data=pd.Series(ret_sim[:, 0]),  # pick the first sample
+                    figure_title=f"Simulated Log Returns FinGAN Takahashi (epoch {epoch + 1}, flattend 24 samples)",
+                    temp_data=pd.Series(log_ret_sim[:, 0]),  # pick the first sample
                 )
 
                 wandb_logging.log_temp_series(
                     local_path=loc_path / "sample_prices.png",
                     wandb_path=f"{epoch_name}/sample_prices.png",
                     figure_title=f"Simulated Prices FinGAN Takahashi (epoch {epoch + 1}, flattened 24 samples)",
-                    temp_data=pd.Series(price_sim[:, 0]),  # pick the first sample
+                    temp_data=pd.Series(
+                        np.exp(np.cumsum(log_ret_sim[:, 0]))
+                    ),  # pick the first sample
                 )
 
                 # print progress every n epochs
@@ -212,7 +211,7 @@ class FinGanTrainer:
             n_samples (int): number of samples to create
 
         Returns:
-            Tuple[pd.DataFrame, pd.DataFrame]: price data ((seq_len + 1) x n_samples) and return data (seq_len x n_samples)
+            Tuple[pd.DataFrame]: return data (seq_len x n_samples)
         """
         set_seed(seed)
         accelerator = Accelerator()
@@ -224,14 +223,11 @@ class FinGanTrainer:
         # sample and bring the returns to the cpu (transpse to get dates in axis 0)
         log_returns = model.sample(n_samples)
         log_returns = log_returns.detach().cpu().numpy().T
-        ret_sim = np.exp(log_returns)
-
-        # compute prices from returns (initial price assumed to be 1 and not included)
-        price_sim = np.exp(np.cumsum(log_returns, axis=0))
 
         # generate pandas dataframes
-        time_idx = pd.date_range(str(date.today()), periods=ret_sim.shape[0], freq="D")
-        pd_prices = pd.DataFrame(price_sim, index=time_idx)
-        pd_returns = pd.DataFrame(ret_sim, index=time_idx)
+        time_idx = pd.date_range(
+            str(date.today()), periods=log_returns.shape[0], freq="D"
+        )
+        pd_log_returns = pd.DataFrame(log_returns, index=time_idx)
 
-        return pd_prices, pd_returns
+        return pd_log_returns

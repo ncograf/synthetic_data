@@ -63,7 +63,7 @@ def main(
     }
 
     # if wandb is enabled this will log the run
-    with wandb.init():
+    with wandb.init(tags="FinGanTakahashi"):
         trainer = fin_gan_trainer.FinGanTrainer()
         trainer.fit(price_data=price_data, config=train_config, cache=cache)
 
