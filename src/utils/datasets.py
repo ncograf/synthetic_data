@@ -51,21 +51,31 @@ class SP500GanDataset(Dataset):
         self.seq_len = seq_len
         self.num_elements = num_elements
 
+        if isinstance(price_data, pd.Series):
+            price_data = price_data.to_frame()
+
         # all colums in the dataframe must have at least seq_len non_nan elements
         non_nans = np.array(np.sum(~np.isnan(price_data), axis=0))
         self.price_data = price_data.drop(
             price_data.columns[non_nans <= seq_len], axis="columns"
         )
 
+        # choose random symbol until one has enough data
+        data = np.array(self.price_data)
+        self.log_returns = np.log(data[1:] / data[:-1])
+
+        self.shift = 0  # np.nanmean(self.log_returns)
+        self.scale = 1  # np.nanstd(self.log_returns)
+        self.log_returns = self.log_returns - self.shift
+        self.log_returns = self.log_returns / self.scale
+
     def __len__(self):
         return self.num_elements
 
     def __getitem__(self, idx):
-        # choose random symbol until one has enough data
-        symbol = np.random.choice(self.price_data.columns, size=1)
-        data = np.array(self.price_data.loc[:, symbol].dropna()).flatten()
-        log_returns = np.log(data[1:] / data[:-1])
-
+        idx = np.random.choice(range(self.log_returns.shape[1]), size=1)
+        log_returns = self.log_returns[:, idx]
+        log_returns = log_returns[~np.isnan(log_returns)]
         start_idx = np.random.randint(0, log_returns.size - self.seq_len)
         end_idx = start_idx + self.seq_len
 

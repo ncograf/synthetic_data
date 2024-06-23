@@ -11,13 +11,22 @@ class FinGan(nn.Module):
         gen_config: Dict[str, Any],
         disc_config: Dict[str, Any],
         dtype: str,
+        scale: float,
+        shift: float,
     ):
         """Time Gan containing 5 networks for training and evaluation
+
+        The training data is supposed to be scaled and shifted,
+        i.e.
+        training_data = (log_return_data - shift) / scale
+        this is important for sampling
 
         Args:
             gen_config (Dict[str, Any]),
             disc_conig (Dict[str, Any]),
             dtype (str): sets the models dtype
+            scale (float): scale of the data
+            shift (shift): shift of the data
         """
 
         nn.Module.__init__(self)
@@ -34,8 +43,15 @@ class FinGan(nn.Module):
         self.gen_config["dtype"] = self.dtype
         self.disc_config["dtype"] = self.dtype
 
+        self.scale = scale
+        self.shift = shift
+
         self.gen = FinGanMLP(**self.gen_config)
         self.disc = FinGanDisc(**self.disc_config)
+
+        # init wiehgts
+        self.gen.apply(self._weights_init)
+        self.disc.apply(self._weights_init)
 
         # note that 100 is a fixed value defined in the models
         self.mean = nn.Parameter(torch.zeros(100), requires_grad=False)
@@ -52,11 +68,19 @@ class FinGan(nn.Module):
             "gen_config": self.gen_config,
             "disc_config": self.disc_config,
             "dtype": self.dtype_str,
+            "scale": self.scale,
+            "shift": self.shift,
         }
 
         return dict_
 
-    def sample(self, batch_size: int = 1) -> torch.Tensor:
+    def _weights_init(self, module):
+        if isinstance(module, nn.Linear) or isinstance(module, nn.Conv1d):
+            # apply a uniform distribution to the weights and a bias=0
+            module.weight.data.normal_(0.0, 1.0)
+            module.bias.data.normal_(0.0, 1.0)
+
+    def sample(self, batch_size: int = 1, unnormalize: bool = False) -> torch.Tensor:
         """Generate time series from learned distribution
 
         Args:
@@ -68,7 +92,12 @@ class FinGan(nn.Module):
 
         dist = torch.distributions.MultivariateNormal(self.mean, self.cov)
         noise = dist.rsample((batch_size,))
-        return self.gen(noise)
+        gen_sample = self.gen(noise)
+
+        if unnormalize:
+            gen_sample = gen_sample * self.scale + self.shift
+
+        return gen_sample
 
     def forward(self, x):
         self.disc(x)
@@ -130,5 +159,4 @@ class FinGanMLP(nn.Sequential):
             nn.Linear(128, 2048, dtype=dtype),
             nn.Tanh(),
             nn.Linear(2048, seq_len, dtype=dtype),
-            nn.Tanh(),
         )

@@ -82,10 +82,12 @@ class FinGanTrainer:
 
         # create dataset (note that the dataset will sample randomly during training (see source for more information))
         dataset = SP500GanDataset(price_data, batch_size * 1024, seq_len)
+        data_scale = dataset.scale
+        data_shift = dataset.shift
         loader = DataLoader(dataset, batch_size, pin_memory=True)
 
         # initialize model and optimiers
-        model = FinGan(gen_config, disc_config, dtype)
+        model = FinGan(gen_config, disc_config, dtype, data_scale, data_shift)
         gen_optim = torch.optim.Adam(model.gen.parameters(), **opt_gen_conf)
         disc_optim = torch.optim.Adam(model.disc.parameters(), **opt_disc_conf)
         cross_entropy_loss = CrossEntropyLoss()
@@ -149,6 +151,7 @@ class FinGanTrainer:
 
                 # get prices and returns (note the transposition due to batch sampling)
                 log_ret_sim = gen_series.detach().cpu().numpy().T
+                log_ret_sim = log_ret_sim * data_scale + data_shift
 
                 # read out model state (NOTE THE DICT KEYS ARE READ FROM THE SAMPLE FUNCTION DON'T CHANGE)
                 model_dict = {
@@ -221,7 +224,7 @@ class FinGanTrainer:
         model = accelerator.prepare(model)
 
         # sample and bring the returns to the cpu (transpse to get dates in axis 0)
-        log_returns = model.sample(n_samples)
+        log_returns = model.sample(n_samples, unnormalize=True)
         log_returns = log_returns.detach().cpu().numpy().T
 
         # generate pandas dataframes
