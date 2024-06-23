@@ -1,9 +1,27 @@
+from typing import Tuple
+
 import boosted_stats
 import numpy as np
 import numpy.typing as npt
 
 
-def gain_loss_asymmetry(log_price: npt.ArrayLike, max_lag: int, theta: float):
+def gain_loss_asymmetry(
+    log_price: npt.ArrayLike, max_lag: int, theta: float
+) -> Tuple[npt.NDArray, npt.NDArray]:
+    """Gain Loss assymetry statisitcs
+
+    Compute the discrete pdf functions (histogramms for bins: 1, 2, 3, ..., max_lag)
+    of the gains and losses statistics.
+
+    Args:
+        log_price (npt.ArrayLike): log prices
+        max_lag (int): maximum lag to compute
+        theta (float): threshold parameter
+
+    Returns:
+        Tuple[npt.NDArray, npt.NDArray]: gains_statistic, loss_statistic
+    """
+
     log_price = np.array(log_price)
     if log_price.ndim == 1:
         log_price = log_price.reshape((-1, 1))

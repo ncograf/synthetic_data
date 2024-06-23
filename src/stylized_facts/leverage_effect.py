@@ -3,7 +3,22 @@ import numpy as np
 import numpy.typing as npt
 
 
-def leverage_effect(log_returns: npt.ArrayLike, max_lag: int):
+def leverage_effect(log_returns: npt.ArrayLike, max_lag: int) -> npt.NDArray:
+    """Leverage effect
+
+    Computes the correlation between current returns and future volatility (squared returns)
+
+    Args:
+        log_returns (npt.ArrayLike): log returns
+        max_lag (int): maximal lag
+
+    Raises:
+        RuntimeError: Wrong dimension
+
+    Returns:
+        ndarray: (max_lag x stocks) leverage effects for different lags
+    """
+
     log_returns = np.array(log_returns)
     if log_returns.ndim == 1:
         log_returns = log_returns.reshape((-1, 1))

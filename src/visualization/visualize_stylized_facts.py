@@ -119,12 +119,14 @@ def visualize_stylized_facts(log_returns: npt.ArrayLike) -> plt.Figure:
     axes[1, 0].axhline(y=0, linestyle="--", c="black", alpha=0.4)
 
     # COARSE FINE VOLATILITY
-    cf_vol_data, cf_vol_x, lead_lag_data, lead_lag_x = corse_fine_volatility(
-        log_returns=log_returns, tau=5, max_lag=30
+    lead_lag_data, lead_lag_x, delta_lead_lag_data, delta_lead_lag_x = (
+        corse_fine_volatility(log_returns=log_returns, tau=5, max_lag=30)
     )
     axes[1, 1].set(**cf_vol_axes_setting)
-    axes[1, 1].plot(cf_vol_x, np.mean(cf_vol_data, axis=1), **cf_vol_plot_setting)
-    axes[1, 1].plot(lead_lag_x, np.mean(lead_lag_data, axis=1), **lead_lag_plot_setting)
+    axes[1, 1].plot(lead_lag_x, np.mean(lead_lag_data, axis=1), **cf_vol_plot_setting)
+    axes[1, 1].plot(
+        delta_lead_lag_x, np.mean(delta_lead_lag_data, axis=1), **lead_lag_plot_setting
+    )
     axes[1, 1].legend(loc="lower left")
     axes[1, 1].axhline(y=0, linestyle="--", c="black", alpha=0.4)
 
@@ -257,27 +259,27 @@ def visualize_averaged_stylized_facts(
     axes[1, 0].axhline(y=0, linestyle="--", c="black", alpha=0.4)
 
     # COARSE FINE VOLATILITY
-    cv_vol_data_list, cv_vol_x_list, lead_lag_data_list, lead_lag_x_list = (
+    ll_data_list, ll_x_list, delta_ll_data_list, delta_ll_x_list = (
         [],
         [],
         [],
         [],
     )
     for log_returns in log_return_list:
-        cv_dat, cv_x, ll_dat, ll_x = corse_fine_volatility(
+        ll_data, ll_x, delta_ll_data, delta_ll_x = corse_fine_volatility(
             log_returns=log_returns, tau=5, max_lag=30
         )
-        cv_vol_data_list.append(cv_dat)
-        cv_vol_x_list.append(cv_x)
-        lead_lag_data_list.append(ll_dat)
-        lead_lag_x_list.append(ll_x)
-    cf_vol_data = np.mean(cv_vol_data_list, axis=0)
-    cf_vol_x = np.mean(cv_vol_x_list, axis=0)
-    lead_lag_data = np.mean(lead_lag_data_list, axis=0)
-    lead_lag_x = np.mean(lead_lag_x_list, axis=0)
+        ll_data_list.append(ll_data)
+        ll_x_list.append(ll_x)
+        delta_ll_data_list.append(delta_ll_data)
+        delta_ll_x_list.append(delta_ll_x)
+    ll_data = np.mean(ll_data_list, axis=0)
+    ll_x = np.mean(ll_x_list, axis=0)
+    delta_ll_data = np.mean(delta_ll_data_list, axis=0)
+    delta_ll_x = np.mean(delta_ll_x_list, axis=0)
     axes[1, 1].set(**cf_vol_axes_setting)
-    axes[1, 1].plot(cf_vol_x, np.mean(cf_vol_data, axis=1), **cf_vol_plot_setting)
-    axes[1, 1].plot(lead_lag_x, np.mean(lead_lag_data, axis=1), **lead_lag_plot_setting)
+    axes[1, 1].plot(ll_x, np.mean(ll_data, axis=1), **cf_vol_plot_setting)
+    axes[1, 1].plot(delta_ll_x, np.mean(delta_ll_data, axis=1), **lead_lag_plot_setting)
     axes[1, 1].legend(loc="lower left")
     axes[1, 1].axhline(y=0, linestyle="--", c="black", alpha=0.4)
 

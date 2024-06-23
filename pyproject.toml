@@ -17,6 +17,7 @@ packages = [
     {include = "*", from = "src/conditional_flow"},
     {include = "*", from = "src/regime_cond_flow"},
     {include = "*", from = "src/utils"},
+    {include = "*", from = "src/fitting_utils"},
     {include = "*", from = "src/visualization"},
     {include = "*", from = "src/wandb_tools"},
     {include = "*.so", from = "boosted/boost_modules", format = "wheel"},
