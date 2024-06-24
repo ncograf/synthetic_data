@@ -121,6 +121,14 @@ class FinGanTrainer:
                 y = torch.cat([y[:, 0], y[:, 1]], dim=0)
                 loss = cross_entropy_loss(disc_y.flatten(), y)
 
+                # add moment losses
+                loss += torch.mean(
+                    (torch.mean(gen_series) - torch.var(real_series)) ** 2
+                )
+                loss += torch.mean(
+                    (torch.var(gen_series) - torch.var(real_series)) ** 2
+                )
+
                 # update model
                 accelerator.backward(loss)
                 gen_optim.step()
