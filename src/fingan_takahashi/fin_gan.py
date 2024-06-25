@@ -77,8 +77,8 @@ class FinGan(nn.Module):
     def _weights_init(self, module):
         if isinstance(module, nn.Linear) or isinstance(module, nn.Conv1d):
             # apply a uniform distribution to the weights and a bias=0
-            module.weight.data.normal_(0.0, 1.0)
-            module.bias.data.normal_(0.0, 1.0)
+            nn.init.normal_(module.weight.data, 0.0, 0.06)
+            nn.init.constant_(module.bias.data, 0.0)
 
     def sample(self, batch_size: int = 1, unnormalize: bool = False) -> torch.Tensor:
         """Generate time series from learned distribution
@@ -113,8 +113,6 @@ class FinGanDisc(nn.Sequential):
             nn.Conv1d(
                 in_channels=in_channels,
                 out_channels=64,
-                # stride=2,
-                # padding=(kernel_size - 1) // 2,
                 padding="same",
                 kernel_size=kernel_size,
                 dtype=dtype,
@@ -123,8 +121,6 @@ class FinGanDisc(nn.Sequential):
             nn.Conv1d(
                 in_channels=64,
                 out_channels=128,
-                # stride=4,
-                # padding=(kernel_size - 1) // 2,
                 padding="same",
                 kernel_size=kernel_size,
                 dtype=dtype,
@@ -133,8 +129,6 @@ class FinGanDisc(nn.Sequential):
             nn.Conv1d(
                 in_channels=128,
                 out_channels=128,
-                # stride=2,
-                # padding=(kernel_size - 1) // 2,
                 padding="same",
                 kernel_size=kernel_size,
                 dtype=dtype,

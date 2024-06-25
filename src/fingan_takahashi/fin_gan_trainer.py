@@ -12,7 +12,6 @@ from accelerate import Accelerator
 from accelerate.utils import set_seed
 from datasets import SP500GanDataset
 from fin_gan import FinGan
-from torch.nn import CrossEntropyLoss
 from torch.utils.data import DataLoader
 
 import wandb
@@ -90,7 +89,7 @@ class FinGanTrainer:
         model = FinGan(gen_config, disc_config, dtype, data_scale, data_shift)
         gen_optim = torch.optim.Adam(model.gen.parameters(), **opt_gen_conf)
         disc_optim = torch.optim.Adam(model.disc.parameters(), **opt_disc_conf)
-        cross_entropy_loss = CrossEntropyLoss()
+        bce_criterion = torch.nn.BCELoss()
 
         # wrap model, loader ... to get them to the right device
         loader, model, gen_optim, disc_optim = accelerator.prepare(
@@ -98,57 +97,75 @@ class FinGanTrainer:
         )
 
         for epoch in range(epochs):
-            epoch_loss = 0
+            gen_epoch_loss = 0
+            disc_epoch_loss = 0
             epoch_time = time.time()
 
             # actual training
-            for real_series, y in loader:
-                gen_optim.zero_grad()
-                disc_optim.zero_grad()
-
+            for real_batch, y in loader:
                 # read current batch size, migth not match config!
-                b_size = real_series.shape[0]
-                gen_series: torch.Tensor = model.sample(batch_size=b_size)
-                real_series = torch.nan_to_num(real_series).to(gen_series.dtype)
+                b_size = real_batch.shape[0]
 
-                # prep data for discriminator and dicriminate
-                all_series = torch.unsqueeze(
-                    torch.cat([real_series, gen_series], dim=0), dim=1
-                )
-                disc_y = model.disc(all_series)
+                # get data and labels
+                y_real, y_fake = y[:, 0], y[:, 1]
+                fake_batch: torch.Tensor = model.sample(batch_size=b_size)
+                fake_batch = torch.reshape(
+                    fake_batch, (b_size, 1, -1)
+                )  # add channel dimension
+                real_batch = torch.nan_to_num(real_batch).to(fake_batch.dtype)
+                real_batch = torch.reshape(
+                    real_batch, (b_size, 1, -1)
+                )  # add channel dimension
 
-                # y will contain labels for real and synthetic data already
-                y = torch.cat([y[:, 0], y[:, 1]], dim=0)
-                loss = cross_entropy_loss(disc_y.flatten(), y)
+                #######################
+                # Train discriminator
+                #######################
+                disc_optim.zero_grad()
+                disc_y_real = model.disc(real_batch).flatten()
+                disc_err_real = bce_criterion(disc_y_real, y_real)
+                accelerator.backward(disc_err_real)  # compute gradients
 
-                # add moment losses
-                loss += torch.mean(
-                    (torch.mean(gen_series) - torch.var(real_series)) ** 2
-                )
-                loss += torch.mean(
-                    (torch.var(gen_series) - torch.var(real_series)) ** 2
-                )
+                disc_y_fake = model.disc(
+                    fake_batch.detach()
+                ).flatten()  # detach because generator gradients are not needed
+                disc_err_fake = bce_criterion(disc_y_fake, y_fake)
+                accelerator.backward(disc_err_fake)  # compute gradients
 
-                # update model
-                accelerator.backward(loss)
-                gen_optim.step()
+                # update discriminator
                 disc_optim.step()
 
+                #####################
+                # Train generator
+                #####################
+                gen_optim.zero_grad()
+                disc_y_fake = model.disc(
+                    fake_batch
+                ).flatten()  # compute with gen gradients
+                gen_err = bce_criterion(disc_y_fake, y_real)
+                accelerator.backward(gen_err)
+
+                # update generator
+                gen_optim.step()
+
                 # cumulate normalized loss
-                epoch_loss += loss.item() / len(loader)
+                gen_epoch_loss += gen_err.item() / len(loader)
+                disc_epoch_loss += (
+                    (disc_err_fake.item() + disc_err_real.item()) / len(loader) / 2
+                )
 
             # log eopch loss if wandb is activated
             if wandb.run is not None:
                 wandb.log(
                     {
-                        "loss": epoch_loss,
+                        "gen_loss": gen_epoch_loss,
+                        "disc_loss": disc_epoch_loss,
                         "epoch_time": time.time() - epoch_time,
                         "epoch": epoch,
                     }
                 )
 
             # log experiments every n epochs
-            n = 1
+            n = 100
             if epoch % n == n - 1 or epoch == epochs - 1:
                 # create pseudo identifier
                 epoch_name = f"epoch_{epoch + 1}" if epoch < epochs - 1 else "final"
@@ -158,7 +175,7 @@ class FinGanTrainer:
                 loc_path.mkdir(parents=True, exist_ok=True)
 
                 # get prices and returns (note the transposition due to batch sampling)
-                log_ret_sim = gen_series.detach().cpu().numpy().T
+                log_ret_sim = fake_batch.detach().cpu().numpy().squeeze(axis=1).T
                 log_ret_sim = log_ret_sim * data_scale + data_shift
 
                 # read out model state (NOTE THE DICT KEYS ARE READ FROM THE SAMPLE FUNCTION DON'T CHANGE)
@@ -166,7 +183,7 @@ class FinGanTrainer:
                     "state_dict": model.state_dict(),
                     "init_params": model.get_model_info(),
                     "network": str(model),
-                    "fit_score": epoch_loss,
+                    "fit_score": gen_epoch_loss + disc_epoch_loss,
                 }
 
                 # log model and stats (note that the methods ALWAYS log locally)
@@ -202,7 +219,9 @@ class FinGanTrainer:
 
                 # print progress every n epochs
                 print(
-                    (f"epoch: {epoch + 1:>8d}/{epochs},\tlast loss {epoch_loss:>8.4f},")
+                    (
+                        f"epoch: {epoch + 1:>6d}/{epochs},\tlast gen loss {gen_epoch_loss:>6.4f},\tlast gen loss {gen_epoch_loss:>6.4f},"
+                    )
                 )
 
         # after the last epoch free memory

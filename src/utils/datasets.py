@@ -79,8 +79,8 @@ class SP500GanDataset(Dataset):
         start_idx = np.random.randint(0, log_returns.size - self.seq_len)
         end_idx = start_idx + self.seq_len
 
-        y_real = torch.rand(size=(1,)) * 0.2 + 0.1
-        y_fake = torch.rand(size=(1,)) * 0.2 + 0.9
+        y_real = torch.rand(size=(1,)) * 0.2
+        y_fake = torch.rand(size=(1,)) * 0.2 + 0.8
         return torch.tensor(log_returns[start_idx:end_idx]), torch.tensor(
             [y_real, y_fake]
         )
