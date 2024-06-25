@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Any, Dict
 
+import matplotlib.pyplot as plt
 import numpy.typing as npt
 import pandas as pd
 import torch
@@ -30,6 +31,7 @@ def log_stylized_facts(
         plot = vst.visualize_stylized_facts(log_returns=log_returns)
         plot.suptitle(figure_title)
         plot.savefig(local_path)
+        plt.close(plot)
         if wandb.run is not None:
             image = wandb.Image(plot, caption=figure_title)
             wandb.log({wandb_path: image})
@@ -53,6 +55,7 @@ def log_temp_series(
         plot = vts.visualize_temp_data(temp_data)
         plot.suptitle(figure_title)
         plot.savefig(local_path)
+        plt.close(plot)
         if wandb.run is not None:
             image = wandb.Image(plot, caption=figure_title)
             wandb.log({wandb_path: image})

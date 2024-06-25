@@ -6,7 +6,7 @@ import numpy.typing as npt
 from coarse_fine_volatility import (
     cf_vol_axes_setting,
     cf_vol_plot_setting,
-    corse_fine_volatility,
+    coarse_fine_volatility,
     lead_lag_plot_setting,
 )
 from gain_loss_asymetry import (
@@ -120,7 +120,7 @@ def visualize_stylized_facts(log_returns: npt.ArrayLike) -> plt.Figure:
 
     # COARSE FINE VOLATILITY
     lead_lag_data, lead_lag_x, delta_lead_lag_data, delta_lead_lag_x = (
-        corse_fine_volatility(log_returns=log_returns, tau=5, max_lag=30)
+        coarse_fine_volatility(log_returns=log_returns, tau=5, max_lag=30)
     )
     axes[1, 1].set(**cf_vol_axes_setting)
     axes[1, 1].plot(lead_lag_x, np.mean(lead_lag_data, axis=1), **cf_vol_plot_setting)
@@ -266,7 +266,7 @@ def visualize_averaged_stylized_facts(
         [],
     )
     for log_returns in log_return_list:
-        ll_data, ll_x, delta_ll_data, delta_ll_x = corse_fine_volatility(
+        ll_data, ll_x, delta_ll_data, delta_ll_x = coarse_fine_volatility(
             log_returns=log_returns, tau=5, max_lag=30
         )
         ll_data_list.append(ll_data)
