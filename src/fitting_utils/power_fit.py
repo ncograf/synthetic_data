@@ -13,7 +13,7 @@ def fit_powerlaw(
     The subset is chosen greedily to maximize the pearson coefficient
 
     The method fits
-    :math:`y = a \exp(b x) \iff \log(y) = a + b \log(x)`
+    :math:`y = a x^b \iff \log(y) = \log(a) + b \log(x)`
     using a linear regression in the log log space
 
     OPTIMIZE
@@ -50,11 +50,40 @@ def fit_powerlaw(
         raise RuntimeError(f"The otimization strategy {optimize} is not allowed.")
 
 
+def fit_lin_log(x: npt.NDArray, y: npt.NDArray) -> Tuple[float, float, float]:
+    """Fit a linlog regression
+
+    The method fits
+    :math:`y = a \exp(b x) \iff \log(y) = \log(a) + b x`
+    using a linear regression in the lin space
+
+    Args:
+        x (npt.NDArray): x data
+        y (npt.NDArray): y data
+
+    Returns:
+        Tuple[float]: a, b and pearson_coefficient
+    """
+
+    mask = y > 0
+    x = x[mask]
+    y = y[mask]
+
+    log_y = np.log(y)
+
+    fit = linregress(x, log_y)
+    goodness = abs(fit.rvalue)
+    slope = fit.slope
+    intercept = fit.intercept
+
+    return intercept, slope, goodness
+
+
 def _fit_exp(x: npt.NDArray, y: npt.NDArray) -> Tuple[float, float, float]:
     """Fit the powerlaw on the data
 
     The method fits
-    :math:`y = a \exp(b x) \iff \log(y) = a + b \log(x)`
+    :math:`y = a  x^b \iff \log(y) = \log(a) + b \log(x)`
     using a linear regression in the log log space
 
     Args:

@@ -48,21 +48,42 @@ def linear_unpredictability(log_returns: npt.ArrayLike, max_lag: int) -> npt.NDA
     return lin_unpred
 
 
-def linear_unpredictability_statistics(
+def linear_unpredictability_stats(
     log_returns: npt.ArrayLike, max_lag: int
 ) -> Dict[str, Any]:
+    """Linear unpredictabiliity statistics
+
+    Args:
+        log_returns (npt.ArrayLike): log returns
+        max_lag (int): maximal lag
+
+    Returns:
+        Dict[str, Any]: result dictonary with keys:
+            corr: pearson correlation coefficient of linear fit
+            p_value: p value of linear fit
+            slope: slope of linear fit
+            intercept : intercept of linear fit
+            mse: mean squared (error) of linear fit with assumption y = 0
+            mse_std: empirical standard deviation over all stocks
+            data: autocorrelation data (max_lag x stocks)
+
+    """
+
     lin_upred = linear_unpredictability(log_returns=log_returns, max_lag=max_lag)
     regression = linregress(
         np.linspace(1, max_lag, max_lag, endpoint=True), np.mean(lin_upred, axis=1)
     )
     mean_squared = np.mean(lin_upred**2)
+    mse_stockwise = np.mean(lin_upred**2, axis=0)
+    mse_std = np.std(mse_stockwise)
 
     stats = {
-        "regression_r_score": regression.rvalue,
-        "regression_p_value": regression.pvalue,
-        "regression_slope": regression.slope,
-        "regression_intercept": regression.intercept,
-        "mean_squared_value": mean_squared,
+        "corr": regression.rvalue,
+        "p_value": regression.pvalue,
+        "slope": regression.slope,
+        "intercept": regression.intercept,
+        "mse": mean_squared,
+        "mse_std": mse_std,
         "data": lin_upred,
     }
 
@@ -80,7 +101,7 @@ lin_upred_axes_setting = {
 lin_unpred_plot_setting = {
     "alpha": 1,
     "marker": "o",
-    "color": "blue",
+    "color": "royalblue",
     "markersize": 1,
     "linestyle": "None",
 }

@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Any, Dict, Tuple
 
 import boosted_stats
 import numpy as np
@@ -43,6 +43,78 @@ def gain_loss_asymmetry(
     return boosted_gain, boosted_loss
 
 
+def gain_loss_asymmetry_stat(
+    log_price: npt.ArrayLike, max_lag: int, theta: float
+) -> Dict[str, Any]:
+    """Gain Loss asymmetry statistics
+
+    Args:
+        log_price (npt.ArrayLike): log prices
+        max_lag (int): maximum lag to compute
+        theta (float): threshold parameter
+
+    Returns:
+        Dict[str, Any]: result dictonary with keys:
+            vol_clust: volatility clustering data (max_lag x stocks)
+            power_fit_x: powerlaw x values used for fit
+            corr: pearson correlation coefficient of powerlaw fit
+            rate: exponent fitted in powerlaw
+            const : constant fitted in powerlaw
+            corr_std: standard deviation for fits
+            rate_std: standard deviation for fits
+            const_std: standard deviation for fits
+    """
+
+    gain, loss = gain_loss_asymmetry(log_price=log_price, max_lag=max_lag, theta=theta)
+
+    gain_avg = np.mean(gain, axis=1)
+    loss_avg = np.mean(loss, axis=1)
+    gain_order = np.flip(np.argsort(gain_avg))
+    loss_order = np.flip(np.argsort(loss_avg))
+    arg_max_gain = np.median(gain_order[:10])
+    arg_max_loss = np.median(loss_order[:10])
+    max_gain = np.mean(gain_avg[gain_order[:10]])
+    max_loss = np.mean(loss_avg[loss_order[:10]])
+
+    # variace estimation
+    max_gain_arr, max_loss_arr, arg_max_gain_arr, arg_max_loss_arr = [], [], [], []
+    for idx in range(gain.shape[1]):
+        go = np.flip(np.argsort(gain[:, idx]))
+        lo = np.flip(np.argsort(loss[:, idx]))
+        amg = np.median(go[:10])
+        aml = np.median(lo[:10])
+        mg = np.mean(gain[go[:10]])
+        ml = np.mean(loss[lo[:10]])
+        max_gain_arr.append(mg)
+        max_loss_arr.append(ml)
+        arg_max_gain_arr.append(amg)
+        arg_max_loss_arr.append(aml)
+
+    std_max_gain = np.std(max_gain_arr)
+    std_max_loss = np.std(max_loss_arr)
+    arg_std_max_gain = np.std(arg_max_gain_arr)
+    arg_std_max_loss = np.std(arg_max_loss_arr)
+    std_arg_diff = np.std(np.array(arg_max_loss_arr) - np.array(arg_max_gain_arr))
+    std_diff = np.std(np.array(max_loss_arr) - np.array(max_gain_arr))
+
+    stats = {
+        "gain": gain,
+        "loss": loss,
+        "arg_max_gain": arg_max_gain,
+        "arg_max_loss": arg_max_loss,
+        "max_gain": max_gain,
+        "max_loss": max_loss,
+        "std_arg_max_gain": arg_std_max_gain,
+        "std_arg_max_loss": arg_std_max_loss,
+        "std_max_gain": std_max_gain,
+        "std_max_loss": std_max_loss,
+        "std_diff": std_diff,
+        "std_arg_diff": std_arg_diff,
+    }
+
+    return stats
+
+
 gain_loss_axis_setting = {
     "title": "gain loss asymetry",
     "ylabel": r"return time probability",
@@ -54,7 +126,7 @@ gain_loss_axis_setting = {
 gain_plot_setting = {
     "alpha": 1,
     "marker": "o",
-    "color": "red",
+    "color": "violet",
     "markersize": 2,
     "linestyle": "None",
     "label": r"gain $\theta > 0$",
@@ -63,7 +135,7 @@ gain_plot_setting = {
 loss_plot_setting = {
     "alpha": 1,
     "marker": "o",
-    "color": "blue",
+    "color": "royalblue",
     "markersize": 1,
     "linestyle": "None",
     "label": r"loss $\theta < 0$",

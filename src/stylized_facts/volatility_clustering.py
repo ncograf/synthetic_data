@@ -1,9 +1,9 @@
-from typing import Tuple
+from typing import Any, Dict
 
 import boosted_stats
 import numpy as np
 import numpy.typing as npt
-from scipy.stats import linregress
+from power_fit import fit_powerlaw
 
 
 def volatility_clustering(log_returns: npt.ArrayLike, max_lag: int) -> npt.NDArray:
@@ -47,72 +47,57 @@ def volatility_clustering(log_returns: npt.ArrayLike, max_lag: int) -> npt.NDArr
     return vol_clustering
 
 
-def _fit_exp(x: npt.NDArray, y: npt.NDArray) -> Tuple[float, float, float]:
-    """Fit the powerlaw on the data
-
-    The method fits
-    :math:`y = a \exp(b x) \iff \log(y) = a + b \log(x)`
-    using a linear regression in the log log space
+def volatility_clustering_stats(
+    log_returns: npt.ArrayLike, max_lag: int
+) -> Dict[str, Any]:
+    """Volatility clustering statistics
 
     Args:
-        x (npt.NDArray): x data
-        y (npt.NDArray): y data
+        log_returns (npt.ArrayLike): log returns
+        max_lag (int): maximum lag
 
     Returns:
-        Tuple[float, float, float]: a, b and pearson_coefficient
+        Dict[str, Any]: result dictonary with keys:
+            vol_clust: volatility clustering data (max_lag x stocks)
+            power_fit_x: powerlaw x values used for fit
+            corr: pearson correlation coefficient of powerlaw fit
+            rate: exponent fitted in powerlaw
+            const : constant fitted in powerlaw
+            corr_std: standard deviation for fits
+            rate_std: standard deviation for fits
+            const_std: standard deviation for fits
     """
 
-    mask = (x > 0) & (y > 0)
-    x = x[mask]
-    y = y[mask]
+    vol_clust = volatility_clustering(log_returns=log_returns, max_lag=max_lag)
+    x = np.arange(1, vol_clust.shape[0] + 1)
+    fit_x, _, alpha, beta, corr = fit_powerlaw(
+        x, np.mean(vol_clust, axis=1), optimize="left"
+    )
 
-    log_x = np.log(x)
-    log_y = np.log(y)
+    # variace estimation
+    alpha_arr, beta_arr, r_arr = [], [], []
+    for idx in range(vol_clust.shape[1]):
+        _, _, a, b, r = fit_powerlaw(x, vol_clust[:, idx], optimize="left")
+        alpha_arr.append(a)
+        beta_arr.append(b)
+        r_arr.append(r)
 
-    fit = linregress(log_x, log_y)
-    goodness = abs(fit.rvalue)
-    slope = fit.slope
-    intercept = fit.intercept
+    std_alpha = np.std(alpha_arr)
+    std_beta = np.std(beta_arr)
+    std_r = np.std(r_arr)
 
-    return intercept, slope, goodness
+    stats = {
+        "vol_clust": vol_clust,
+        "power_fit_x": fit_x,
+        "corr": corr,
+        "rate": beta,
+        "const": alpha,
+        "corr_std": std_r,
+        "rate_std": std_beta,
+        "const_std": std_alpha,
+    }
 
-
-def fit_powerlaw_volatility_clustering(
-    x: npt.NDArray, y: npt.NDArray
-) -> Tuple[float, float, float]:
-    """Fit the powerlaw on a subset of the data
-
-    The subset is chosen greedily to maximize the pearson coefficient
-
-    The method fits
-    :math:`y = a \exp(b x) \iff \log(y) = a + b \log(x)`
-    using a linear regression in the log log space
-
-    Args:
-        x (npt.NDArray): x data
-        y (npt.NDArray): y data
-
-    Returns:
-        Tuple[float, float, float]: a, b and pearson_coefficient
-    """
-
-    _, _, c_g = _fit_exp(x, y)
-    n_g = 1
-    while n_g > c_g:
-        # make sure to have at least 500 points
-        # note that this is heuristically optimied for 1000 bins
-        if 500 > x.size:
-            return _fit_exp(x, y)
-
-        n_delta = int(x.size * 0.06)
-
-        n_x, n_y = x[:-n_delta], y[:-n_delta]
-
-        _, _, n_g = _fit_exp(n_x, n_y)
-
-        x, y = n_x, n_y
-
-    return _fit_exp(x, y)
+    return stats
 
 
 vol_clust_axes_setting = {
@@ -125,7 +110,7 @@ vol_clust_axes_setting = {
 vol_clust_plot_setting = {
     "alpha": 1,
     "marker": "o",
-    "color": "blue",
+    "color": "royalblue",
     "markersize": 1,
     "linestyle": "None",
 }
