@@ -6,11 +6,10 @@ import scipy
 import scipy.stats
 
 
-class UnivarGarchModel:
+class GarchModel:
     def __init__(
         self,
         garch_dict: Dict[str, any],
-        initial_price: float,
     ):
         """Initilaize univar garch
 
@@ -51,7 +50,7 @@ class UnivarGarchModel:
         else:
             raise ValueError(f"Distribution {dist} not known!")
 
-        self.initial_price = initial_price
+        self.initial_price = 1
 
     def get_model_info(self) -> Dict[str, any]:
         """Model initialization parameters
@@ -62,7 +61,6 @@ class UnivarGarchModel:
 
         dict_ = {
             "garch_dict": self.garch_dict,
-            "initial_price": self.initial_price,
         }
 
         return dict_
@@ -87,7 +85,6 @@ class UnivarGarchModel:
 
         sigma_simulations = np.ones((length + burn), dtype=dtype)
         return_simulation = np.zeros((length + burn), dtype=dtype)
-        price_simulation = np.zeros((length + 1), dtype=dtype)
 
         # initialization copied from https://github.com/bashtage/arch/blob/main/arch/univariate/volatility.py#L1138
         persistence = np.sum(self.alpha) + np.sum(self.beta)
@@ -97,7 +94,6 @@ class UnivarGarchModel:
         return_simulation[:min_lag] = (
             np.sqrt(sigma_simulations[:min_lag]) * samples[:min_lag]
         )
-        price_simulation[0] = self.initial_price
 
         # apply garch
         n_alpha = len(self.alpha)
@@ -112,8 +108,4 @@ class UnivarGarchModel:
 
         return_simulation = 1 + (self.mu + return_simulation[burn:]) / 100.0
 
-        # compute prices
-        for i in range(1, length + 1):
-            price_simulation[i] = price_simulation[i - 1] * return_simulation[i - 1]
-
-        return price_simulation, return_simulation
+        return return_simulation
