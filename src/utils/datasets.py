@@ -51,17 +51,8 @@ class SP500GanDataset(Dataset):
         self.seq_len = seq_len
         self.num_elements = num_elements
 
-        if isinstance(price_data, pd.Series):
-            price_data = price_data.to_frame()
-
-        # all colums in the dataframe must have at least seq_len non_nan elements
-        non_nans = np.array(np.sum(~np.isnan(price_data), axis=0))
-        self.price_data = price_data.drop(
-            price_data.columns[non_nans <= seq_len], axis="columns"
-        )
-
         # choose random symbol until one has enough data
-        data = np.array(self.price_data)
+        data = np.array(price_data)
         self.log_returns = np.log(data[1:] / data[:-1])
 
         self.shift = 0  # np.nanmean(self.log_returns)

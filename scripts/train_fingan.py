@@ -3,6 +3,7 @@ from datetime import datetime
 from pathlib import Path
 
 import fin_gan_trainer
+import numpy as np
 import real_data_loader as data
 
 import wandb
@@ -17,17 +18,13 @@ import wandb
 def main(
     wandb_log: bool,
 ):
-    # load real data
     root_dir = Path(__file__).parent.parent
-    data_loader = data.RealDataLoader(cache=root_dir / "data/cache")
-    price_data = data_loader.get_timeseries(
-        "Adj Close", data_path=root_dir / "data/raw_yahoo_data"
-    )
+    N_TICKS = 9216
 
     # setup cache for the train run
     TIME_FORMAT = "%Y_%m_%d-%H_%M_%S"
     time = datetime.now().strftime(TIME_FORMAT)
-    cache = root_dir / f"data/cache/train_FinGanTakahashi_{time}"
+    cache = root_dir / f"data/cache/FinGanTakahashi_{time}"
     cache.mkdir(parents=True, exist_ok=True)
 
     # decide whether or not to log to
@@ -62,11 +59,23 @@ def main(
         },
     }
 
+    # load real data
+    data_loader = data.RealDataLoader(cache=root_dir / "data/cache")
+    price_data = data_loader.get_timeseries(
+        "Adj Close", data_path=root_dir / "data/raw_yahoo_data"
+    )
+
+    # all colums in the dataframe must have at least seq_len non_nan elements
+    non_nans = np.array(np.sum(~np.isnan(price_data), axis=0))
+    price_data = price_data.drop(
+        price_data.columns[non_nans <= N_TICKS], axis="columns"
+    )
+
     # if wandb is enabled this will log the run
-    with wandb.init(tags="FinGanTakahashi"):
+    with wandb.init(tags=["FinGanTakahashi"]):
         trainer = fin_gan_trainer.FinGanTrainer()
         trainer.fit(price_data=price_data, config=train_config, cache=cache)
 
 
 if __name__ == "__main__":
-    main(True)
+    main(False)
