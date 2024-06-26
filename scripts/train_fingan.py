@@ -24,7 +24,7 @@ def main(
     # setup cache for the train run
     TIME_FORMAT = "%Y_%m_%d-%H_%M_%S"
     time = datetime.now().strftime(TIME_FORMAT)
-    cache = root_dir / f"data/cache/FinGanTakahashi_{time}"
+    cache = Path(f"/cluster/scratch/grafn/FinGanTakahashi_{time}")
     cache.mkdir(parents=True, exist_ok=True)
 
     # decide whether or not to log to
@@ -41,11 +41,11 @@ def main(
 
     # define training config and train model
     train_config = {
-        "seq_len": 512,
+        "seq_len": 8192,
         "train_seed": 99,
         "dtype": "float32",
-        "epochs": 1000,
-        "batch_size": 1,
+        "epochs": 2000,
+        "batch_size": 24,
         "optim_gen_config": {
             "lr": 2e-4,
             "betas": (0.5, 0.999),
@@ -78,4 +78,4 @@ def main(
 
 
 if __name__ == "__main__":
-    main(False)
+    main(True)
