@@ -1,6 +1,7 @@
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, List, Tuple
 
 import boosted_stats
+import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 from scipy.stats import linregress
@@ -166,26 +167,61 @@ def coarse_fine_volatility_stats(
     return stats
 
 
-cf_vol_axes_setting = {
-    "title": "coarse-fine volatility",
-    "ylabel": r"$\rho(k)$",
-    "xlabel": "lag k",
-    "xscale": "linear",
-    "yscale": "linear",
-}
-cf_vol_plot_setting = {
-    "alpha": 1,
-    "marker": "o",
-    "color": "royalblue",
-    "markersize": 1,
-    "linestyle": "None",
-    "label": r"$\rho(k)$",
-}
-lead_lag_plot_setting = {
-    "alpha": 1,
-    "marker": "None",
-    "color": "orange",
-    "markersize": 0,
-    "linestyle": "-",
-    "label": r"$\Delta \rho(k)$",
-}
+def visualize_stat(
+    plot: plt.Axes, log_returns: npt.NDArray, name: str, print_stats: List[str]
+):
+    stat = coarse_fine_volatility_stats(log_returns=log_returns, tau=5, max_lag=30)
+    dll, dll_x = np.mean(stat["delta_lead_lag"], axis=1), stat["delta_lead_lag_k"]
+    ll, ll_x = np.mean(stat["lead_lag"], axis=1), stat["lead_lag_k"]
+    argmin, alpha, beta = stat["argmin"], stat["alpha"], stat["beta"]
+
+    cf_vol_axes_setting = {
+        "title": f"{name} coarse-fine volatility",
+        "ylabel": r"$\rho(k)$",
+        "xlabel": "lag k",
+        "xscale": "linear",
+        "yscale": "linear",
+    }
+    cf_vol_plot_setting = {
+        "alpha": 1,
+        "marker": "o",
+        "color": "cornflowerblue",
+        "markersize": 2,
+        "linestyle": "None",
+        "label": r"$\rho(k)$",
+    }
+    lead_lag_plot_setting = {
+        "alpha": 1,
+        "marker": "None",
+        "color": "orange",
+        "markersize": 0,
+        "linestyle": "-",
+        "label": r"$\Delta \rho(k)$",
+    }
+    plot.set(**cf_vol_axes_setting)
+    plot.plot(dll_x, dll, c="blue")
+    plot.plot(
+        dll_x[argmin],
+        dll[argmin],
+        linestyle="none",
+        marker="o",
+        markersize=5,
+        c="orange",
+    )
+    plot.plot(ll_x, ll, **cf_vol_plot_setting)
+    plot.plot(dll_x, dll, **lead_lag_plot_setting)
+    y_lin = alpha + dll_x * beta
+    plot.plot(
+        dll_x,
+        y_lin,
+        label="lin fit $\\Delta \\rho$",
+        linestyle="--",
+        color="red",
+        alpha=1,
+    )
+    plot.axhline(y=0, linestyle="--", c="black", alpha=0.4)
+
+    for key in print_stats:
+        print(f"{name} coarse fine volatility {key} {stat[key]}")
+
+    plot.legend()

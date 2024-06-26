@@ -1,6 +1,8 @@
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, List, Tuple
 
 import boosted_stats
+import gen_inv_gamma
+import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 
@@ -75,6 +77,8 @@ def gain_loss_asymmetry_stat(
     arg_max_loss = np.median(loss_order[:10])
     max_gain = np.mean(gain_avg[gain_order[:10]])
     max_loss = np.mean(loss_avg[loss_order[:10]])
+    diff = max_loss - max_gain
+    arg_diff = arg_max_gain - arg_max_loss
 
     # variace estimation
     max_gain_arr, max_loss_arr, arg_max_gain_arr, arg_max_loss_arr = [], [], [], []
@@ -104,6 +108,8 @@ def gain_loss_asymmetry_stat(
         "arg_max_loss": arg_max_loss,
         "max_gain": max_gain,
         "max_loss": max_loss,
+        "diff": diff,
+        "arg_diff": arg_diff,
         "std_arg_max_gain": arg_std_max_gain,
         "std_arg_max_loss": arg_std_max_loss,
         "std_max_gain": std_max_gain,
@@ -115,28 +121,95 @@ def gain_loss_asymmetry_stat(
     return stats
 
 
-gain_loss_axis_setting = {
-    "title": "gain loss asymetry",
-    "ylabel": r"return time probability",
-    "xlabel": "lag k",
-    "xscale": "log",
-    "yscale": "linear",
-}
+def visualize_stat(
+    plot: plt.Axes,
+    log_price: npt.NDArray,
+    name: str,
+    print_stats: List[str],
+    fit: bool = True,
+):
+    stat = gain_loss_asymmetry_stat(log_price=log_price, max_lag=1000, theta=0.1)
+    gain, loss = stat["gain"], stat["loss"]
+    gain_data = np.mean(gain, axis=1)
+    loss_data = np.mean(loss, axis=1)
 
-gain_plot_setting = {
-    "alpha": 1,
-    "marker": "o",
-    "color": "violet",
-    "markersize": 2,
-    "linestyle": "None",
-    "label": r"gain $\theta > 0$",
-}
+    if fit:
+        theta_gain, log_like_gain = gen_inv_gamma.fit_gen_inv_gamma(
+            gain_data, [11.2, 2.4, 0.5, 4.5], method="Newton-CG"
+        )
+        theta_loss, log_like_loss = gen_inv_gamma.fit_gen_inv_gamma(
+            loss_data, [11.2, 2.4, 0.5, 4.5], method="Newton-CG"
+        )
+        x_lin = np.linspace(1, 1000, num=3000)
 
-loss_plot_setting = {
-    "alpha": 1,
-    "marker": "o",
-    "color": "royalblue",
-    "markersize": 1,
-    "linestyle": "None",
-    "label": r"loss $\theta < 0$",
-}
+    gain_loss_axis_setting = {
+        "title": f"{name} gain loss asymetry",
+        "ylabel": r"return time probability",
+        "xlabel": "lag k",
+        "xscale": "log",
+        "yscale": "linear",
+    }
+
+    gain_plot_setting = {
+        "alpha": 0.8,
+        "marker": "o",
+        "color": "violet",
+        "markersize": 3,
+        "linestyle": "None",
+        "label": r"gain $\theta > 0$",
+    }
+
+    loss_plot_setting = {
+        "alpha": 0.8,
+        "marker": "o",
+        "color": "cornflowerblue",
+        "markersize": 3,
+        "linestyle": "None",
+        "label": r"loss $\theta < 0$",
+    }
+
+    plot.plot(gain_data, **gain_plot_setting)
+    plot.plot(loss_data, **loss_plot_setting)
+
+    max_gain, max_loss, arg_max_gain, arg_max_loss = (
+        stat["max_gain"],
+        stat["max_loss"],
+        stat["arg_max_gain"],
+        stat["arg_max_loss"],
+    )
+
+    if fit:
+        y_lin = gen_inv_gamma.gen_inf_gamma_pdf(x_lin, theta_gain)
+        plot.plot(
+            x_lin, y_lin, linestyle="--", alpha=0.8, color="red", label="Fit gains"
+        )
+    plot.plot(
+        [arg_max_gain, arg_max_gain],
+        [0, max_gain],
+        color="red",
+        linestyle=":",
+        linewidth=2,
+        label="gain peak",
+    )
+    if fit:
+        y_lin = gen_inv_gamma.gen_inf_gamma_pdf(x_lin, theta_loss)
+        plot.plot(
+            x_lin, y_lin, linestyle="--", alpha=1, color="blue", label="Fit losses"
+        )
+    plot.plot(
+        [arg_max_loss, arg_max_loss],
+        [0, max_loss],
+        color="navy",
+        linestyle=":",
+        linewidth=2,
+        label="loss peak",
+    )
+
+    if fit:
+        stat["gain_likelyhood"] = np.exp(-log_like_gain)
+        stat["loss_likelyhood"] = np.exp(-log_like_loss)
+    for key in print_stats:
+        print(f"{name} gain-loss-asym {key} {stat[key]}")
+
+    plot.set(**gain_loss_axis_setting)
+    plot.legend(loc="best")

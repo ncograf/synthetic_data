@@ -1,5 +1,6 @@
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, List, Tuple
 
+import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 from power_fit import fit_powerlaw
@@ -82,10 +83,10 @@ def heavy_tails_stats(log_returns: npt.ArrayLike, n_bins: int) -> Dict[str, Any]
     """
 
     pos_y, pos_x, neg_y, neg_x = heavy_tails(log_returns=log_returns, n_bins=n_bins)
-    pos_fit_x, pos_fit_y, pos_alpha, pos_beta, pos_r = fit_powerlaw(
+    pos_fit_x, _, pos_alpha, pos_beta, pos_r = fit_powerlaw(
         pos_x, pos_y, optimize="both"
     )
-    neg_fit_x, neg_fit_y, neg_alpha, neg_beta, neg_r = fit_powerlaw(
+    neg_fit_x, _, neg_alpha, neg_beta, neg_r = fit_powerlaw(
         neg_x, neg_y, optimize="both"
     )
 
@@ -144,42 +145,68 @@ def heavy_tails_stats(log_returns: npt.ArrayLike, n_bins: int) -> Dict[str, Any]
     return stats
 
 
-heavy_tail_axes_setting = {
-    "title": "heavy tails",
-    "ylabel": r"density $P\left(\tilde{r_t}\right)$",
-    "xlabel": r"normalized return $\tilde{r_t} := \frac{r_t}{\sigma}$",
-    "xscale": "log",
-    "yscale": "log",
-}
-heavy_tail_neg_plot_setting = {
-    "alpha": 0.8,
-    "marker": "o",
-    "color": "royalblue",
-    "markersize": 1,
-    "linestyle": "None",
-    "label": r"negative $r_t < 0$",
-}
-heavy_tail_pos_plot_setting = {
-    "alpha": 0.8,
-    "marker": "o",
-    "color": "violet",
-    "markersize": 1,
-    "linestyle": "None",
-    "label": r"positive $r_t > 0$",
-}
-powerlaw_pos_style = {
-    "alpha": 0.5,
-    "marker": "none",
-    "color": "blue",
-    "markersize": 1,
-    "linestyle": "--",
-    "label": r"powerlaw fit $P\left( \tilde{r_t} \right) \approx cx^\alpha$",
-}
-powerlaw_neg_style = {
-    "alpha": 0.5,
-    "marker": "none",
-    "color": "red",
-    "markersize": 1,
-    "linestyle": "--",
-    "label": r"powerlaw fit $P\left( \tilde{r_t} \right) \approx cx^\alpha$",
-}
+def visualize_stat(
+    plot: plt.Axes, log_returns: npt.NDArray, name: str, print_stats: List[str]
+):
+    stat = heavy_tails_stats(log_returns=log_returns, n_bins=1000)
+    pos_x, pos_y, pos_fit_x = stat["pos_bins"], stat["pos_dens"], stat["pos_powerlaw_x"]
+    pos_alpha, pos_beta = stat["pos_const"], stat["pos_rate"]
+
+    pos_x_lin = np.linspace(np.min(pos_fit_x), np.max(pos_fit_x), num=1000)
+    pos_y_lin = np.exp(pos_alpha) * np.power(pos_x_lin, pos_beta)
+
+    neg_x, neg_y, neg_fit_x = stat["neg_bins"], stat["neg_dens"], stat["neg_powerlaw_x"]
+    neg_alpha, neg_beta = stat["neg_const"], stat["neg_rate"]
+
+    neg_x_lin = np.linspace(np.min(neg_fit_x), np.max(neg_fit_x), num=1000)
+    neg_y_lin = np.exp(neg_alpha) * np.power(neg_x_lin, neg_beta)
+
+    for key in print_stats:
+        print(f"{name} heavy tails {key} {stat[key]}")
+
+    heavy_tail_axes_setting = {
+        "title": f"{name} heavy tails",
+        "ylabel": r"density $P\left(\tilde{r_t}\right)$",
+        "xlabel": r"normalized return $\tilde{r_t} := \frac{r_t}{\sigma}$",
+        "xscale": "log",
+        "yscale": "log",
+    }
+    heavy_tail_neg_plot_setting = {
+        "alpha": 0.8,
+        "marker": "o",
+        "color": "cornflowerblue",
+        "markersize": 2,
+        "linestyle": "None",
+        "label": r"neg. $\tilde{r}_t < 0$",
+    }
+    heavy_tail_pos_plot_setting = {
+        "alpha": 0.8,
+        "marker": "o",
+        "color": "violet",
+        "markersize": 2,
+        "linestyle": "None",
+        "label": r"pos. $\tilde{r}_t > 0$",
+    }
+
+    plot.set(**heavy_tail_axes_setting)
+    plot.plot(pos_x, pos_y, **heavy_tail_pos_plot_setting)
+    plot.plot(neg_x, neg_y, **heavy_tail_neg_plot_setting)
+    plot.plot(
+        pos_x_lin,
+        pos_y_lin,
+        label=f"neg. $p(\\tilde{{r}}_t) \\propto \\tilde{{r}}_t^{{{pos_beta:.2f}}}$",
+        linewidth=2,
+        linestyle="--",
+        alpha=1,
+        color="red",
+    )
+    plot.plot(
+        neg_x_lin,
+        neg_y_lin,
+        label=f"neg. $p(\\tilde{{r}}_t) \\propto \\tilde{{r}}_t^{{{neg_beta:.2f}}}$",
+        linewidth=2,
+        linestyle="--",
+        alpha=1,
+        color="navy",
+    )
+    plot.legend(loc="best")

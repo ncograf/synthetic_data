@@ -1,6 +1,7 @@
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import boosted_stats
+import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 from scipy.stats import linregress
@@ -90,18 +91,34 @@ def linear_unpredictability_stats(
     return stats
 
 
-lin_upred_axes_setting = {
-    "title": "linear unpredictability",
-    "ylabel": r"$Corr(r_t, r_{t+k})$",
-    "xlabel": "lag k",
-    "xscale": "log",
-    "yscale": "linear",
-    "ylim": (-1, 1),
-}
-lin_unpred_plot_setting = {
-    "alpha": 1,
-    "marker": "o",
-    "color": "royalblue",
-    "markersize": 1,
-    "linestyle": "None",
-}
+def visualize_stat(
+    plot: plt.Axes, log_returns: npt.NDArray, name: str, print_stats: List[str]
+):
+    data = linear_unpredictability_stats(log_returns=log_returns, max_lag=1000)
+    ac_data = np.mean(data["data"], axis=1)
+    mse, _ = (data["mse"], data["mse_std"])
+    data_label = f"MSE $={mse:.3e}$"
+
+    for key in print_stats:
+        print(f"{name} linear unpred {key} {data[key]}")
+
+    lin_upred_axes_setting = {
+        "title": "linear unpredictability",
+        "ylabel": r"$Corr(r_t, r_{t+k})$",
+        "xlabel": "lag k",
+        "xscale": "log",
+        "yscale": "linear",
+        "ylim": (-1, 1),
+    }
+
+    lin_unpred_plot_setting = {
+        "alpha": 1,
+        "marker": "o",
+        "color": "cornflowerblue",
+        "markersize": 2,
+        "linestyle": "None",
+    }
+
+    plot.set(**lin_upred_axes_setting)
+    plot.plot(ac_data, **lin_unpred_plot_setting, label=data_label)
+    plot.legend()

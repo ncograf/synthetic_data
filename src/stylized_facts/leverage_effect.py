@@ -1,6 +1,7 @@
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import boosted_stats
+import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 from power_fit import fit_lin_log, fit_powerlaw
@@ -111,17 +112,57 @@ def leverage_effect_stats(log_returns: npt.ArrayLike, max_lag: int) -> Dict[str,
     return stats
 
 
-lev_eff_axes_setting = {
-    "title": "leverage effect",
-    "ylabel": r"$L(k)$",
-    "xlabel": "lag k",
-    "xscale": "linear",
-    "yscale": "linear",
-}
-lev_eff_plot_setting = {
-    "alpha": 1,
-    "marker": "None",
-    "color": "royalblue",
-    "markersize": 0,
-    "linestyle": "-",
-}
+def visualize_stat(
+    plot: plt.Axes, log_returns: npt.NDArray, name: str, print_stats: List[str]
+):
+    stat = leverage_effect_stats(log_returns=log_returns, max_lag=100)
+    lev_eff = stat["lev_eff"]
+    y = np.mean(lev_eff, axis=1)
+    x = np.arange(1, y.size + 1)
+
+    _, _, pow_c, pow_rate = (
+        stat["exp_c"],
+        stat["exp_tau"],
+        stat["pow_const"],
+        stat["pow_rate"],
+    )
+    x_lin = np.linspace(np.min(x), np.max(x), num=100)
+    # y_lin = -exp_c * np.exp(-x_lin / exp_tau)
+    # y_lin_qiu = -20 * np.exp(-x_lin / 12)
+    y_pow = -np.exp(pow_c) * np.power(x_lin, pow_rate)
+
+    lev_eff_axes_setting = {
+        "title": f"{name} leverage effect",
+        "ylabel": r"$L(k)$",
+        "xlabel": "lag k",
+        "xscale": "linear",
+        "yscale": "linear",
+    }
+    lev_eff_plot_setting = {
+        "alpha": 0.8,
+        "marker": "None",
+        "color": "cornflowerblue",
+        "markersize": 0,
+        "linestyle": "-",
+        "linewidth": 2,
+    }
+
+    plot.set(**lev_eff_axes_setting)
+    plot.plot(x, y, **lev_eff_plot_setting)
+    # plot.plot(x_lin, y_lin, label="$\\tau = 50.267$", color="red", linestyle="--", alpha=1)
+    plot.plot(
+        x_lin[2:],
+        y_pow[2:],
+        label=f"$L(k) \propto  k^{{{pow_rate:.2f}}}$",
+        color="navy",
+        linestyle="--",
+        linewidth=2,
+        alpha=1,
+    )
+    # plot.plot( x_lin[5:], y_lin_qiu[5:], label="Qiu paper $\\tau = 13$", color="navy", linestyle="--", alpha=0.3)
+    plot.axhline(y=0, linestyle="--", c="black", alpha=0.4)
+
+    for key in print_stats:
+        print(f"f{name} leverage effect {key} {stat[key]}")
+
+    plot.legend(loc="best")

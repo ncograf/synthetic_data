@@ -1,6 +1,7 @@
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import boosted_stats
+import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 from power_fit import fit_powerlaw
@@ -100,17 +101,47 @@ def volatility_clustering_stats(
     return stats
 
 
-vol_clust_axes_setting = {
-    "title": "volatility clustering",
-    "ylabel": r"$Corr(|r_t|, |r_{t+k}|)$",
-    "xlabel": "lag k",
-    "xscale": "log",
-    "yscale": "log",
-}
-vol_clust_plot_setting = {
-    "alpha": 1,
-    "marker": "o",
-    "color": "royalblue",
-    "markersize": 1,
-    "linestyle": "None",
-}
+def visualize_stat(
+    plot: plt.Axes, log_returns: npt.NDArray, name: str, print_stats: List[str]
+):
+    stat = volatility_clustering_stats(log_returns=log_returns, max_lag=1000)
+    pos_y, x_lin, alpha, beta = (
+        np.mean(stat["vol_clust"], axis=1),
+        stat["power_fit_x"],
+        stat["const"],
+        stat["rate"],
+    )
+    pos_x = np.arange(1, pos_y.size + 1)
+    y_lin = np.exp(alpha) * np.power(x_lin, beta)
+
+    vol_clust_axes_setting = {
+        "title": "volatility clustering",
+        "ylabel": r"$Corr(|r_t|, |r_{t+k}|)$",
+        "xlabel": "lag k",
+        "xscale": "log",
+        "yscale": "log",
+    }
+    vol_clust_plot_setting = {
+        "alpha": 0.8,
+        "marker": "o",
+        "color": "cornflowerblue",
+        "markersize": 2,
+        "linestyle": "None",
+    }
+
+    plot.set(**vol_clust_axes_setting)
+    plot.plot(pos_x, pos_y, **vol_clust_plot_setting)
+    plot.plot(
+        x_lin,
+        y_lin,
+        label=f"$Corr(|r_t|, |r_{{t+k}}|) \propto k^{{{beta:.2f}}}$",
+        linestyle="--",
+        linewidth=2,
+        color="navy",
+        alpha=1,
+    )
+
+    for key in print_stats:
+        print(f"{name} vol cluster {key}: {stat[key]}")
+
+    plot.legend(loc="lower left")
