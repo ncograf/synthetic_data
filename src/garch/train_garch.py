@@ -101,11 +101,12 @@ def train_garch():
         torch.save(out_dict, cache / f"{sym}.pt")
 
 
-def sample_garch(folder: str | Path) -> npt.NDArray:
-    """Generate data from garch copula
+def sample_garch(folder: str | Path, seed: int = 99) -> npt.NDArray:
+    """Generate data from garch model
 
     Args:
-        folder (str | Path) path to the garch
+        folder (str | Path): path to the garch
+        seed (int, optional): manual seed. Defaults to 99.
 
     Returns:
         npt.NDArray: log return simulations
@@ -113,11 +114,10 @@ def sample_garch(folder: str | Path) -> npt.NDArray:
 
     LENGTH = 8192
     BURN = 512
-    SEED = 99
 
-    np.random.seed(SEED)
-    random.seed(SEED)
-    torch.manual_seed(SEED)
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.manual_seed(seed)
 
     folder = Path(folder)
 
