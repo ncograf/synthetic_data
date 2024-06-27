@@ -1,11 +1,13 @@
+import os
 import time
-from datetime import date
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Tuple
 
 import cpuinfo
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
+import real_data_loader as data
 import stylized_score
 import torch
 import wandb_logging
@@ -18,50 +20,77 @@ from torch.utils.data import DataLoader
 import wandb
 
 
-class FinGanTrainer:
-    def fit(
-        self,
-        price_data: pd.DataFrame,
-        config: Dict[str, Any],
-        cache: str | Path,
-    ):
-        """Fit a FinGan Neural Network. I.e. Train the network on the given data.
+def train_fingan():
+    """Fit a FinGan Neural Network. I.e. Train the network on the given data.
 
-        The method logs intermediate results every few epochs
+    The method logs intermediate results every few epochs
+    """
+    # decide whether or not to log to
+    if os.getenv("WANDB_MODE") not in [None, "disabled"]:
+        # check settings (the envvars should be available in the poetry env (if configured correctly))
+        if os.getenv("WANDB_API_KEY") is None:
+            raise EnvironmentError("WANDB_API_KEY is not set!")
+        if os.getenv("WANDB_ENTITY") is None:
+            raise EnvironmentError("WANDB_ENTITY is not set!")
+        if os.getenv("WANDB_PROJECT") is None:
+            raise EnvironmentError("WANDB_PROJECT is not set!")
 
-        Args:
-            price_data (pd.DataFrame): Stock marked price data
-            config (Dict[str, Any]): configuration for training run:
-                seq_len: int
-                train_seed: int
-                dtype: str
-                epochs: int
-                batch_size: int
-                optim_gen_config: config for adam optimizer (e.g. lr : float)
-                optim_disc_config: config for adam optimizer (e.g. lr : float)
-                lr_config : config for exponential lr_scheduler (e.g. gamma : float)
-            cache (str | Path): path to store the checkpoints and results
+    # define training config and train model
+    config = {
+        "seq_len": 1024,
+        "train_seed": 99,
+        "dtype": "float32",
+        "epochs": 100,
+        "batch_size": 1,
+        "optim_gen_config": {
+            "lr": 2e-4,
+            "betas": (0.5, 0.999),
+        },
+        "optim_disc_config": {
+            "lr": 1e-5,
+            "betas": (0.1, 0.999),
+        },
+        "lr_config": {
+            "gamma": 0.999,
+        },
+    }
 
-        Returns:
-            Dict[str, Any]: Model description ready for sampling
-                state_dict : torch model weights
-                init_params : model init params
-                network : network name
-        """
+    root_dir = Path(__file__).parent.parent.parent
+    N_TICKS = 9216
 
-        # accelerator is used to efficiently use resources
-        set_seed(config["train_seed"])
-        accelerator = Accelerator()
-        device = accelerator.device
+    # setup cache for the train run
+    TIME_FORMAT = "%Y_%m_%d-%H_%M_%S"
+    t = datetime.now().strftime(TIME_FORMAT)
+    cache = Path(f"{root_dir}/data/cache/FinGanTakahashi_{t}")
+    cache.mkdir(parents=True, exist_ok=True)
 
-        # read available hardware
-        cuda_name = None
-        cpu_name = cpuinfo.get_cpu_info()["brand_raw"]
-        print(f"Fin Gan Generator is using:\nCPU: {cpu_name}")
-        if torch.cuda.is_available():
-            cuda_name = torch.cuda.get_device_name(device)
-            print(f"GPU: {cuda_name}")
+    # load real data
+    data_loader = data.RealDataLoader(cache=root_dir / "data/cache")
+    price_data = data_loader.get_timeseries(
+        "Adj Close", data_path=root_dir / "data/raw_yahoo_data"
+    )
 
+    # all colums in the dataframe must have at least seq_len non_nan elements
+    non_nans = np.array(np.sum(~np.isnan(price_data), axis=0))
+    price_data = price_data.drop(
+        price_data.columns[non_nans <= N_TICKS], axis="columns"
+    )
+    price_data = price_data.iloc[-N_TICKS:]
+
+    # accelerator is used to efficiently use resources
+    set_seed(config["train_seed"])
+    accelerator = Accelerator()
+    device = accelerator.device
+
+    # read available hardware
+    cuda_name = None
+    cpu_name = cpuinfo.get_cpu_info()["brand_raw"]
+    print(f"Fin Gan Generator is using:\nCPU: {cpu_name}")
+    if torch.cuda.is_available():
+        cuda_name = torch.cuda.get_device_name(device)
+        print(f"GPU: {cuda_name}")
+
+    with wandb.init(tags=["FinGanTakahashi"]):
         # log wandb if wandb logging is active
         if wandb.run is not None:
             wandb.config.update(config)
@@ -83,6 +112,8 @@ class FinGanTrainer:
         log_returns = np.array(price_data)
         log_returns = np.log(log_returns[1:] / log_returns[:-1])
         real_stats = stylized_score._compute_stats(log_returns, "real")
+        mean = np.nanmean(log_returns)
+        std = np.nanstd(log_returns)
 
         # create dataset (note that the dataset will sample randomly during training (see source for more information))
         dataset = SP500GanDataset(price_data, batch_size * 1024, seq_len)
@@ -147,6 +178,10 @@ class FinGanTrainer:
                     fake_batch
                 ).flatten()  # compute with gen gradients
                 gen_err = bce_criterion(disc_y_fake, y_real)
+
+                gen_err += torch.mean((torch.mean(fake_batch.flatten(1)) - mean) ** 2)
+                gen_err += torch.mean((torch.std(fake_batch.flatten(1)) - std) ** 2)
+
                 accelerator.backward(gen_err)
 
                 # update generator
@@ -158,30 +193,33 @@ class FinGanTrainer:
                     (disc_err_fake.item() + disc_err_real.item()) / len(loader) / 2
                 )
 
+            logs = {
+                "gen_loss": gen_epoch_loss,
+                "disc_loss": disc_epoch_loss,
+                "epoch_time": time.time() - epoch_time,
+                "epoch": epoch,
+            }
+
             # get returns (note the transposition due to batch sampling)
             # only last batch in the epoch!!
             log_ret_sim = fake_batch.detach().cpu().numpy().squeeze(axis=1).T
             log_ret_sim = log_ret_sim * data_scale + data_shift
-            syn_stats = stylized_score._compute_stats(log_ret_sim, "syn")
-            total_score, scores = stylized_score._stylized_score(
-                **syn_stats, **real_stats
-            )
-            scores.update(
-                {
-                    "gen_loss": gen_epoch_loss,
-                    "disc_loss": disc_epoch_loss,
-                    "total_score": total_score,
-                    "epoch_time": time.time() - epoch_time,
-                    "epoch": epoch,
-                }
-            )
+            try:
+                syn_stats = stylized_score._compute_stats(log_ret_sim, "syn")
+                total_score, scores = stylized_score._stylized_score(
+                    **syn_stats, **real_stats
+                )
+                scores["total_score"] = total_score
+                logs.update(scores)
+            except Exception as e:
+                print(f"Expeption occured on coputing stylized statistics: {str(e)}.")
 
             # log eopch loss if wandb is activated
             if wandb.run is not None:
-                wandb.log(scores)
+                wandb.log(logs)
 
             # log experiments every n epochs
-            n = 100
+            n = 1
             if epoch % n == n - 1 or epoch == epochs - 1:
                 # create pseudo identifier
                 epoch_name = f"epoch_{epoch + 1}" if epoch < epochs - 1 else "final"
@@ -195,7 +233,9 @@ class FinGanTrainer:
                     "state_dict": model.state_dict(),
                     "init_params": model.get_model_info(),
                     "network": str(model),
-                    "fit_score": gen_epoch_loss + disc_epoch_loss,
+                    "fit_score": logs["total_score"]
+                    if ("total_score" in logs)
+                    else np.nan,
                 }
 
                 # log model and stats (note that the methods ALWAYS log locally)
@@ -232,7 +272,7 @@ class FinGanTrainer:
                 # print progress every n epochs
                 print(
                     (
-                        f"epoch: {epoch + 1:>6d}/{epochs},\tlast gen loss {gen_epoch_loss:>6.4f},\tlast gen loss {gen_epoch_loss:>6.4f},"
+                        f"epoch: {epoch + 1:>6d}/{epochs},\tlast gen loss {gen_epoch_loss:>6.4f},\tlast disc loss {disc_epoch_loss:>6.4f},"
                     )
                 )
 
@@ -240,36 +280,38 @@ class FinGanTrainer:
         accelerator.free_memory()
         print("Finished training Takahashi Fin Gan!")
 
-    def sample(
-        self, model_dict: Dict[str, any], seed: int, n_samples: int
-    ) -> Tuple[pd.DataFrame]:
-        """Generate data from the trained model
 
-        Args:
-            model_dict (Dict[str, Any]): model information
-                state_dict : torch model weights
-                init_params : model init params
-            seed (int): seed to be set
-            n_samples (int): number of samples to create
+def sample_fingan(file: str | Path, seed: int = 99) -> npt.NDArray:
+    """Generate data from the trained model
 
-        Returns:
-            Tuple[pd.DataFrame]: return data (seq_len x n_samples)
-        """
-        set_seed(seed)
-        accelerator = Accelerator()
 
-        model = FinGan(**model_dict["init_params"])
-        model.load_state_dict(model_dict["state_dict"])
-        model = accelerator.prepare(model)
+    Args:
+        file (str | Path): path to the GARCH.
+        seed (int, optional): manual seed. Defaults to 99.
 
-        # sample and bring the returns to the cpu (transpse to get dates in axis 0)
-        log_returns = model.sample(n_samples, unnormalize=True)
-        log_returns = log_returns.detach().cpu().numpy().T
+    Returns:
+        npt.NDArray: log return simulations
+    """
 
-        # generate pandas dataframes
-        time_idx = pd.date_range(
-            str(date.today()), periods=log_returns.shape[0], freq="D"
-        )
-        pd_log_returns = pd.DataFrame(log_returns, index=time_idx)
+    N_SEQ = 1000
+    set_seed(seed)
 
-        return pd_log_returns
+    file = Path(file)
+
+    accelerator = Accelerator()
+
+    model_dict = torch.load(file, map_location=torch.device("cpu"))
+    model = FinGan(**model_dict["init_params"])
+    model.load_state_dict(model_dict["state_dict"])
+    model = accelerator.prepare(model)
+
+    # sample and bring the returns to the cpu (transpse to get dates in axis 0)
+    log_returns = model.sample(batch_size=N_SEQ, unnormalize=True)
+    log_returns = log_returns.detach().cpu().numpy().T
+
+    return log_returns
+
+
+if __name__ == "__main__":
+    os.environ["WANDB_MODE"] = "disabled"
+    train_fingan()
