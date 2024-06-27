@@ -6,6 +6,7 @@ from typing import Any, Dict, Tuple
 import cpuinfo
 import numpy as np
 import pandas as pd
+import stylized_score
 import torch
 import wandb_logging
 from accelerate import Accelerator
@@ -78,6 +79,10 @@ class FinGanTrainer:
         seq_len = config["seq_len"]
         opt_gen_conf = config["optim_gen_config"]
         opt_disc_conf = config["optim_disc_config"]
+
+        log_returns = np.array(price_data)
+        log_returns = np.log(log_returns[1:] / log_returns[:-1])
+        real_stats = stylized_score._compute_stats(log_returns, "real")
 
         # create dataset (note that the dataset will sample randomly during training (see source for more information))
         dataset = SP500GanDataset(price_data, batch_size * 1024, seq_len)
@@ -153,16 +158,27 @@ class FinGanTrainer:
                     (disc_err_fake.item() + disc_err_real.item()) / len(loader) / 2
                 )
 
+            # get returns (note the transposition due to batch sampling)
+            # only last batch in the epoch!!
+            log_ret_sim = fake_batch.detach().cpu().numpy().squeeze(axis=1).T
+            log_ret_sim = log_ret_sim * data_scale + data_shift
+            syn_stats = stylized_score._compute_stats(log_ret_sim, "syn")
+            total_score, scores = stylized_score._stylized_score(
+                **syn_stats, **real_stats
+            )
+            scores.update(
+                {
+                    "gen_loss": gen_epoch_loss,
+                    "disc_loss": disc_epoch_loss,
+                    "total_score": total_score,
+                    "epoch_time": time.time() - epoch_time,
+                    "epoch": epoch,
+                }
+            )
+
             # log eopch loss if wandb is activated
             if wandb.run is not None:
-                wandb.log(
-                    {
-                        "gen_loss": gen_epoch_loss,
-                        "disc_loss": disc_epoch_loss,
-                        "epoch_time": time.time() - epoch_time,
-                        "epoch": epoch,
-                    }
-                )
+                wandb.log(scores)
 
             # log experiments every n epochs
             n = 100
@@ -173,10 +189,6 @@ class FinGanTrainer:
                 # comptue local path for logggin
                 loc_path = Path(cache) / epoch_name
                 loc_path.mkdir(parents=True, exist_ok=True)
-
-                # get prices and returns (note the transposition due to batch sampling)
-                log_ret_sim = fake_batch.detach().cpu().numpy().squeeze(axis=1).T
-                log_ret_sim = log_ret_sim * data_scale + data_shift
 
                 # read out model state (NOTE THE DICT KEYS ARE READ FROM THE SAMPLE FUNCTION DON'T CHANGE)
                 model_dict = {

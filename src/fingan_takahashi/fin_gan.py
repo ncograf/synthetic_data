@@ -153,4 +153,5 @@ class FinGanMLP(nn.Sequential):
             nn.Linear(128, 2048, dtype=dtype),
             nn.Tanh(),
             nn.Linear(2048, seq_len, dtype=dtype),
+            nn.Tanh(),
         )
