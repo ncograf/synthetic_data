@@ -194,7 +194,7 @@ def visualize_stat(
     plot.plot(
         pos_x_lin,
         pos_y_lin,
-        label=f"neg. $p(\\tilde{{r}}_t) \\propto \\tilde{{r}}_t^{{{pos_beta:.2f}}}$",
+        label=f"pos. $p(\\tilde{{r}}_t) \\propto \\tilde{{r}}_t^{{{pos_beta:.2f}}}$",
         linewidth=2,
         linestyle="--",
         alpha=1,
