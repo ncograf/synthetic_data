@@ -18,24 +18,25 @@ def stylized_score(log_returns: npt.ArrayLike, syn_log_returns: npt.ArrayLike):
 
 def _compute_stats(log_returns: npt.ArrayLike, kind: Literal["real", "syn"]):
     log_prices = np.cumsum(log_returns, axis=0)
-    return {
-        f"lu_{kind}_stat": linear_unpredictability.linear_unpredictability_stats(
-            log_returns, max_lag=1000
-        ),
-        f"ht_{kind}_stat": heavy_tails.heavy_tails_stats(log_returns, n_bins=1000),
-        f"vc_{kind}_stat": volatility_clustering.volatility_clustering_stats(
-            log_returns, max_lag=1000
-        ),
-        f"le_{kind}_stat": leverage_effect.leverage_effect_stats(
-            log_returns, max_lag=100
-        ),
-        f"cfv_{kind}_stat": coarse_fine_volatility.coarse_fine_volatility_stats(
-            log_returns, tau=5, max_lag=30
-        ),
-        f"gl_{kind}_stat": gain_loss_asymetry.gain_loss_asymmetry_stat(
-            log_prices, max_lag=1000, theta=0.1
-        ),
-    }
+    stats = {}
+    stats[f"lu_{kind}_stat"] = linear_unpredictability.linear_unpredictability_stats(
+        log_returns, max_lag=1000
+    )
+    stats[f"ht_{kind}_stat"] = heavy_tails.heavy_tails_stats(log_returns, n_bins=1000)
+    stats[f"vc_{kind}_stat"] = volatility_clustering.volatility_clustering_stats(
+        log_returns, max_lag=1000
+    )
+    stats[f"le_{kind}_stat"] = leverage_effect.leverage_effect_stats(
+        log_returns, max_lag=100
+    )
+    stats[f"cfv_{kind}_stat"] = coarse_fine_volatility.coarse_fine_volatility_stats(
+        log_returns, tau=5, max_lag=30
+    )
+    stats[f"gl_{kind}_stat"] = gain_loss_asymetry.gain_loss_asymmetry_stat(
+        log_prices, max_lag=1000, theta=0.1
+    )
+
+    return stats
 
 
 def _stylized_score(
@@ -52,14 +53,16 @@ def _stylized_score(
     gl_real_stat: Dict[str, Any],
     gl_syn_stat: Dict[str, Any],
 ):
+    EPS = 1e-9
+
     ###########################
     # LINEAR UNPREDICTABILITY #
     ###########################
     lurealmse, lu_real_mse_std = lu_real_stat["mse"], lu_real_stat["mse_std"]
     lu_syn_mse, lu_syn_mse_std = lu_syn_stat["mse"], lu_syn_stat["mse_std"]
     lu_score = [
-        ((lurealmse - lu_syn_mse) / lu_real_mse_std) ** 2,
-        (lu_real_mse_std - lu_syn_mse_std) ** 2,
+        ((lurealmse - lu_syn_mse) / (lu_real_mse_std + EPS)) ** 2,
+        (lu_syn_mse_std / (lu_real_mse_std + EPS) - 1) ** 2,
     ]
     lu_score = np.mean(lu_score)
 
@@ -92,8 +95,8 @@ def _stylized_score(
         ht_syn_stat["neg_corr_std"],
     )
 
-    ht_score = [((a - b) / c) ** 2 for a, b, c in zip(htreal, htsyn, htrealstd)]
-    ht_score += [(a - b) ** 2 for a, b in zip(htrealstd, htsynstd)]
+    ht_score = [((a - b) / (c + EPS)) ** 2 for a, b, c in zip(htreal, htsyn, htrealstd)]
+    ht_score += [(b / (a + EPS) - 1) ** 2 for a, b in zip(htrealstd, htsynstd)]
     ht_score = np.mean(ht_score)
 
     #########################
@@ -105,8 +108,8 @@ def _stylized_score(
     vcsyn = vc_syn_stat["rate"], vc_syn_stat["corr"]
     vcsynstd = vc_syn_stat["rate_std"], vc_syn_stat["corr_std"]
 
-    vc_score = [((a - b) / c) ** 2 for a, b, c in zip(vcreal, vcsyn, vcrealstd)]
-    vc_score += [(a - b) ** 2 for a, b in zip(vcrealstd, vcsynstd)]
+    vc_score = [((a - b) / (c + EPS)) ** 2 for a, b, c in zip(vcreal, vcsyn, vcrealstd)]
+    vc_score += [(b / (a + EPS) - 1) ** 2 for a, b in zip(vcrealstd, vcsynstd)]
     vc_score = np.mean(vc_score)
 
     ###################
@@ -119,7 +122,7 @@ def _stylized_score(
     lesynstd = le_syn_stat["pow_rate_std"], le_syn_stat["pow_r_std"]
 
     le_score = [((a - b) / c) ** 2 for a, b, c in zip(lereal, lesyn, lerealstd)]
-    le_score += [(a - b) ** 2 for a, b in zip(lerealstd, lesynstd)]
+    le_score += [(b / (a + EPS) - 1) ** 2 for a, b in zip(lerealstd, lesynstd)]
     le_score = np.mean(le_score)
 
     ##########################
@@ -141,7 +144,7 @@ def _stylized_score(
     )
 
     cfv_score = [((a - b) / c) ** 2 for a, b, c in zip(cfvreal, cfvsyn, cfvrealstd)]
-    cfv_score += [(a - b) ** 2 for a, b in zip(vcrealstd, cfvsynstd)]
+    cfv_score += [(b / (a + EPS) - 1) ** 2 for a, b in zip(vcrealstd, cfvsynstd)]
     cfv_score = np.mean(cfv_score)
 
     #############################
@@ -174,7 +177,7 @@ def _stylized_score(
     )
 
     gl_score = [((a - b) / c) ** 2 for a, b, c in zip(gl_real, gl_syn, gl_real_std)]
-    gl_score += [(a - b) ** 2 for a, b in zip(gl_real_std, gl_syn_std)]
+    gl_score += [(b / (a + EPS) - 1) ** 2 for a, b in zip(gl_real_std, gl_syn_std)]
     gl_score = np.mean(gl_score)
 
     scores = {
