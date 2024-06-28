@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
@@ -37,11 +38,11 @@ def train_fingan():
 
     # define training config and train model
     config = {
-        "seq_len": 1024,
+        "seq_len": 8192,
         "train_seed": 99,
         "dtype": "float32",
-        "epochs": 100,
-        "batch_size": 1,
+        "epochs": 3000,
+        "batch_size": 24,
         "optim_gen_config": {
             "lr": 2e-4,
             "betas": (0.5, 0.999),
@@ -132,6 +133,8 @@ def train_fingan():
             loader, model, gen_optim, disc_optim
         )
 
+        best_score = sys.float_info.max
+
         for epoch in range(epochs):
             gen_epoch_loss = 0
             disc_epoch_loss = 0
@@ -201,15 +204,16 @@ def train_fingan():
             }
 
             # get returns (note the transposition due to batch sampling)
-            # only last batch in the epoch!!
-            log_ret_sim = fake_batch.detach().cpu().numpy().squeeze(axis=1).T
+            log_ret_sim = model.sample(batch_size=201).detach().cpu().numpy().T
             log_ret_sim = log_ret_sim * data_scale + data_shift
+            old_best_score = best_score
             try:
                 syn_stats = stylized_score._compute_stats(log_ret_sim, "syn")
                 total_score, scores = stylized_score._stylized_score(
                     **syn_stats, **real_stats
                 )
                 scores["total_score"] = total_score
+                best_score = np.minimum(total_score, best_score)
                 logs.update(scores)
             except Exception as e:
                 print(f"Expeption occured on coputing stylized statistics: {str(e)}.")
@@ -219,8 +223,8 @@ def train_fingan():
                 wandb.log(logs)
 
             # log experiments every n epochs
-            n = 1
-            if epoch % n == n - 1 or epoch == epochs - 1:
+            n = 100
+            if epoch % n == n - 1 or epoch == epochs - 1 or old_best_score > best_score:
                 # create pseudo identifier
                 epoch_name = f"epoch_{epoch + 1}" if epoch < epochs - 1 else "final"
 
@@ -313,5 +317,5 @@ def sample_fingan(file: str | Path, seed: int = 99) -> npt.NDArray:
 
 
 if __name__ == "__main__":
-    os.environ["WANDB_MODE"] = "disabled"
+    # os.environ["WANDB_MODE"] = "disabled"
     train_fingan()
