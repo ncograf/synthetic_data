@@ -1,4 +1,5 @@
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 import torch
 from torch.utils.data import Dataset
@@ -47,18 +48,10 @@ class SP500Dataset(Dataset):
 
 
 class SP500GanDataset(Dataset):
-    def __init__(self, price_data: pd.DataFrame, num_elements: int, seq_len: int):
+    def __init__(self, log_returns: npt.NDArray, num_elements: int, seq_len: int):
         self.seq_len = seq_len
         self.num_elements = num_elements
-
-        # choose random symbol until one has enough data
-        data = np.array(price_data)
-        self.log_returns = np.log(data[1:] / data[:-1])
-
-        self.shift = 0  # np.nanmean(self.log_returns)
-        self.scale = 1  # np.nanstd(self.log_returns)
-        self.log_returns = self.log_returns - self.shift
-        self.log_returns = self.log_returns / self.scale
+        self.log_returns = log_returns
 
     def __len__(self):
         return self.num_elements
@@ -70,8 +63,8 @@ class SP500GanDataset(Dataset):
         start_idx = np.random.randint(0, log_returns.size - self.seq_len)
         end_idx = start_idx + self.seq_len
 
-        y_real = torch.rand(size=(1,)) * 0.2
-        y_fake = torch.rand(size=(1,)) * 0.2 + 0.8
+        y_real = torch.rand(size=(1,)) * 0.1
+        y_fake = torch.rand(size=(1,)) * 0.1 + 0.8
         return torch.tensor(log_returns[start_idx:end_idx]), torch.tensor(
             [y_real, y_fake]
         )

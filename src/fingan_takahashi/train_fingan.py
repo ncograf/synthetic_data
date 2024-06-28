@@ -9,6 +9,7 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 import real_data_loader as data
+import scipy.stats
 import stylized_score
 import torch
 import wandb_logging
@@ -43,6 +44,7 @@ def train_fingan():
         "dtype": "float32",
         "epochs": 3000,
         "batch_size": 24,
+        "dist": "studentt",
         "optim_gen_config": {
             "lr": 2e-4,
             "betas": (0.5, 0.999),
@@ -91,7 +93,7 @@ def train_fingan():
         cuda_name = torch.cuda.get_device_name(device)
         print(f"GPU: {cuda_name}")
 
-    with wandb.init(tags=["FinGanTakahashi"]):
+    with wandb.init(tags=["FinGanTakahashi", config["dist"]]):
         # log wandb if wandb logging is active
         if wandb.run is not None:
             wandb.config.update(config)
@@ -100,32 +102,52 @@ def train_fingan():
             wandb.config["train_config.device"] = device
             wandb.define_metric("*", step_metric="epoch")
 
-        # read config
-        gen_config = {"seq_len": config["seq_len"], "dtype": config["dtype"]}
-        disc_config = {"input_dim": config["seq_len"], "dtype": config["dtype"]}
-        batch_size = config["batch_size"]
-        epochs = config["epochs"]
-        dtype = config["dtype"]
-        seq_len = config["seq_len"]
-        opt_gen_conf = config["optim_gen_config"]
-        opt_disc_conf = config["optim_disc_config"]
-
+        # process data
         log_returns = np.array(price_data)
         log_returns = np.log(log_returns[1:] / log_returns[:-1])
         real_stats = stylized_score._compute_stats(log_returns, "real")
+
+        # determine shift and scale
+        data_config = {"scale": 1, "shift": 0}
+
+        # get distribution
         mean = np.nanmean(log_returns)
         std = np.nanstd(log_returns)
+        match config["dist"]:
+            case "studentt":
+                df, loc, scale = scipy.stats.t.fit(log_returns.flatten())
+                fit = {"df": df, "loc": loc, "scale": scale}
+            case "normal":
+                fit = {"loc": mean, "scale": std}
+            case "cauchy":
+                loc, scale = scipy.stats.cauchy.fit(log_returns.flatten())
+                fit = {"loc": loc, "scale": scale}
+            case "stdnormal":
+                config["dist"] = "normal"
+                fit = {"loc": 0, "scale": 1}
+            case "laplace":
+                loc, scale = scipy.stats.laplace.fit(log_returns.flatten())
+                fit = {"loc": 0, "scale": 1}
+
+        # read config
+        gen_config = {"seq_len": config["seq_len"], "dtype": config["dtype"]}
+        disc_config = {"input_dim": config["seq_len"], "dtype": config["dtype"]}
+        dist_config = {"dist": config["dist"], **fit}
+        batch_size = config["batch_size"]
+        epochs = config["epochs"]
 
         # create dataset (note that the dataset will sample randomly during training (see source for more information))
-        dataset = SP500GanDataset(price_data, batch_size * 1024, seq_len)
-        data_scale = dataset.scale
-        data_shift = dataset.shift
+        dataset = SP500GanDataset(log_returns, batch_size * 1024, config["seq_len"])
         loader = DataLoader(dataset, batch_size, pin_memory=True)
 
         # initialize model and optimiers
-        model = FinGan(gen_config, disc_config, dtype, data_scale, data_shift)
-        gen_optim = torch.optim.Adam(model.gen.parameters(), **opt_gen_conf)
-        disc_optim = torch.optim.Adam(model.disc.parameters(), **opt_disc_conf)
+        model = FinGan(gen_config, disc_config, data_config, dist_config)
+        gen_optim = torch.optim.Adam(
+            model.gen.parameters(), **config["optim_gen_config"]
+        )
+        disc_optim = torch.optim.Adam(
+            model.disc.parameters(), **config["optim_disc_config"]
+        )
         bce_criterion = torch.nn.BCELoss()
 
         # wrap model, loader ... to get them to the right device
@@ -205,7 +227,7 @@ def train_fingan():
 
             # get returns (note the transposition due to batch sampling)
             log_ret_sim = model.sample(batch_size=201).detach().cpu().numpy().T
-            log_ret_sim = log_ret_sim * data_scale + data_shift
+            log_ret_sim = log_ret_sim * data_config["scale"] + data_config["shift"]
             old_best_score = best_score
             try:
                 syn_stats = stylized_score._compute_stats(log_ret_sim, "syn")

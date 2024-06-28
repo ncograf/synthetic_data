@@ -10,9 +10,8 @@ class FinGan(nn.Module):
         self,
         gen_config: Dict[str, Any],
         disc_config: Dict[str, Any],
-        dtype: str,
-        scale: float,
-        shift: float,
+        data_config: Dict[str, Any],
+        dist_config: Dict[str, Any],
     ):
         """Time Gan containing 5 networks for training and evaluation
 
@@ -22,29 +21,34 @@ class FinGan(nn.Module):
         this is important for sampling
 
         Args:
-            gen_config (Dict[str, Any]),
-            disc_conig (Dict[str, Any]),
-            dtype (str): sets the models dtype
+            gen_config (Dict[str, Any]) : generator settings
+                seq_len
+                dtype
+            disc_conig (Dict[str, Any]) : discriminator settings
+                input_dim
+                dtype
+            data_config (Dict[str, Any]): scale and shift of input / output data (input_data = (log_returns - shift) / scale)
+                scale
+                shift
+            dist_config [Dict[str, Any]]: distribution configuration
+                dist : 'normal', 'studentt', 'cauchy'
+                params (Dict[str, Any]) : 'loc', 'scale', ('df' if 'studentt')
+
             scale (float): scale of the data
             shift (shift): shift of the data
         """
 
         nn.Module.__init__(self)
 
-        if not isinstance(dtype, str):
-            self.dtype_str = TypeConverter.type_to_str(dtype)
-            self.dtype = TypeConverter.str_to_torch(self.dtype_str)
-        else:
-            self.dtype_str = TypeConverter.extract_dtype(dtype)
-            self.dtype = TypeConverter.str_to_torch(self.dtype_str)
-
         self.gen_config = gen_config
         self.disc_config = disc_config
-        self.gen_config["dtype"] = self.dtype
-        self.disc_config["dtype"] = self.dtype
+        self.data_config = data_config
+        self.dist_config = dist_config
 
-        self.scale = scale
-        self.shift = shift
+        self.gen_config["dtype"] = TypeConverter.str_to_torch(self.gen_config["dtype"])
+        self.disc_config["dtype"] = TypeConverter.str_to_torch(
+            self.disc_config["dtype"]
+        )
 
         self.gen = FinGanMLP(**self.gen_config)
         self.disc = FinGanDisc(**self.disc_config)
@@ -54,8 +58,17 @@ class FinGan(nn.Module):
         self.disc.apply(self._weights_init)
 
         # note that 100 is a fixed value defined in the models
-        self.mean = nn.Parameter(torch.zeros(100), requires_grad=False)
-        self.cov = nn.Parameter(torch.eye(100), requires_grad=False)
+        self.loc = (
+            nn.Parameter(torch.zeros(1), requires_grad=False) * self.dist_config["loc"]
+        )
+        self.scale = (
+            nn.Parameter(torch.ones(1), requires_grad=False) * self.dist_config["scale"]
+        )
+        if "studentt" == self.dist_config["dist"]:
+            self.df = (
+                nn.Parameter(torch.ones(1), requires_grad=False)
+                * self.dist_config["df"]
+            )
 
     def get_model_info(self) -> Dict[str, Any]:
         """Model initialization parameters
@@ -67,9 +80,8 @@ class FinGan(nn.Module):
         dict_ = {
             "gen_config": self.gen_config,
             "disc_config": self.disc_config,
-            "dtype": self.dtype_str,
-            "scale": self.scale,
-            "shift": self.shift,
+            "data_config": self.data_config,
+            "dist_config": self.dist_config,
         }
 
         return dict_
@@ -80,7 +92,7 @@ class FinGan(nn.Module):
             nn.init.normal_(module.weight.data, 0.0, 0.06)
             nn.init.constant_(module.bias.data, 0.0)
 
-    def sample(self, batch_size: int = 1, unnormalize: bool = False) -> torch.Tensor:
+    def sample(self, batch_size, unnormalize: bool = False) -> torch.Tensor:
         """Generate time series from learned distribution
 
         Args:
@@ -90,12 +102,23 @@ class FinGan(nn.Module):
             torch.Tensor: time series of the size (batch_size x series_length)
         """
 
-        dist = torch.distributions.MultivariateNormal(self.mean, self.cov)
-        noise = dist.rsample((batch_size,))
+        match self.dist_config["dist"]:
+            case "studentt":
+                dist = torch.distributions.StudentT(self.df, self.loc, self.scale)
+            case "normal":
+                dist = torch.distributions.Normal(self.loc, self.scale)
+            case "cauchy":
+                dist = torch.distributions.Cauchy(self.loc, self.scale)
+            case "laplace":
+                dist = torch.distributions.Laplace(self.loc, self.scale)
+
+        noise = dist.rsample((batch_size, 100)).reshape((batch_size, 100))
         gen_sample = self.gen(noise)
 
         if unnormalize:
-            gen_sample = gen_sample * self.scale + self.shift
+            gen_sample = (
+                gen_sample * self.data_config["scale"] + self.data_config["shift"]
+            )
 
         return gen_sample
 
