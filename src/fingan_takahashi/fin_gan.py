@@ -58,17 +58,10 @@ class FinGan(nn.Module):
         self.disc.apply(self._weights_init)
 
         # note that 100 is a fixed value defined in the models
-        self.loc = (
-            nn.Parameter(torch.zeros(1), requires_grad=False) * self.dist_config["loc"]
-        )
-        self.scale = (
-            nn.Parameter(torch.ones(1), requires_grad=False) * self.dist_config["scale"]
-        )
+        self.loc = nn.Parameter(torch.ones(1) * self.dist_config['loc'], requires_grad=False)
+        self.scale = nn.Parameter(torch.ones(1) * self.dist_config['scale'], requires_grad=False)
         if "studentt" == self.dist_config["dist"]:
-            self.df = (
-                nn.Parameter(torch.ones(1), requires_grad=False)
-                * self.dist_config["df"]
-            )
+            self.df = nn.Parameter(torch.ones(1) * self.dist_config['df'], requires_grad=False)
 
     def get_model_info(self) -> Dict[str, Any]:
         """Model initialization parameters
