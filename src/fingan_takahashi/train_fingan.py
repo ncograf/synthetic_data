@@ -218,14 +218,14 @@ def train_fingan():
                 ).flatten()  # compute with gen gradients
                 gen_err = bce_criterion(disc_y_fake, y_real)
 
-                flat_fake_batch = fake_batch.flatten(1)
-                gen_mean = torch.mean(flat_fake_batch, dim=1)
-                gen_std = torch.std(flat_fake_batch, dim=1)
-                gen_var = torch.var(flat_fake_batch, dim=1)
-                gen_skewness = torch.mean((flat_fake_batch - gen_mean) ** 3, dim=1) / (
+                flat_fake_batch = fake_batch.flatten()
+                gen_mean = torch.mean(flat_fake_batch)
+                gen_std = torch.std(flat_fake_batch)
+                gen_var = torch.var(flat_fake_batch)
+                gen_skewness = torch.mean((flat_fake_batch - gen_mean) ** 3) / (
                     gen_std**3
                 )
-                gen_kurtosis = torch.mean((flat_fake_batch - gen_mean) ** 4, dim=1) / (
+                gen_kurtosis = torch.mean((flat_fake_batch - gen_mean) ** 4) / (
                     gen_std**4
                 )
 
