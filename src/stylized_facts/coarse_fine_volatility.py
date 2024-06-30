@@ -4,7 +4,7 @@ import boosted_stats
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
-from scipy.stats import linregress
+from power_fit import fit_powerlaw
 
 
 def coarse_fine_volatility(
@@ -51,6 +51,7 @@ def coarse_fine_volatility(
     abs_log_return = np.abs(log_returns)
     abs_cumsum = np.cumsum(abs_log_return, axis=0)
     v_f_tau = abs_cumsum[tau:] - abs_cumsum[:-tau]
+    v_f_tau = v_f_tau / tau
     v_f_tau[nan_mask_shifted] = np.nan
 
     # center variables
@@ -118,11 +119,11 @@ def coarse_fine_volatility_stats(
             argmin : argmin delta lead lag
             beta : rate for fit in delta lead lag (from argmin to last)
             alpha : constant for fit in delta lead lag (from argmin to last)
-            r : pearson correlation for fit
+            coor : pearson correlation for fit
             argmin_std : standard deviation argmin delta lead lag
             beta_std: standard deviation for fits
             alpha_std: standard deviation for fits
-            r_std: standard deviation for fits
+            corr_std: standard deviation for fits
     """
 
     ll, ll_x, dll, dll_x = coarse_fine_volatility(
@@ -130,15 +131,15 @@ def coarse_fine_volatility_stats(
     )
 
     argmin = np.argmin(np.mean(dll, axis=1))
-    fit = linregress(dll_x[argmin:], np.mean(dll[argmin:], axis=1))
-    alpha, beta, corr = fit.intercept, fit.slope, fit.rvalue
+    _, _, alpha, beta, corr = fit_powerlaw(
+        dll_x[argmin:], -np.mean(dll[argmin:], axis=1), optimize="none"
+    )
 
     # variace estimation
     alpha_arr, beta_arr, r_arr, amin_arr = [], [], [], []
     for idx in range(dll.shape[1]):
         amin = np.argmin(dll[:, idx])
-        fit = linregress(dll_x[amin:], dll[amin:, idx])
-        a, b, r = fit.intercept, fit.slope, fit.rvalue
+        _, _, a, b, r = fit_powerlaw(dll_x[amin:], -dll[amin:, idx], optimize="none")
         amin_arr.append(amin)
         alpha_arr.append(a)
         beta_arr.append(b)
@@ -149,6 +150,9 @@ def coarse_fine_volatility_stats(
     std_r = np.std(r_arr)
     std_amin = np.std(amin_arr)
 
+    beta_min = np.min(beta_arr)
+    beta_max = np.max(beta_arr)
+
     stats = {
         "lead_lag": ll,
         "lead_lag_k": ll_x,
@@ -157,11 +161,13 @@ def coarse_fine_volatility_stats(
         "argmin": argmin,
         "beta": beta,
         "alpha": alpha,
-        "r": corr,
+        "corr": corr,
         "argmin_std": std_amin,
         "alpha_std": std_alpha,
         "beta_std": std_beta,
-        "r_std": std_r,
+        "corr_std": std_r,
+        "beta_min": beta_min,
+        "beta_max": beta_max,
     }
 
     return stats
@@ -170,7 +176,7 @@ def coarse_fine_volatility_stats(
 def visualize_stat(
     plot: plt.Axes, log_returns: npt.NDArray, name: str, print_stats: List[str]
 ):
-    stat = coarse_fine_volatility_stats(log_returns=log_returns, tau=5, max_lag=30)
+    stat = coarse_fine_volatility_stats(log_returns=log_returns, tau=5, max_lag=100)
     dll, dll_x = np.mean(stat["delta_lead_lag"], axis=1), stat["delta_lead_lag_k"]
     ll, ll_x = np.mean(stat["lead_lag"], axis=1), stat["lead_lag_k"]
     argmin, alpha, beta = stat["argmin"], stat["alpha"], stat["beta"]
@@ -178,7 +184,7 @@ def visualize_stat(
     cf_vol_axes_setting = {
         "title": f"{name} coarse-fine volatility",
         "ylabel": r"$\rho(k)$",
-        "xlabel": "lag k",
+        "xlabel": "lag(k days)",
         "xscale": "linear",
         "yscale": "linear",
     }
@@ -206,15 +212,18 @@ def visualize_stat(
         linestyle="none",
         marker="o",
         markersize=5,
-        c="orange",
+        c="red",
     )
     plot.plot(ll_x, ll, **cf_vol_plot_setting)
     plot.plot(dll_x, dll, **lead_lag_plot_setting)
-    y_lin = alpha + dll_x * beta
+    if np.abs(beta) < 1e-6:
+        print(beta)
+    x_lin = dll_x[argmin + 2 :]
+    y_lin = -np.exp(alpha) * (x_lin**beta)
     plot.plot(
-        dll_x,
+        x_lin,
         y_lin,
-        label="lin fit $\\Delta \\rho$",
+        label=f"$\\Delta \\rho \\propto k^{{{beta:.2f}}} $",
         linestyle="--",
         color="red",
         alpha=1,
@@ -224,4 +233,4 @@ def visualize_stat(
     for key in print_stats:
         print(f"{name} coarse fine volatility {key} {stat[key]}")
 
-    plot.legend()
+    plot.legend(loc="upper right")

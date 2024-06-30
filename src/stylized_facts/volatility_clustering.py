@@ -62,23 +62,27 @@ def volatility_clustering_stats(
             vol_clust: volatility clustering data (max_lag x stocks)
             power_fit_x: powerlaw x values used for fit
             corr: pearson correlation coefficient of powerlaw fit
-            rate: exponent fitted in powerlaw
-            const : constant fitted in powerlaw
+            beta: exponent fitted in powerlaw
+            alpha : constant fitted in powerlaw
             corr_std: standard deviation for fits
-            rate_std: standard deviation for fits
-            const_std: standard deviation for fits
+            beta_std: standard deviation for fits
+            alpha_std: standard deviation for fits
+            corr_max: max correlation observed
+            corr_min: min correlation observed
+            beta_min: min value of the fitted rate over index
+            beta_max: max value of the fitted rate over index
     """
 
     vol_clust = volatility_clustering(log_returns=log_returns, max_lag=max_lag)
     x = np.arange(1, vol_clust.shape[0] + 1)
     fit_x, _, alpha, beta, corr = fit_powerlaw(
-        x, np.mean(vol_clust, axis=1), optimize="left"
+        x, np.mean(vol_clust, axis=1), optimize=(0, 150)
     )
 
     # variace estimation
     alpha_arr, beta_arr, r_arr = [], [], []
     for idx in range(vol_clust.shape[1]):
-        _, _, a, b, r = fit_powerlaw(x, vol_clust[:, idx], optimize="left")
+        _, _, a, b, r = fit_powerlaw(x, vol_clust[:, idx], optimize=(0, 150))
         alpha_arr.append(a)
         beta_arr.append(b)
         r_arr.append(r)
@@ -86,16 +90,25 @@ def volatility_clustering_stats(
     std_alpha = np.std(alpha_arr)
     std_beta = np.std(beta_arr)
     std_r = np.std(r_arr)
+    r_max = np.max(r_arr)
+    r_min = np.min(r_arr)
+    beta_max = np.max(beta_arr)
+    beta_min = np.min(beta_arr)
 
     stats = {
         "vol_clust": vol_clust,
         "power_fit_x": fit_x,
         "corr": corr,
-        "rate": beta,
-        "const": alpha,
+        "beta": beta,
+        "alpha": alpha,
         "corr_std": std_r,
-        "rate_std": std_beta,
-        "const_std": std_alpha,
+        "beta_std": std_beta,
+        "alpha_std": std_alpha,
+        "corr_min": r_min,
+        "corr_max": r_max,
+        "beta_max": beta_max,
+        "beta_min": beta_min,
+        "beta_arr": beta_arr,
     }
 
     return stats
@@ -108,8 +121,8 @@ def visualize_stat(
     pos_y, x_lin, alpha, beta = (
         np.mean(stat["vol_clust"], axis=1),
         stat["power_fit_x"],
-        stat["const"],
-        stat["rate"],
+        stat["alpha"],
+        stat["beta"],
     )
     pos_x = np.arange(1, pos_y.size + 1)
     y_lin = np.exp(alpha) * np.power(x_lin, beta)
@@ -145,3 +158,5 @@ def visualize_stat(
         print(f"{name} vol cluster {key}: {stat[key]}")
 
     plot.legend(loc="lower left")
+
+    return

@@ -62,8 +62,8 @@ def linear_unpredictability_stats(
         Dict[str, Any]: result dictonary with keys:
             corr: pearson correlation coefficient of linear fit
             p_value: p value of linear fit
-            slope: slope of linear fit
-            intercept : intercept of linear fit
+            beta: slope of linear fit
+            alpha: intercept of linear fit
             mse: mean squared (error) of linear fit with assumption y = 0
             mse_std: empirical standard deviation over all stocks
             data: autocorrelation data (max_lag x stocks)
@@ -81,8 +81,8 @@ def linear_unpredictability_stats(
     stats = {
         "corr": regression.rvalue,
         "p_value": regression.pvalue,
-        "slope": regression.slope,
-        "intercept": regression.intercept,
+        "beta": regression.slope,
+        "alpha": regression.intercept,
         "mse": mean_squared,
         "mse_std": mse_std,
         "data": lin_upred,
@@ -96,14 +96,14 @@ def visualize_stat(
 ):
     data = linear_unpredictability_stats(log_returns=log_returns, max_lag=1000)
     ac_data = np.mean(data["data"], axis=1)
-    mse, _ = (data["mse"], data["mse_std"])
-    data_label = f"MSE $={mse:.3e}$"
+    mse, mse_std = (data["mse"], data["mse_std"])
+    data_label = f"$\\text{{MSE}} =${mse:.2e}, $\\sigma_{{MSE}}=${mse_std:.2e}"
 
     for key in print_stats:
         print(f"{name} linear unpred {key} {data[key]}")
 
     lin_upred_axes_setting = {
-        "title": "linear unpredictability",
+        "title": f"{name} linear unpredictability",
         "ylabel": r"$Corr(r_t, r_{t+k})$",
         "xlabel": "lag k",
         "xscale": "log",

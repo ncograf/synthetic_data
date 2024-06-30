@@ -98,7 +98,10 @@ def gain_loss_asymmetry_stat(
     std_max_loss = np.std(max_loss_arr)
     arg_std_max_gain = np.std(arg_max_gain_arr)
     arg_std_max_loss = np.std(arg_max_loss_arr)
-    std_arg_diff = np.std(np.array(arg_max_loss_arr) - np.array(arg_max_gain_arr))
+    std_arg_diff = np.std(np.array(arg_max_gain_arr) - np.array(arg_max_loss_arr))
+    arg_diff_min = np.min(np.array(arg_max_gain_arr) - np.array(arg_max_loss_arr))
+    arg_diff_max = np.max(np.array(arg_max_gain_arr) - np.array(arg_max_loss_arr))
+    arg_diff_mean = np.mean(np.array(arg_max_gain_arr) - np.array(arg_max_loss_arr))
     std_diff = np.std(np.array(max_loss_arr) - np.array(max_gain_arr))
 
     stats = {
@@ -110,12 +113,15 @@ def gain_loss_asymmetry_stat(
         "max_loss": max_loss,
         "diff": diff,
         "arg_diff": arg_diff,
-        "std_arg_max_gain": arg_std_max_gain,
-        "std_arg_max_loss": arg_std_max_loss,
-        "std_max_gain": std_max_gain,
-        "std_max_loss": std_max_loss,
-        "std_diff": std_diff,
-        "std_arg_diff": std_arg_diff,
+        "arg_max_gain_std": arg_std_max_gain,
+        "arg_max_loss_std": arg_std_max_loss,
+        "max_gain_std": std_max_gain,
+        "max_loss_std": std_max_loss,
+        "diff_std": std_diff,
+        "arg_diff_std": std_arg_diff,
+        "arg_diff_min": arg_diff_min,
+        "arg_diff_max": arg_diff_max,
+        "arg_diff_mean": arg_diff_mean,
     }
 
     return stats
@@ -145,7 +151,7 @@ def visualize_stat(
     gain_loss_axis_setting = {
         "title": f"{name} gain loss asymetry",
         "ylabel": r"return time probability",
-        "xlabel": "lag k",
+        "xlabel": "lag k in days",
         "xscale": "log",
         "yscale": "linear",
     }
@@ -212,4 +218,4 @@ def visualize_stat(
         print(f"{name} gain-loss-asym {key} {stat[key]}")
 
     plot.set(**gain_loss_axis_setting)
-    plot.legend(loc="best")
+    plot.legend(loc="upper right")

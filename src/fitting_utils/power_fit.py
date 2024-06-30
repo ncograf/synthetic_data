@@ -31,23 +31,29 @@ def fit_powerlaw(
         optimize ('left' | 'right' | 'both' | 'none'): optimization style as descibed above
 
     Returns:
-        Tuple[float, float, float, float, float]: a, b, pearson_coefficient, x, y
+        Tuple[float, float, float, float, float]: x, y, a, b, pearson_coefficient
     """
 
-    if optimize == "none":
-        return x, y, *_fit_exp(x, y)
+    match optimize:
+        case "none":
+            return x, y, *_fit_exp(x, y)
 
-    elif optimize == "both":
-        return _fit_powerlaw_both(x, y)
+        case "both":
+            return _fit_powerlaw_both(x, y)
 
-    elif optimize == "left":
-        return _fit_powerlaw_left(x, y)
+        case "left":
+            return _fit_powerlaw_left(x, y)
 
-    elif optimize == "right":
-        return _fit_powerlaw_right(x, y)
+        case "right":
+            return _fit_powerlaw_right(x, y)
 
-    else:
-        raise RuntimeError(f"The otimization strategy {optimize} is not allowed.")
+        case (a, b):
+            x = x[a:b]
+            y = y[a:b]
+            return x, y, *_fit_exp(x, y)
+
+        case _:
+            raise RuntimeError(f"The otimization strategy {optimize} is not allowed.")
 
 
 def fit_lin_log(x: npt.NDArray, y: npt.NDArray) -> Tuple[float, float, float]:
