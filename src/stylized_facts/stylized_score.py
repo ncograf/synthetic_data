@@ -23,7 +23,7 @@ def _compute_stats(log_returns: npt.ArrayLike, kind: Literal["real", "syn"]):
         log_returns, max_lag=1000
     )
     stats[f"ht_{kind}_stat"] = heavy_tails.heavy_tails_stats(
-        log_returns, n_bins=1000, tail_quant=0.02
+        log_returns, n_bins=1000, tail_quant=0.1
     )
     stats[f"vc_{kind}_stat"] = volatility_clustering.volatility_clustering_stats(
         log_returns, max_lag=1000
@@ -147,8 +147,6 @@ def _stylized_score(
         (asym if (a - b) < 0 else 1) * np.abs((a - b) / c)
         for a, b, c in zip(gl_real, gl_syn, gl_real_std)
     ]
-    print(f"Real gl_real : {gl_real}")
-    print(f"Real gl_syn : {gl_syn}")
     gl_score = np.mean(gl_score)
 
     scores = {

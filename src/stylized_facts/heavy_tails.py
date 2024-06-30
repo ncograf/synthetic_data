@@ -169,7 +169,7 @@ def visualize_stat(
     plot: plt.Axes, log_returns: npt.NDArray, name: str, print_stats: List[str]
 ):
     # compute statistics
-    stat = heavy_tails_stats(log_returns=log_returns, n_bins=1000, tail_quant=0.05)
+    stat = heavy_tails_stats(log_returns=log_returns, n_bins=1000, tail_quant=0.1)
     pos_x, pos_y, pos_fit_x = stat["pos_bins"], stat["pos_dens"], stat["pos_powerlaw_x"]
     neg_x, neg_y, neg_fit_x = stat["neg_bins"], stat["neg_dens"], stat["neg_powerlaw_x"]
 

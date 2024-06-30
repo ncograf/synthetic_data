@@ -97,7 +97,9 @@ def visualize_stat(
     data = linear_unpredictability_stats(log_returns=log_returns, max_lag=1000)
     ac_data = np.mean(data["data"], axis=1)
     mse, mse_std = (data["mse"], data["mse_std"])
-    data_label = f"$\\text{{MSE}} =${mse:.2e}, $\\sigma_{{MSE}}=${mse_std:.2e}"
+    data_label = (
+        f"$\\text{{MSE}} =${mse:.2e}, $\\sigma_{{\\text{{MSE}}}}=${mse_std:.2e}"
+    )
 
     for key in print_stats:
         print(f"{name} linear unpred {key} {data[key]}")
