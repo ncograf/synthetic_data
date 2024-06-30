@@ -10,6 +10,7 @@ import numpy.typing as npt
 import pandas as pd
 import real_data_loader as data
 import scipy.stats
+import static_stats
 import stylized_score
 import torch
 import wandb_logging
@@ -45,6 +46,8 @@ def train_fingan():
         "epochs": 3000,
         "batch_size": 24,
         "dist": "studentt",
+        # "moment_losses" : ['mean', 'variance', 'skewness', 'kurtosis'],
+        "moment_losses": [],
         "optim_gen_config": {
             "lr": 2e-4,
             "betas": (0.5, 0.999),
@@ -93,15 +96,7 @@ def train_fingan():
         cuda_name = torch.cuda.get_device_name(device)
         print(f"GPU: {cuda_name}")
 
-    with wandb.init(tags=["FinGanTakahashi", config["dist"]]):
-        # log wandb if wandb logging is active
-        if wandb.run is not None:
-            wandb.config.update(config)
-            wandb.config["train_config.cpu"] = cpu_name
-            wandb.config["train_config.gpu"] = cuda_name
-            wandb.config["train_config.device"] = device
-            wandb.define_metric("*", step_metric="epoch")
-
+    with wandb.init(tags=["FinGanTakahashi", config["dist"]] + config["moment_losses"]):
         # process data
         log_returns = np.array(price_data)
         log_returns = np.log(log_returns[1:] / log_returns[:-1])
@@ -111,8 +106,23 @@ def train_fingan():
         data_config = {"scale": 1, "shift": 0}
 
         # get distribution
-        mean = np.nanmean(log_returns)
-        std = np.nanstd(log_returns)
+        real_static_stats = static_stats.static_stats(log_returns)
+        mean = real_static_stats["mean"]
+        std = real_static_stats["std"]
+        var = real_static_stats["variance"]
+        skewness = real_static_stats["skewness"]
+        kurtosis = real_static_stats["kurtosis"]
+
+        # log wandb if wandb logging is active
+        if wandb.run is not None:
+            wandb.config.update(config)
+            wandb.config["data_stats"] = real_static_stats
+            wandb.config["train_config.cpu"] = cpu_name
+            wandb.config["train_config.gpu"] = cuda_name
+            wandb.config["train_config.device"] = device
+            wandb.define_metric("*", step_metric="epoch")
+
+        # set distribution
         match config["dist"]:
             case "studentt":
                 df, loc, scale = scipy.stats.t.fit(log_returns.flatten())
@@ -130,7 +140,11 @@ def train_fingan():
                 fit = {"loc": 0, "scale": 1}
 
         # read config
-        gen_config = {"seq_len": config["seq_len"], "dtype": config["dtype"]}
+        gen_config = {
+            "seq_len": config["seq_len"],
+            "dtype": config["dtype"],
+            "model": "mlp",
+        }
         disc_config = {"input_dim": config["seq_len"], "dtype": config["dtype"]}
         dist_config = {"dist": config["dist"], **fit}
         batch_size = config["batch_size"]
@@ -204,8 +218,26 @@ def train_fingan():
                 ).flatten()  # compute with gen gradients
                 gen_err = bce_criterion(disc_y_fake, y_real)
 
-                gen_err += torch.mean((torch.mean(fake_batch.flatten(1)) - mean) ** 2)
-                gen_err += torch.mean((torch.std(fake_batch.flatten(1)) - std) ** 2)
+                flat_fake_batch = fake_batch.flatten(1)
+                gen_mean = torch.mean(flat_fake_batch, dim=1)
+                gen_std = torch.std(flat_fake_batch, dim=1)
+                gen_var = torch.var(flat_fake_batch, dim=1)
+                gen_skewness = torch.mean((flat_fake_batch - gen_mean) ** 3, dim=1) / (
+                    gen_std**3
+                )
+                gen_kurtosis = torch.mean((flat_fake_batch - gen_mean) ** 4, dim=1) / (
+                    gen_std**4
+                )
+
+                # Compute and add momemt losses if configured
+                if "mean" in config["moment_losses"]:
+                    gen_err += torch.mean((gen_mean - mean) ** 2)
+                if "variance" in config["moment_losses"]:
+                    gen_err += torch.mean((gen_var - var) ** 2)
+                if "skewness" in config["moment_losses"]:
+                    gen_err += torch.mean((gen_skewness - skewness) ** 2)
+                if "kurtosis" in config["moment_losses"]:
+                    gen_err += torch.mean((gen_kurtosis - kurtosis) ** 2)
 
                 accelerator.backward(gen_err)
 
@@ -239,6 +271,7 @@ def train_fingan():
                 logs.update(scores)
             except Exception as e:
                 print(f"Expeption occured on coputing stylized statistics: {str(e)}.")
+            logs["stats"] = static_stats.static_stats(log_ret_sim)
 
             # log eopch loss if wandb is activated
             if wandb.run is not None:

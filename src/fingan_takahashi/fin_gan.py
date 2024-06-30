@@ -50,7 +50,10 @@ class FinGan(nn.Module):
             self.disc_config["dtype"]
         )
 
-        self.gen = FinGanMLP(**self.gen_config)
+        model = self.gen_config["model"]
+        del self.gen_config["model"]  # remove model key
+        if model == "mlp":
+            self.gen = FinGanMLP(**self.gen_config)
         self.disc = FinGanDisc(**self.disc_config)
 
         # init wiehgts
@@ -58,10 +61,16 @@ class FinGan(nn.Module):
         self.disc.apply(self._weights_init)
 
         # note that 100 is a fixed value defined in the models
-        self.loc = nn.Parameter(torch.ones(1) * self.dist_config['loc'], requires_grad=False)
-        self.scale = nn.Parameter(torch.ones(1) * self.dist_config['scale'], requires_grad=False)
+        self.loc = nn.Parameter(
+            torch.ones(1) * self.dist_config["loc"], requires_grad=False
+        )
+        self.scale = nn.Parameter(
+            torch.ones(1) * self.dist_config["scale"], requires_grad=False
+        )
         if "studentt" == self.dist_config["dist"]:
-            self.df = nn.Parameter(torch.ones(1) * self.dist_config['df'], requires_grad=False)
+            self.df = nn.Parameter(
+                torch.ones(1) * self.dist_config["df"], requires_grad=False
+            )
 
     def get_model_info(self) -> Dict[str, Any]:
         """Model initialization parameters
