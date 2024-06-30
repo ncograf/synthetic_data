@@ -22,11 +22,12 @@ def visualize_stylized_facts(log_returns: npt.ArrayLike) -> plt.Figure:
     # configure plt plots
     figure_style = {
         "text.usetex": True,
+        "text.latex.preamble": r"\usepackage{amsmath}",
         "figure.figsize": (16, 10),
         "figure.titlesize": 22,
         "axes.titlesize": 18,
         "axes.labelsize": 16,
-        "font.size": 17,
+        "font.size": 14,
         "xtick.labelsize": 15,
         "ytick.labelsize": 15,
         "figure.dpi": 96,
