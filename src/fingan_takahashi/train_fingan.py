@@ -221,23 +221,27 @@ def train_fingan():
                 flat_fake_batch = fake_batch.flatten()
                 gen_mean = torch.mean(flat_fake_batch)
                 gen_std = torch.std(flat_fake_batch)
-                gen_var = torch.var(flat_fake_batch)
-                gen_skewness = torch.mean((flat_fake_batch - gen_mean) ** 3) / (
-                    gen_std**3
-                )
-                gen_kurtosis = torch.mean((flat_fake_batch - gen_mean) ** 4) / (
-                    gen_std**4
-                )
 
                 # Compute and add momemt losses if configured
                 if "mean" in config["moment_losses"]:
-                    gen_err += torch.mean((gen_mean - mean) ** 2)
+                    gen_err += torch.mean(
+                        torch.abs(gen_mean / (torch.abs(mean) + 1) - 1) ** 2
+                    )
                 if "variance" in config["moment_losses"]:
-                    gen_err += torch.mean((gen_var - var) ** 2)
+                    gen_var = torch.var(flat_fake_batch)
+                    gen_err += torch.mean((gen_var / (var + 1) - 1) ** 2)
                 if "skewness" in config["moment_losses"]:
-                    gen_err += torch.mean((gen_skewness - skewness) ** 2)
+                    gen_skewness = torch.mean((flat_fake_batch - gen_mean) ** 3) / (
+                        gen_std**3
+                    )
+                    gen_err += torch.mean(
+                        (torch.abs(gen_skewness) / (torch.abs(skewness) + 1) - 1) ** 2
+                    )
                 if "kurtosis" in config["moment_losses"]:
-                    gen_err += torch.mean((gen_kurtosis - kurtosis) ** 2)
+                    gen_kurtosis = torch.mean((flat_fake_batch - gen_mean) ** 4) / (
+                        gen_std**4
+                    )
+                    gen_err += torch.mean((gen_kurtosis / (kurtosis + 1) - 1) ** 2)
 
                 accelerator.backward(gen_err)
 
@@ -315,14 +319,14 @@ def train_fingan():
                 wandb_logging.log_temp_series(
                     local_path=loc_path / "sample_returns.png",
                     wandb_path=f"{epoch_name}/sample_returns.png",
-                    figure_title=f"Simulated Log Returns FinGAN Takahashi (epoch {epoch + 1}, flattend 24 samples)",
+                    figure_title=f"Simulated Log Returns FinGAN Takahashi (epoch {epoch + 1})",
                     temp_data=pd.Series(log_ret_sim[:, 0]),  # pick the first sample
                 )
 
                 wandb_logging.log_temp_series(
                     local_path=loc_path / "sample_prices.png",
                     wandb_path=f"{epoch_name}/sample_prices.png",
-                    figure_title=f"Simulated Prices FinGAN Takahashi (epoch {epoch + 1}, flattened 24 samples)",
+                    figure_title=f"Simulated Prices FinGAN Takahashi (epoch {epoch + 1})",
                     temp_data=pd.Series(
                         np.exp(np.cumsum(log_ret_sim[:, 0]))
                     ),  # pick the first sample
