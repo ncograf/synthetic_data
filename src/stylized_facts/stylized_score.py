@@ -131,9 +131,6 @@ def _stylized_score(
     #############################
     # GAIN LOSS ASYMMETRY SCORE #
     #############################
-    asym = (gl_real_stat["arg_diff"] - gl_real_stat["arg_diff_min"]) / (
-        gl_real_stat["arg_diff_max"] - gl_real_stat["arg_diff"]
-    )
     gl_real = (gl_real_stat["arg_diff"],)
     gl_real_std = (gl_real_stat["arg_diff_std"],)
 
@@ -143,6 +140,9 @@ def _stylized_score(
 
     # asymmetric loss function, punish negative deviations stronger than postive ones
     # the factor is determined by the ratio of the extreme values
+    asym = (gl_real_stat["arg_diff"] - gl_real_stat["arg_diff_min"]) / (
+        gl_real_stat["arg_diff_max"] - gl_real_stat["arg_diff"]
+    )
     gl_score = [
         (asym if (a - b) < 0 else 1) * np.abs((a - b) / c)
         for a, b, c in zip(gl_real, gl_syn, gl_real_std)
