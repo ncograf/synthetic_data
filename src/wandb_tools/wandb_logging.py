@@ -31,11 +31,11 @@ def log_stylized_facts(
         plot = vst.visualize_stylized_facts(log_returns=log_returns)
         plot.suptitle(figure_title)
         plot.savefig(local_path)
-        plot.clf()
-        plt.close(plot)
         if wandb.run is not None:
             image = wandb.Image(plot, caption=figure_title)
             wandb.log({wandb_path: image})
+        plot.clf()
+        plt.close(plot)
     except Exception as e:
         print(f"Expeption occured on logging stylized facts: {str(e)}.")
     finally:
@@ -59,11 +59,11 @@ def log_temp_series(
         plot = vts.visualize_temp_data(temp_data)
         plot.suptitle(figure_title)
         plot.savefig(local_path)
-        plot.clf()
-        plt.close(plot)
         if wandb.run is not None:
             image = wandb.Image(plot, caption=figure_title)
             wandb.log({wandb_path: image})
+        plot.clf()
+        plt.close(plot)
     except Exception as e:
         print(f"Expeption occured on logging temporal series: {str(e)}.")
     finally:
