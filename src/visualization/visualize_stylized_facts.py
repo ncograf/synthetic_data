@@ -49,7 +49,7 @@ def visualize_stylized_facts(log_returns: npt.ArrayLike) -> plt.Figure:
     fig, axes = plt.subplots(**subplot_layout, constrained_layout=True)
 
     # prepare data
-    log_returns = np.array(log_returns)
+    log_returns = np.asarray(log_returns)
     if log_returns.ndim == 1:
         log_returns = log_returns.reshape((-1, 1))
     elif log_returns.ndim > 2:
