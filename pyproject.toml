@@ -55,6 +55,7 @@ py-cpuinfo = "^9.0.0"
 accelerate = "^0.30.0"
 pyarrow = "^16.0.0"
 pytest-cov = "^5.0.0"
+memory-profiler = "^0.61.0"
 
 
 [tool.ruff]
