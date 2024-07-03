@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Any, Dict
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy.typing as npt
 import pandas as pd
@@ -26,6 +27,8 @@ def log_stylized_facts(
         log_returns (npt.): return data
     """
 
+    matplotlib.use("Agg")
+
     # compute stylized facts
     try:
         plot = vst.visualize_stylized_facts(log_returns=log_returns)
@@ -34,7 +37,7 @@ def log_stylized_facts(
         if wandb.run is not None:
             image = wandb.Image(plot, caption=figure_title)
             wandb.log({wandb_path: image})
-        plot.clf()
+        plot.clear()
         plt.close(plot)
     except Exception as e:
         print(f"Expeption occured on logging stylized facts: {str(e)}.")
@@ -54,6 +57,7 @@ def log_temp_series(
         figure_title (str): title of figure with stylized facts
         temp_data (npt.ArrayLike): temporal data
     """
+    matplotlib.use("Agg")
 
     try:
         plot = vts.visualize_temp_data(temp_data)
@@ -62,7 +66,7 @@ def log_temp_series(
         if wandb.run is not None:
             image = wandb.Image(plot, caption=figure_title)
             wandb.log({wandb_path: image})
-        plot.clf()
+        plot.clear()
         plt.close(plot)
     except Exception as e:
         print(f"Expeption occured on logging temporal series: {str(e)}.")
