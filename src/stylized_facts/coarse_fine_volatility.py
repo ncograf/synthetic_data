@@ -28,7 +28,7 @@ def coarse_fine_volatility(
         Tuple[ndarray, ndarray, ndarray, ndarray]: lead_lag p(k), lead_lag x, delta lead lag, delta lead lag x
     """
 
-    log_returns = np.array(log_returns)
+    log_returns = np.asarray(log_returns)
     if log_returns.ndim == 1:
         log_returns = log_returns.reshape((-1, 1))
     elif log_returns.ndim > 2:

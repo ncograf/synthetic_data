@@ -8,7 +8,7 @@ from power_fit import fit_powerlaw
 
 def _discrete_pdf(log_returns: npt.ArrayLike, n_bins: int = 1000):
     # distribution of all returns
-    log_returns = np.array(log_returns)
+    log_returns = np.asarray(log_returns)
     log_returns = log_returns[~np.isnan(log_returns)]
 
     # compute the (r_{t+k} - mu) part of the correlation and the (r_t - mu) part separately
@@ -28,7 +28,7 @@ def discrete_pdf(log_returns: npt.ArrayLike, n_bins: int = 1000) -> Tuple[npt.ND
     Returns:
         Tuple[npt.NDArray]: positive_density, positive_bins, negative_density, negative_bins
     """
-    log_returns = np.array(log_returns)
+    log_returns = np.asarray(log_returns)
     if log_returns.ndim == 1:
         log_returns = log_returns.reshape((-1, 1))
     elif log_returns.ndim > 2:

@@ -24,7 +24,7 @@ def gain_loss_asymmetry(
         Tuple[npt.NDArray, npt.NDArray]: gains_statistic, loss_statistic
     """
 
-    log_price = np.array(log_price)
+    log_price = np.asarray(log_price)
     if log_price.ndim == 1:
         log_price = log_price.reshape((-1, 1))
     elif log_price.ndim > 2:

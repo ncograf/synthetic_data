@@ -22,20 +22,18 @@ def linear_unpredictability(log_returns: npt.ArrayLike, max_lag: int) -> npt.NDA
         npt.NDArray: max_lag x (log_returns.shape[1]) for each stock
     """
 
-    log_returns = np.array(log_returns)
+    log_returns = np.asarray(log_returns)
     if log_returns.ndim == 1:
         log_returns = log_returns.reshape((-1, 1))
     elif log_returns.ndim > 2:
         raise RuntimeError(f"Log Price has {log_returns.ndim} dimensions.")
-
-    log_returns = np.array(log_returns)
 
     # compute the means / var for each stock
     mu = np.nanmean(log_returns, axis=0)
     var = np.nanvar(log_returns, axis=0)
 
     # compute the (r_{t+k} - mu) part of the correlation and the (r_t - mu) part separately
-    centered_log_returns = np.array(log_returns - mu)
+    centered_log_returns = log_returns - mu
     if centered_log_returns.dtype.name == "float32":
         correlation = boosted_stats.lag_prod_mean_float(
             centered_log_returns, max_lag, False

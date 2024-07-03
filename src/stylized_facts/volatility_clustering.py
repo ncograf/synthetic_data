@@ -18,7 +18,7 @@ def volatility_clustering(log_returns: npt.ArrayLike, max_lag: int) -> npt.NDArr
         npt.NDArray: autocorrelation (max_lag x stocks)
     """
 
-    log_returns = np.array(log_returns)
+    log_returns = np.asarray(log_returns)
     if log_returns.ndim == 1:
         log_returns = log_returns.reshape((-1, 1))
     elif log_returns.ndim > 2:
@@ -34,7 +34,7 @@ def volatility_clustering(log_returns: npt.ArrayLike, max_lag: int) -> npt.NDArr
     var = np.nanvar(abs_log_returns, axis=0)
 
     # compute the (r_{t+k} - mu) part of the correlation and the (r_t - mu) part separately
-    centered_abs_log_returns = np.array(abs_log_returns - mu)
+    centered_abs_log_returns = abs_log_returns - mu
     if centered_abs_log_returns.dtype.name == "float32":
         correlation = boosted_stats.lag_prod_mean_float(
             centered_abs_log_returns, max_lag, False

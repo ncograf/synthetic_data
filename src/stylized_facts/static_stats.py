@@ -14,7 +14,7 @@ def static_stats(log_returns: npt.ArrayLike) -> Dict[str, float]:
         Dict[str, float]: a dict of named statistics
     """
 
-    data = np.array(log_returns).flatten()
+    data = np.asarray(log_returns).flatten()
     data = data[~np.isnan(data)]
     mean = np.mean(data)
     std = np.std(data)

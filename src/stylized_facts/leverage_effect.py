@@ -23,7 +23,7 @@ def leverage_effect(log_returns: npt.ArrayLike, max_lag: int) -> npt.NDArray:
         ndarray: (max_lag x stocks) leverage effects for different lags
     """
 
-    log_returns = np.array(log_returns)
+    log_returns = np.asarray(log_returns)
     if log_returns.ndim == 1:
         log_returns = log_returns.reshape((-1, 1))
     elif log_returns.ndim > 2:
