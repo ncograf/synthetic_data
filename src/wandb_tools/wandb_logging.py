@@ -105,7 +105,7 @@ def log_train_data(
 
 def log_model(
     model_dict: Dict[str, Any],
-    wandb_name: str,
+    wandb_name: str | None,
     local_path: str | Path,
     desc: str,
 ):
@@ -123,18 +123,20 @@ def log_model(
     """
 
     try:
-        # store metadata for simpler / automatic restoring
-        artifact_wandb_path = f"{Path(wandb_name).stem}.pt"
-        meta_data = {"model_path": artifact_wandb_path, "description": desc}
-        model_artifact = wandb.Artifact(
-            name=wandb_name, type="model", metadata=meta_data
-        )
-
         # save model
         torch.save(model_dict, local_path)
-        model_artifact.add_file(local_path, name=artifact_wandb_path)
 
-        wandb.log_artifact(model_artifact)
+        if wandb_name is not None:
+            # store metadata for simpler / automatic restoring
+            artifact_wandb_path = f"{Path(wandb_name).stem}.pt"
+            meta_data = {"model_path": artifact_wandb_path, "description": desc}
+
+            model_artifact = wandb.Artifact(
+                name=wandb_name, type="model", metadata=meta_data
+            )
+            model_artifact.add_file(local_path, name=artifact_wandb_path)
+
+            wandb.log_artifact(model_artifact)
     except Exception as e:
         print(f"Expeption occured on logging the model: {str(e)}.")
 

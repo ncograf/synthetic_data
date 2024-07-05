@@ -19,6 +19,7 @@ from accelerate.utils import set_seed
 from datasets import SP500GanDataset
 from fin_gan import FinGan
 from torch.utils.data import DataLoader
+from type_converter import TypeConverter
 
 import wandb
 
@@ -149,9 +150,12 @@ def train_fingan():
         dist_config = {"dist": config["dist"], **fit}
         batch_size = config["batch_size"]
         epochs = config["epochs"]
+        dtype = TypeConverter.str_to_numpy(config["dtype"])
 
         # create dataset (note that the dataset will sample randomly during training (see source for more information))
-        dataset = SP500GanDataset(log_returns, batch_size * 1024, config["seq_len"])
+        dataset = SP500GanDataset(
+            log_returns.astype(dtype), batch_size * 1024, config["seq_len"]
+        )
         loader = DataLoader(dataset, batch_size, pin_memory=True)
 
         # initialize model and optimiers
@@ -224,24 +228,20 @@ def train_fingan():
 
                 # Compute and add momemt losses if configured
                 if "mean" in config["moment_losses"]:
-                    gen_err += torch.mean(
-                        torch.abs(gen_mean / (torch.abs(mean) + 1) - 1) ** 2
-                    )
+                    gen_err += ((gen_mean - mean) / (abs(mean) + 0.1)) ** 2
                 if "variance" in config["moment_losses"]:
                     gen_var = torch.var(flat_fake_batch)
-                    gen_err += torch.mean((gen_var / (var + 1) - 1) ** 2)
+                    gen_err += ((gen_var - var) / (var + 0.1)) ** 2
                 if "skewness" in config["moment_losses"]:
                     gen_skewness = torch.mean((flat_fake_batch - gen_mean) ** 3) / (
                         gen_std**3
                     )
-                    gen_err += torch.mean(
-                        (torch.abs(gen_skewness) / (torch.abs(skewness) + 1) - 1) ** 2
-                    )
+                    gen_err += ((gen_skewness - skewness) / (abs(skewness) + 0.1)) ** 2
                 if "kurtosis" in config["moment_losses"]:
                     gen_kurtosis = torch.mean((flat_fake_batch - gen_mean) ** 4) / (
                         gen_std**4
                     )
-                    gen_err += torch.mean((gen_kurtosis / (kurtosis + 1) - 1) ** 2)
+                    gen_err += ((gen_kurtosis - kurtosis) / (kurtosis + 0.1)) ** 2
 
                 accelerator.backward(gen_err)
 
@@ -304,7 +304,7 @@ def train_fingan():
                 # log model and stats (note that the methods ALWAYS log locally)
                 wandb_logging.log_model(
                     model_dict,
-                    wandb_name=f"fingan_takahashi.{epoch_name}",
+                    wandb_name=None,  # f"fingan_takahashi.{epoch_name}", # dont upload to wandb
                     local_path=loc_path / "model.pt",
                     desc=f"FinGAN model from the Takahashi paper after training {epoch + 1} epochs.",
                 )
