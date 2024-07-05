@@ -215,11 +215,11 @@ class FourierFlow(nn.Module):
 
         return x
 
-    def sample(self, n: int) -> torch.Tensor:
+    def sample(self, batch_size: int) -> torch.Tensor:
         """Sample new series from the learn distribution
 
         Args:
-            n (int): number of series to sample
+            batch_size (int): number of series to sample
 
         Returns:
             Tensor: signals in the signal space
@@ -228,7 +228,7 @@ class FourierFlow(nn.Module):
         self.eval()
 
         with torch.no_grad():
-            z = self.dist_z.rsample(sample_shape=(n,))
+            z = self.dist_z.rsample(sample_shape=(batch_size,))
 
             z_real = z[:, : self.latent_size]
             z_imag = z[:, self.latent_size :]
