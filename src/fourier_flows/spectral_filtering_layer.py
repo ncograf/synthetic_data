@@ -1,6 +1,5 @@
-from typing import Literal, Tuple
+from typing import Tuple
 
-import networks
 import torch
 import torch.nn as nn
 from type_converter import TypeConverter
@@ -11,14 +10,7 @@ class SpectralFilteringLayer(nn.Module):
         self,
         seq_len: int,
         hidden_dim: int,
-        arch: Literal["MLP", "LSTM"],
-        activation: str,
-        num_model_layer: int,
-        drop_out: float,
-        norm: Literal["layer", "batch", "none"] = "none",
-        dtype: str = "float64",
-        bidirect: bool = True,
-        n_stocks: int = 1,
+        dtype: str = "float32",
     ):
         """Spectral filtering layer for seqences
 
@@ -27,14 +19,7 @@ class SpectralFilteringLayer(nn.Module):
         Args:
             seq_len (int): individual series lenght.
             hidden_dim (int): size of the hidden layers in neural network.
-            arch (Literal['MLP', 'LSTM']): network architectures for H and M.
-            activation (str): activation function to be used
-            num_model_layer (int): number of layers in the model.
-            drop_out (float): in [0, 1) dropout rate to be used in model.
-            norm (Literal['layer', 'batch', 'none']): normalization to be used in model.
-            dtype (str, optional): type used for the layer. Defaults to 'float64'
-            bidirect (bool, optional): Only used for rnn. Defaults to True.
-            n_stock (int, optional): Number of stocks considered only used for rnn. Defaults to 1.
+            dtype (str, optional): type used for the layer. Defaults to 'float32'
         """
 
         if not isinstance(dtype, str):
@@ -50,29 +35,8 @@ class SpectralFilteringLayer(nn.Module):
 
         self.split_size = seq_len // 2 + 1
 
-        if arch == "MLP":
-            input_dim = self.split_size
-            output_dim = input_dim
-        else:
-            input_dim = n_stocks
-            output_dim = n_stocks
-
-        config = {
-            "input_dim": input_dim,
-            "output_dim": output_dim,
-            "hidden_dim": hidden_dim,
-            "arch": arch,
-            "activation": activation,
-            "num_model_layer": num_model_layer,
-            "dtype": dtype,
-            "bidirect": bidirect,
-            "drop_out": drop_out,
-            "norm": norm,
-            "n_stocks": n_stocks,
-        }
-
-        self.H_net = networks.model_factory(config)
-        self.M_net = networks.model_factory(config)
+        self.H_net = HNet(in_len=self.split_size, hidden=hidden_dim).to(dtype=dtype)
+        self.M_net = MNet(in_len=self.split_size, hidden=hidden_dim).to(dtype=dtype)
 
     def forward(self, x: torch.Tensor, flip: bool) -> Tuple[torch.Tensor, torch.Tensor]:
         """Compute foward step of method proposed in
@@ -139,3 +103,37 @@ class SpectralFilteringLayer(nn.Module):
         x_complex = torch.stack([x_real, x_imag], dim=-1)
 
         return x_complex
+
+
+class HNet(nn.Module):
+    def __init__(self, in_len: int, hidden: int):
+        nn.Module.__init__(self)
+
+        self.lin = nn.Linear(in_len, hidden)
+        self.nmid = nn.Linear(hidden, hidden)
+        self.lout = nn.Linear(hidden, in_len)
+
+    def forward(self, x: torch.Tensor):
+        # original network form
+        x = torch.sigmoid(self.lin(x))
+        x = torch.sigmoid(self.nmid(x))
+        x = self.lout(x)
+
+        return x
+
+
+class MNet(nn.Module):
+    def __init__(self, in_len: int, hidden: int):
+        nn.Module.__init__(self)
+
+        self.lin = nn.Linear(in_len, hidden)
+        self.nmid = nn.Linear(hidden, hidden)
+        self.lout = nn.Linear(hidden, in_len)
+
+    def forward(self, x: torch.Tensor):
+        # original network form
+        x = torch.sigmoid(self.lin(x))
+        x = torch.sigmoid(self.nmid(x))
+        x = self.lout(x)
+
+        return x

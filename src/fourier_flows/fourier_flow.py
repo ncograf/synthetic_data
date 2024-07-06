@@ -1,4 +1,4 @@
-from typing import Any, Dict, Literal, Tuple
+from typing import Any, Dict, Tuple
 
 import torch
 import torch.nn as nn
@@ -14,17 +14,11 @@ class FourierFlow(nn.Module):
         hidden_dim: int,
         seq_len: int,
         num_layer: int,
-        num_model_layer: int,
-        drop_out: float,
-        arch: Literal["MLP", "LSTM"],
-        activation: Literal["sigmoid", "tanh", "softplus", "celu", "relu"],
+        dist_config: Dict[str, Any],
         dtype: str = "float32",
         use_dft: bool = True,
         dft_scale: float = 1,
         dft_shift: float = 0,
-        bidirect: int = True,
-        norm: Literal["layer", "batch", "none"] = "none",
-        n_stocks: int = 1,
     ):
         """Fourier Flow network for one dimensional time series
 
@@ -32,17 +26,11 @@ class FourierFlow(nn.Module):
             hidden_dim (int): dimension of the hidden layers
             seq_len (int): Time series size
             num_layer (int): number of spectral layers to be used
-            num_model_layer (int): number of layers in the model
-            drop_out (float): rate in [0,1)
-            arch (Literal['MLP', 'LSTM']): model architecture
-            activation (Literal['sigmoid', 'tanh', 'relu', ...]): activation funciton to be used
+            dist_config (Dict): distribution configuration
             dtype (torch.dtype, optional): type of data. Defaults to torch.float64.
             use_dft (bool, optional): Flag whether or not to use fourier transform.
             dft_scale (float, optional): Amount to scale dft signal. Defaults to 1.
             dft_shift (float, optional): Amount to shift dft signal. Defaults to 0.
-            bidirect (bool, optional): in case of rnn model whether or not bidirectional. Defaults to True.
-            norm (Literal['layer', 'batch', 'none'], optional): normalization to be used. Defaults to None.
-            n_stocks (int, optional): number of stocks in model (must match input). Defaults to 1.
         """
 
         nn.Module.__init__(self)
@@ -57,14 +45,20 @@ class FourierFlow(nn.Module):
         self.seq_len = seq_len
         self.hidden_dim = hidden_dim
         self.n_layer = num_layer
-        self.arch = arch
-        self.num_model_layer = num_model_layer
-        self.bidirect = bidirect
-        self.drop_out = drop_out
-        self.norm = norm
-        self.n_stocks = n_stocks
-        self.activation = activation
         self.use_dft = use_dft
+        self.dist_config = dist_config
+
+        # note that 100 is a fixed value defined in the models
+        self.loc = nn.Parameter(
+            torch.ones(1) * self.dist_config["loc"], requires_grad=False
+        )
+        self.scale = nn.Parameter(
+            torch.ones(1) * self.dist_config["scale"], requires_grad=False
+        )
+        if "studentt" == self.dist_config["dist"]:
+            self.df = nn.Parameter(
+                torch.ones(1) * self.dist_config["df"], requires_grad=False
+            )
 
         self.latent_size = seq_len // 2 + 1
         self.mu = nn.Parameter(
@@ -74,21 +68,12 @@ class FourierFlow(nn.Module):
             torch.eye(2 * self.latent_size, dtype=self.dtype), requires_grad=False
         )
 
-        self.dist_z = MultivariateNormal(self.mu, self.sigma)
-
         self.layers = nn.ModuleList(
             [
                 SpectralFilteringLayer(
                     seq_len=self.seq_len,
                     hidden_dim=self.hidden_dim,
-                    arch=arch,
-                    num_model_layer=num_model_layer,
-                    drop_out=drop_out,
                     dtype=self.dtype,
-                    activation=self.activation,
-                    bidirect=bidirect,
-                    norm=norm,
-                    n_stocks=n_stocks,
                 )
                 for _ in range(self.n_layer)
             ]
@@ -140,14 +125,8 @@ class FourierFlow(nn.Module):
         dict_ = {
             "hidden_dim": self.hidden_dim,
             "num_layer": self.n_layer,
-            "num_model_layer": self.num_model_layer,
-            "activation": self.activation,
-            "bidirect": self.bidirect,
-            "n_stocks": self.n_stocks,
-            "arch": self.arch,
-            "drop_out": self.drop_out,
-            "norm": self.norm,
             "seq_len": self.seq_len,
+            "dist_config": self.dist_config,
             "dtype": self.dtype_str,
             "dft_shift": self.dft_shift,
             "dft_scale": self.dft_scale,
@@ -173,6 +152,16 @@ class FourierFlow(nn.Module):
             Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: transformed tensor
         """
 
+        match self.dist_config["dist"]:
+            case "studentt":
+                dist = torch.distributions.StudentT(self.df, self.loc, self.scale)
+            case "normal":
+                dist = torch.distributions.Normal(self.loc, self.scale)
+            case "cauchy":
+                dist = torch.distributions.Cauchy(self.loc, self.scale)
+            case "laplace":
+                dist = torch.distributions.Laplace(self.loc, self.scale)
+
         # if use_dft false, then this will just resize x to have the right size
         x_fft: torch.Tensor = self.dft(x)
 
@@ -186,7 +175,7 @@ class FourierFlow(nn.Module):
 
         # compute 'log likelyhood' of last ouput
         z = torch.cat([x_fft[:, :, 0], x_fft[:, :, 1]], dim=1)
-        log_prob_z = self.dist_z.log_prob(z)
+        log_prob_z = torch.sum(dist.log_prob(z), dim=-1)
 
         log_jac_dets = torch.stack(log_jac_dets, dim=0)
         log_jac_det_sum = torch.sum(log_jac_dets, dim=0)
@@ -227,8 +216,20 @@ class FourierFlow(nn.Module):
 
         self.eval()
 
+        match self.dist_config["dist"]:
+            case "studentt":
+                dist = torch.distributions.StudentT(self.df, self.loc, self.scale)
+            case "normal":
+                dist = torch.distributions.Normal(self.loc, self.scale)
+            case "cauchy":
+                dist = torch.distributions.Cauchy(self.loc, self.scale)
+            case "laplace":
+                dist = torch.distributions.Laplace(self.loc, self.scale)
+
         with torch.no_grad():
-            z = self.dist_z.rsample(sample_shape=(batch_size,))
+            z = dist.rsample((batch_size, self.latent_size * 2)).reshape(
+                (batch_size, self.latent_size * 2)
+            )
 
             z_real = z[:, : self.latent_size]
             z_imag = z[:, self.latent_size :]

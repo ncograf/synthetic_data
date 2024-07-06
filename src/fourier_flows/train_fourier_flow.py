@@ -9,6 +9,7 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 import real_data_loader as data
+import scipy.stats
 import static_stats
 import stylized_score
 import torch
@@ -42,16 +43,10 @@ def train_fourierflow():
     config = {
         "train_seed": 99,
         "dtype": "float32",
-        "seq_len": 8192,
+        "seq_len": 1024,
         "fourier_flow_config": {
-            "hidden_dim": 1024,
-            "num_layer": 6,
-            "num_model_layer": 10,
-            "drop_out": 0.2,
-            "arch": "MLP",
-            "activation": "sigmoid",
-            "use_dft": True,
-            "norm": "None",
+            "hidden_dim": 128,
+            "num_layer": 10,
         },
         "epochs": 3000,
         "batch_size": 128,
@@ -106,6 +101,11 @@ def train_fourierflow():
         log_returns = np.log(log_returns[1:] / log_returns[:-1])
         real_stats = stylized_score._compute_stats(log_returns, "real")
 
+        # get distribution
+        real_static_stats = static_stats.static_stats(log_returns)
+        mean = real_static_stats["mean"]
+        std = real_static_stats["std"]
+
         # determine shift and scale
         data_config = {"scale": 1, "shift": 0}
 
@@ -128,6 +128,24 @@ def train_fourierflow():
         epochs = config["epochs"]
         dtype = TypeConverter.str_to_numpy(config["dtype"])
 
+        # set distribution
+        match config["dist"]:
+            case "studentt":
+                df, loc, scale = scipy.stats.t.fit(log_returns.flatten())
+                fit = {"df": df, "loc": loc, "scale": scale}
+            case "normal":
+                fit = {"loc": mean, "scale": std}
+            case "cauchy":
+                loc, scale = scipy.stats.cauchy.fit(log_returns.flatten())
+                fit = {"loc": loc, "scale": scale}
+            case "stdnormal":
+                config["dist"] = "normal"
+                fit = {"loc": 0, "scale": 1}
+            case "laplace":
+                loc, scale = scipy.stats.laplace.fit(log_returns.flatten())
+                fit = {"loc": 0, "scale": 1}
+        dist_config = {"dist": config["dist"], **fit}
+
         # create dataset (note that the dataset will sample randomly during training (see source for more information))
         dataset = SP500GanDataset(
             log_returns.astype(dtype), batch_size * 10, config["seq_len"]
@@ -135,7 +153,7 @@ def train_fourierflow():
         loader = DataLoader(dataset, batch_size, pin_memory=True)
 
         # initialize model and optimiers
-        model = FourierFlow(**fourier_flow_config)
+        model = FourierFlow(**fourier_flow_config, dist_config=dist_config)
         optim = torch.optim.Adam(model.parameters(), **config["optim_gen_config"])
         scheduler = torch.optim.lr_scheduler.ExponentialLR(optim, **config["lr_config"])
 
@@ -283,5 +301,5 @@ def sample_fourier_flow(file: str | Path, seed: int = 99) -> npt.NDArray:
 
 
 if __name__ == "__main__":
-    # os.environ["WANDB_MODE"] = "disabled"
+    os.environ["WANDB_MODE"] = "disabled"
     train_fourierflow()
