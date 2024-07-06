@@ -102,45 +102,6 @@ def model_factory(config: Dict[str, Any]) -> nn.Module:
             reduction=reduction,
         )
 
-    elif arch.lower() == "fin_gan_disc":
-        in_channels = 1
-        input_dim = config["input_dim"]
-        kernel_size = 10
-        net = nn.Sequential(
-            nn.Conv1d(
-                in_channels=in_channels,
-                out_channels=64,
-                padding="same",
-                kernel_size=kernel_size,
-                dtype=dtype,
-            ),
-            # seq len input_dim
-            sigma,
-            nn.Conv1d(
-                in_channels=64,
-                out_channels=128,
-                padding="same",
-                kernel_size=kernel_size,
-                dtype=dtype,
-            ),
-            # seq len input_dim // 64
-            sigma,
-            nn.Conv1d(
-                in_channels=128,
-                out_channels=64,
-                padding="same",
-                kernel_size=kernel_size,
-                dtype=dtype,
-            ),
-            sigma,
-            nn.Flatten(),
-            nn.Linear(input_dim * 128, 32, dtype=dtype),
-            sigma,
-            nn.Dropout(drop_out),
-            nn.Linear(32, 1, dtype=dtype),
-            nn.Sigmoid(),
-        )
-
     return net
 
 
