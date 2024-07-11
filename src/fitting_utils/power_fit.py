@@ -77,6 +77,9 @@ def fit_lin_log(x: npt.NDArray, y: npt.NDArray) -> Tuple[float, float, float]:
 
     log_y = np.log(y)
 
+    if x.size == 0 or x.shape != log_y.shape:
+        return np.nan, np.nan, np.nan
+
     fit = linregress(x, log_y)
     goodness = abs(fit.rvalue)
     slope = fit.slope
@@ -106,6 +109,9 @@ def _fit_exp(x: npt.NDArray, y: npt.NDArray) -> Tuple[float, float, float]:
 
     log_x = np.log(x)
     log_y = np.log(y)
+
+    if log_x.size == 0 or log_x.shape != log_y.shape:
+        return np.nan, np.nan, np.nan
 
     fit = linregress(log_x, log_y)
     goodness = abs(fit.rvalue)
