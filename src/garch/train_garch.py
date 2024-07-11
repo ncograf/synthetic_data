@@ -1,17 +1,19 @@
+import json
+import os
 import random
 from datetime import datetime
 from pathlib import Path
 
-import garch
+import arch.univariate as arch_uni
+import click
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
 import real_data_loader
 import torch
-from arch.univariate import GARCH, ConstantMean, Normal, StudentsT
 
 
-def train_garch():
+def _train_garch(config, price_data: pd.DataFrame | None = None) -> Path:
     """Fit Garch model with the given stock market prices
 
     For each price a Garch model is fitted and for the sampling
@@ -20,17 +22,23 @@ def train_garch():
     To have suitable data, all nan samples are dropped.
 
     saves models to cache
+
+    Args:
+        config (dict): arch configruation as in the arch.univariance.arch_model
+            constructor function
+        price_data
+
+    Returns:
+        Path : path to the results directory
     """
 
     N_TICKS = 9216
 
-    # setup cache for the train run
-    root_dir = Path(__file__).parent.parent.parent
-
     # load real data
-    data_loader = real_data_loader.RealDataLoader(cache=root_dir / "data/cache")
+    data_dir = Path(os.environ["DATA_DIR"])
+    data_loader = real_data_loader.RealDataLoader(cache=data_dir / "cache")
     price_data = data_loader.get_timeseries(
-        "Adj Close", data_path=root_dir / "data/raw_yahoo_data"
+        "Adj Close", data_path=data_dir / "raw_yahoo_data"
     )
 
     # all colums in the dataframe must have at least seq_len non_nan elements
@@ -39,29 +47,20 @@ def train_garch():
         price_data.columns[non_nans <= N_TICKS], axis="columns"
     )
 
-    config = {
-        "dist": "normal",
-        "p": 3,
-        "q": 3,
-    }
-    dist, p, q = config["dist"], config["p"], config["q"]
-
     TIME_FORMAT = "%Y_%m_%d-%H_%M_%S"
     time = datetime.now().strftime(TIME_FORMAT)
-    cache = root_dir / f"data/cache/Garch_{dist}_{p}_{q}_{time}"
+    cache = Path(os.environ["RESULT_DIR"]) / f"{config['vol']}_{config['dist']}_{time}"
     cache.mkdir(parents=True, exist_ok=True)
 
     symbols = price_data.columns
 
+    # store model info data
+    model_info = {"config": config, "time": time, "symbols": list(symbols)}
+    with Path(cache / "meta_data.json").open("w") as meta_file:
+        meta_file.write(json.dumps(model_info, indent=4))
+
     for sym in symbols:
         sym_price = price_data.loc[:, sym]
-
-        if dist == "normal":
-            distribution = Normal()  # for univariate garch
-        elif dist.lower() == "studentt":
-            distribution = StudentsT()  # for univariate garch
-        else:
-            ValueError("The chosen distribution is not supported")
 
         # algorithms only work with dataframes
         if isinstance(sym_price, pd.Series):
@@ -73,32 +72,18 @@ def train_garch():
         return_mask = ~np.isnan(returns).flatten()
 
         # fit garch models
-        model = ConstantMean(returns[return_mask])
-        model.volatility = GARCH(p=p, q=q)
-        model.distribution = distribution
-        fitted = model.fit(disp="off")
-
-        scaled_returns = returns[return_mask]
-        scaled_returns = scaled_returns / fitted.conditional_volatility
-
-        # store fitted garch model in minimal format
-        garch_config = {}
-        garch_config["alpha"] = [fitted.params[f"alpha[{i}]"] for i in range(1, p + 1)]
-        garch_config["beta"] = [fitted.params[f"beta[{i}]"] for i in range(1, q + 1)]
-        garch_config["mu"] = fitted.params["mu"]
-        garch_config["omega"] = fitted.params["omega"]
-
-        if dist.lower() == "studentt":
-            garch_config["nu"] = fitted.params["nu"]
-
-        garch_config["dist"] = dist
+        model = arch_uni.arch_model(returns[return_mask], **config)
+        model_result = model.fit()
 
         out_dict = {
-            "garch": garch_config,
-            "fit_score": fitted.loglikelihood,
+            "init_params": config,
+            "fit_params": model_result.params,
+            "fit_score": model_result.loglikelihood,
         }
 
         torch.save(out_dict, cache / f"{sym}.pt")
+
+    return cache
 
 
 def sample_garch(folder: str | Path, seed: int = 99) -> npt.NDArray:
@@ -125,14 +110,115 @@ def sample_garch(folder: str | Path, seed: int = 99) -> npt.NDArray:
     for file in folder.iterdir():
         if file.suffix == ".pt":
             garch_dict = torch.load(file)
-            model = garch.GarchModel(garch_dict=garch_dict["garch"])
+            model = arch_uni.arch_model(y=None, **garch_dict["init_params"])
 
-            return_simulation = model.sample(length=LENGTH, burn=BURN, dtype=np.float64)
+            return_simulation = model.simulate(
+                garch_dict["fit_params"], nobs=LENGTH, burn=BURN
+            ).loc[:, "data"]
+            return_simulation = np.asarray(return_simulation) / 100 + 1
+            return_simulation[return_simulation <= 0] = 1e-8
             log_returns.append(np.log(return_simulation))
 
     log_returns = np.stack(log_returns, axis=1)
 
     return log_returns
+
+
+@click.command()
+@click.option(
+    "--mean",
+    default="Constant",
+    type=click.STRING,
+    help="Name of the mean model.  Currently supported options are: 'Constant', 'Zero'",
+)
+@click.option(
+    "--vol",
+    default="GARCH",
+    type=click.STRING,
+    help="Name of the volatility model.  Currently supported options are: 'GARCH', 'ARCH', 'EGARCH', 'FIGARCH', 'APARCH'",
+)
+@click.option(
+    "--p", default=1, type=click.INT, help="Lag order of the symmetric innovation"
+)
+@click.option(
+    "--o", default=0, type=click.INT, help="Lag order of the asymmetric innovation"
+)
+@click.option(
+    "--q",
+    default=1,
+    type=click.INT,
+    help="Lag order of lagged volatility or equivalent",
+)
+@click.option(
+    "--power",
+    default=2.0,
+    type=click.FLOAT,
+    help="Power to use with GARCH and related models",
+)
+@click.option(
+    "--dist",
+    default="normal",
+    type=click.STRING,
+    help=(
+        "Name of the error distribution.  Currently supported options are:\n"
+        "* Normal: 'normal', 'gaussian'\n"
+        "* Students's t: 't', 'studentst'\n"
+        "* Skewed Student's t: 'skewstudent', 'skewt'\n"
+        "* Generalized Error Distribution: 'ged', 'generalized error'"
+    ),
+)
+def train_garch(mean, vol, p, o, q, power, dist):
+    """
+    Initialization of common ARCH model specifications
+
+    Parameters
+    ----------
+    mean : str, optional
+        Name of the mean model.  Currently supported options are: 'Constant',
+            'Zero'. Defautls to 'Constant'.
+    vol : str, optional
+        Name of the volatility model.  Currently supported options are:
+        'GARCH' (default), 'ARCH', 'EGARCH', 'FIGARCH', 'APARCH'
+    p : int , optional
+        Lag order of the symmetric innovation
+    o : int, optional
+        Lag order of the asymmetric innovation
+    q : int, optional
+        Lag order of lagged volatility or equivalent
+    power : float, optional
+        Power to use with GARCH and related models
+    dist : int, optional
+        Name of the error distribution.  Currently supported options are:
+
+            * Normal: 'normal', 'gaussian' (default)
+            * Students's t: 't', 'studentst'
+            * Skewed Student's t: 'skewstudent', 'skewt'
+            * Generalized Error Distribution: 'ged', 'generalized error"
+
+    Returns
+    -------
+        None : Models are stored in the RESULT_DIR (env variable) directory
+
+    Examples
+    --------
+
+    Train a basic GARCH(1,1) with a constant mean can be constructed using only
+    the return data
+
+    >>> ~$ train_garch --mean Constant --vol GARCH --p 1 --q 1 --dist normal
+
+    Alternative more complicated inputs might be given
+
+    >>> ~$ train_garch --mean Zero --vol GARCH --p 2 --q 3 --dist skewt
+
+    Notes
+    -----
+    Input that are not relevant for a particular specification
+    are silently ignored.
+    """
+    _train_garch(
+        {"mean": mean, "vol": vol, "p": p, "o": o, "q": q, "power": power, "dist": dist}
+    )
 
 
 if __name__ == "__main__":
