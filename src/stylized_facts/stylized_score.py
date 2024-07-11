@@ -66,7 +66,7 @@ def _stylized_score(
         np.abs((lurealmse - lu_syn_mse) / (lu_real_mse_std + EPS)),
         np.abs(lu_syn_mse_std / (lu_real_mse_std + EPS) - 1),
     ]
-    lu_score = np.mean(lu_score)
+    lu_score = np.nanmean(lu_score)
 
     ###############
     # HEAVY TAILS #
@@ -88,7 +88,7 @@ def _stylized_score(
     ht_score = [
         np.abs((a - b) / (c + EPS)) for a, b, c in zip(htreal, htsyn, htrealstd)
     ]
-    ht_score = np.mean(ht_score)
+    ht_score = np.nanmean(ht_score)
 
     #########################
     # VOLATILITY CLUSTERING #
@@ -100,7 +100,7 @@ def _stylized_score(
     vc_score = [
         np.abs((a - b) / (c + EPS)) for a, b, c in zip(vcreal, vcsyn, vcrealstd)
     ]
-    vc_score = np.mean(vc_score)
+    vc_score = np.nanmean(vc_score)
 
     ###################
     # LEVERAGE EFFECT #
@@ -111,7 +111,7 @@ def _stylized_score(
     lesyn = [le_syn_stat["beta"]]
 
     le_score = [np.abs((a - b) / c) for a, b, c in zip(lereal, lesyn, lerealstd)]
-    le_score = np.mean(le_score)
+    le_score = np.nanmean(le_score)
 
     ##########################
     # COARSE FINE VOLATILITY #
@@ -126,7 +126,7 @@ def _stylized_score(
     cfvsyn = cfv_syn_stat["beta"], cfv_syn_stat["argmin"]
 
     cfv_score = [np.abs((a - b) / c) for a, b, c in zip(cfvreal, cfvsyn, cfvrealstd)]
-    cfv_score = np.mean(cfv_score)
+    cfv_score = np.nanmean(cfv_score)
 
     #############################
     # GAIN LOSS ASYMMETRY SCORE #
@@ -147,7 +147,7 @@ def _stylized_score(
         (asym if (a - b) < 0 else 1) * np.abs((a - b) / c)
         for a, b, c in zip(gl_real, gl_syn, gl_real_std)
     ]
-    gl_score = np.mean(gl_score)
+    gl_score = np.nanmean(gl_score)
 
     scores = {
         "lin unpred": lu_score,

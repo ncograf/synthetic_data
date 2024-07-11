@@ -72,9 +72,8 @@ def linear_unpredictability_stats(
     regression = linregress(
         np.linspace(1, max_lag, max_lag, endpoint=True), np.mean(lin_upred, axis=1)
     )
-    mean_squared = np.mean(lin_upred**2)
-    mse_stockwise = np.mean(lin_upred**2, axis=0)
-    mse_std = np.std(mse_stockwise)
+    mean_squared = np.nanmean(lin_upred**2)
+    mse_stockwise = np.nanmean(lin_upred**2, axis=0)
 
     stats = {
         "corr": regression.rvalue,
@@ -82,7 +81,11 @@ def linear_unpredictability_stats(
         "beta": regression.slope,
         "alpha": regression.intercept,
         "mse": mean_squared,
-        "mse_std": mse_std,
+        "mse_std": np.nanstd(mse_stockwise),
+        "mse_mean": np.nanmean(mse_stockwise),
+        "mse_median": np.nanmedian(mse_stockwise),
+        "mse_min": np.nanmin(mse_stockwise),
+        "mse_max": np.nanmax(mse_stockwise),
         "data": lin_upred,
     }
 
@@ -105,7 +108,7 @@ def visualize_stat(
     lin_upred_axes_setting = {
         "title": f"{name} linear unpredictability",
         "ylabel": r"$Corr(r_t, r_{t+k})$",
-        "xlabel": "lag k",
+        "xlabel": r"lag $k$",
         "xscale": "log",
         "yscale": "linear",
         "ylim": (-1, 1),

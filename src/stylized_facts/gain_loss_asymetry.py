@@ -69,14 +69,14 @@ def gain_loss_asymmetry_stat(
 
     gain, loss = gain_loss_asymmetry(log_price=log_price, max_lag=max_lag, theta=theta)
 
-    gain_avg = np.mean(gain, axis=1)
-    loss_avg = np.mean(loss, axis=1)
+    gain_avg = np.nanmean(gain, axis=1)
+    loss_avg = np.nanmean(loss, axis=1)
     gain_order = np.flip(np.argsort(gain_avg))
     loss_order = np.flip(np.argsort(loss_avg))
-    arg_max_gain = np.median(gain_order[:10])
-    arg_max_loss = np.median(loss_order[:10])
-    max_gain = np.mean(gain_avg[gain_order[:10]])
-    max_loss = np.mean(loss_avg[loss_order[:10]])
+    arg_max_gain = np.nanmedian(gain_order[:10])
+    arg_max_loss = np.nanmedian(loss_order[:10])
+    max_gain = np.nanmean(gain_avg[gain_order[:10]])
+    max_loss = np.nanmean(loss_avg[loss_order[:10]])
     diff = max_loss - max_gain
     arg_diff = arg_max_gain - arg_max_loss
 
@@ -85,24 +85,27 @@ def gain_loss_asymmetry_stat(
     for idx in range(gain.shape[1]):
         go = np.flip(np.argsort(gain[:, idx]))
         lo = np.flip(np.argsort(loss[:, idx]))
-        amg = np.median(go[:10])
-        aml = np.median(lo[:10])
-        mg = np.mean(gain[go[:10]])
-        ml = np.mean(loss[lo[:10]])
+        amg = np.nanmedian(go[:10])
+        aml = np.nanmedian(lo[:10])
+        mg = np.nanmean(gain[go[:10]])
+        ml = np.nanmean(loss[lo[:10]])
         max_gain_arr.append(mg)
         max_loss_arr.append(ml)
         arg_max_gain_arr.append(amg)
         arg_max_loss_arr.append(aml)
 
-    std_max_gain = np.std(max_gain_arr)
-    std_max_loss = np.std(max_loss_arr)
-    arg_std_max_gain = np.std(arg_max_gain_arr)
-    arg_std_max_loss = np.std(arg_max_loss_arr)
-    std_arg_diff = np.std(np.array(arg_max_gain_arr) - np.array(arg_max_loss_arr))
-    arg_diff_min = np.min(np.array(arg_max_gain_arr) - np.array(arg_max_loss_arr))
-    arg_diff_max = np.max(np.array(arg_max_gain_arr) - np.array(arg_max_loss_arr))
-    arg_diff_mean = np.mean(np.array(arg_max_gain_arr) - np.array(arg_max_loss_arr))
-    std_diff = np.std(np.array(max_loss_arr) - np.array(max_gain_arr))
+    std_max_gain = np.nanstd(max_gain_arr)
+    std_max_loss = np.nanstd(max_loss_arr)
+    arg_std_max_gain = np.nanstd(arg_max_gain_arr)
+    arg_std_max_loss = np.nanstd(arg_max_loss_arr)
+    std_arg_diff = np.nanstd(np.array(arg_max_gain_arr) - np.array(arg_max_loss_arr))
+    arg_diff_min = np.nanmin(np.array(arg_max_gain_arr) - np.array(arg_max_loss_arr))
+    arg_diff_max = np.nanmax(np.array(arg_max_gain_arr) - np.array(arg_max_loss_arr))
+    arg_diff_mean = np.nanmean(np.array(arg_max_gain_arr) - np.array(arg_max_loss_arr))
+    arg_diff_median = np.nanmedian(
+        np.array(arg_max_gain_arr) - np.array(arg_max_loss_arr)
+    )
+    std_diff = np.nanstd(np.array(max_loss_arr) - np.array(max_gain_arr))
 
     stats = {
         "gain": gain,
@@ -122,6 +125,7 @@ def gain_loss_asymmetry_stat(
         "arg_diff_min": arg_diff_min,
         "arg_diff_max": arg_diff_max,
         "arg_diff_mean": arg_diff_mean,
+        "arg_diff_median": arg_diff_median,
     }
 
     return stats

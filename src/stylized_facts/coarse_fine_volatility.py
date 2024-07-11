@@ -130,28 +130,20 @@ def coarse_fine_volatility_stats(
         log_returns=log_returns, tau=tau, max_lag=max_lag
     )
 
-    argmin = np.argmin(np.mean(dll, axis=1))
+    argmin = np.nanargmin(np.nanmean(dll, axis=1))
     _, _, alpha, beta, corr = fit_powerlaw(
-        dll_x[argmin:], -np.mean(dll[argmin:], axis=1), optimize="none"
+        dll_x[argmin:], -np.nanmean(dll[argmin:], axis=1), optimize="none"
     )
 
     # variace estimation
     alpha_arr, beta_arr, r_arr, amin_arr = [], [], [], []
     for idx in range(dll.shape[1]):
-        amin = np.argmin(dll[:, idx])
+        amin = np.nanargmin(dll[:, idx])
         _, _, a, b, r = fit_powerlaw(dll_x[amin:], -dll[amin:, idx], optimize="none")
         amin_arr.append(amin)
         alpha_arr.append(a)
         beta_arr.append(b)
         r_arr.append(r)
-
-    std_alpha = np.std(alpha_arr)
-    std_beta = np.std(beta_arr)
-    std_r = np.std(r_arr)
-    std_amin = np.std(amin_arr)
-
-    beta_min = np.min(beta_arr)
-    beta_max = np.max(beta_arr)
 
     stats = {
         "lead_lag": ll,
@@ -162,12 +154,14 @@ def coarse_fine_volatility_stats(
         "beta": beta,
         "alpha": alpha,
         "corr": corr,
-        "argmin_std": std_amin,
-        "alpha_std": std_alpha,
-        "beta_std": std_beta,
-        "corr_std": std_r,
-        "beta_min": beta_min,
-        "beta_max": beta_max,
+        "argmin_std": np.nanstd(amin_arr),
+        "alpha_std": np.nanstd(alpha_arr),
+        "beta_std": np.nanstd(beta_arr),
+        "corr_std": np.nanstd(r_arr),
+        "beta_min": np.nanmin(beta_arr),
+        "beta_max": np.nanmax(beta_arr),
+        "beta_median": np.nanmedian(beta_arr),
+        "beta_mean": np.nanmean(beta_arr),
     }
 
     return stats

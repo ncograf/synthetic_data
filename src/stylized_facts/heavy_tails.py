@@ -125,18 +125,6 @@ def heavy_tails_stats(
         neg_beta_arr.append(b)
         neg_r_arr.append(r)
 
-    pos_std_alpha = np.std(pos_alpha_arr)
-    pos_std_beta = np.std(pos_beta_arr)
-    pos_std_r = np.std(pos_r_arr)
-    pos_beta_max = np.max(pos_beta_arr)
-    pos_beta_min = np.min(pos_beta_arr)
-
-    neg_std_alpha = np.std(neg_alpha_arr)
-    neg_std_beta = np.std(neg_beta_arr)
-    neg_std_r = np.std(neg_r_arr)
-    neg_beta_max = np.max(neg_beta_arr)
-    neg_beta_min = np.min(neg_beta_arr)
-
     stats = {
         "pos_dens": pos_y,
         "pos_bins": pos_x,
@@ -144,22 +132,26 @@ def heavy_tails_stats(
         "pos_corr": pos_r,
         "pos_beta": pos_beta,
         "pos_alpha": pos_alpha,
-        "pos_beta_std": pos_std_beta,
-        "pos_alpha_std": pos_std_alpha,
-        "pos_corr_std": pos_std_r,
-        "pos_beta_max": pos_beta_max,
-        "pos_beta_min": pos_beta_min,
+        "pos_alpha_std": np.nanstd(pos_alpha_arr),
+        "pos_corr_std": np.nanstd(pos_r_arr),
+        "pos_beta_std": np.nanstd(pos_beta_arr),
+        "pos_beta_max": np.nanmax(pos_beta_arr),
+        "pos_beta_min": np.nanmin(pos_beta_arr),
+        "pos_beta_mean": np.nanmean(pos_beta_arr),
+        "pos_beta_median": np.nanmedian(pos_beta_arr),
         "neg_dens": neg_y,
         "neg_bins": neg_x,
         "neg_powerlaw_x": neg_fit_x,
         "neg_corr": neg_r,
         "neg_beta": neg_beta,
         "neg_alpha": neg_alpha,
-        "neg_beta_std": neg_std_beta,
-        "neg_alpha_std": neg_std_alpha,
-        "neg_corr_std": neg_std_r,
-        "neg_beta_max": neg_beta_max,
-        "neg_beta_min": neg_beta_min,
+        "neg_alpha_std": np.nanstd(neg_alpha_arr),
+        "neg_corr_std": np.nanstd(neg_r_arr),
+        "neg_beta_std": np.nanstd(neg_beta_arr),
+        "neg_beta_max": np.nanmax(neg_beta_arr),
+        "neg_beta_min": np.nanmin(neg_beta_arr),
+        "neg_beta_mean": np.nanmean(neg_beta_arr),
+        "neg_beta_median": np.nanmedian(neg_beta_arr),
     }
 
     return stats

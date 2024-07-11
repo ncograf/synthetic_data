@@ -59,6 +59,8 @@ def leverage_effect_stats(log_returns: npt.ArrayLike, max_lag: int) -> Dict[str,
             corr_min: min fit correlation over index
             beta_min: min fit rate over index
             beta_max: max fit rate over index
+            beta_mean: mean fit rate over index
+            beta_median: median fit rate over index
     """
 
     leveff = leverage_effect(log_returns=log_returns, max_lag=max_lag)
@@ -74,26 +76,20 @@ def leverage_effect_stats(log_returns: npt.ArrayLike, max_lag: int) -> Dict[str,
         beta_arr.append(pb)
         corr_arr.append(pr)
 
-    alpha_std = np.std(alpha_arr)
-    beta_std = np.std(beta_arr)
-    corr_std = np.std(corr_arr)
-    corr_max = np.max(corr_arr)
-    corr_min = np.min(corr_arr)
-    beta_max = np.max(beta_arr)
-    beta_min = np.min(beta_arr)
-
     stats = {
         "lev_eff": leveff,
         "corr": corr,
         "beta": beta,
         "alpha": alpha,
-        "corr_std": corr_std,
-        "beta_std": beta_std,
-        "alpha_std": alpha_std,
-        "corr_max": corr_max,
-        "corr_min": corr_min,
-        "beta_max": beta_max,
-        "beta_min": beta_min,
+        "corr_std": np.nanstd(corr_arr),
+        "alpha_std": np.nanstd(alpha_arr),
+        "corr_max": np.nanmax(corr_arr),
+        "corr_min": np.nanmin(corr_arr),
+        "beta_std": np.nanstd(beta_arr),
+        "beta_max": np.nanmax(beta_arr),
+        "beta_min": np.nanmin(beta_arr),
+        "beta_mean": np.nanmean(beta_arr),
+        "beta_median": np.nanmedian(beta_arr),
     }
 
     return stats

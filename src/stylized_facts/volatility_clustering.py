@@ -87,27 +87,21 @@ def volatility_clustering_stats(
         beta_arr.append(b)
         r_arr.append(r)
 
-    std_alpha = np.std(alpha_arr)
-    std_beta = np.std(beta_arr)
-    std_r = np.std(r_arr)
-    r_max = np.max(r_arr)
-    r_min = np.min(r_arr)
-    beta_max = np.max(beta_arr)
-    beta_min = np.min(beta_arr)
-
     stats = {
         "vol_clust": vol_clust,
         "power_fit_x": fit_x,
         "corr": corr,
         "beta": beta,
         "alpha": alpha,
-        "corr_std": std_r,
-        "beta_std": std_beta,
-        "alpha_std": std_alpha,
-        "corr_min": r_min,
-        "corr_max": r_max,
-        "beta_max": beta_max,
-        "beta_min": beta_min,
+        "corr_std": np.nanstd(r_arr),
+        "beta_std": np.nanstd(beta_arr),
+        "alpha_std": np.nanstd(alpha_arr),
+        "corr_min": np.nanmin(r_arr),
+        "corr_max": np.nanmax(r_arr),
+        "beta_max": np.nanmax(beta_arr),
+        "beta_min": np.nanmin(beta_arr),
+        "beta_mean": np.nanmean(beta_arr),
+        "beta_median": np.nanmedian(beta_arr),
         "beta_arr": beta_arr,
     }
 
