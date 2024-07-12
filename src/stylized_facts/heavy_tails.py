@@ -103,8 +103,8 @@ def heavy_tails_stats(
         py, px, ny, nx = discrete_pdf(log_returns[:, i], n_bins // 40)
         pos_mask, neg_mask = np.cumsum(py), np.cumsum(ny)
         pos_mask, neg_mask = (
-            pos_mask > pos_mask[-1] * (1 - tail_quant),
-            neg_mask > neg_mask[-1] * (1 - tail_quant),
+            pos_mask > pos_mask[-1] * (1 - tail_quant) if pos_mask.size > 0 else [],
+            neg_mask > neg_mask[-1] * (1 - tail_quant) if neg_mask.size > 0 else [],
         )
         pos_y_arr.append(py[pos_mask])
         pos_x_arr.append(px[pos_mask])
