@@ -86,8 +86,8 @@ def heavy_tails_stats(
     pos_y, pos_x, neg_y, neg_x = discrete_pdf(log_returns=log_returns, n_bins=n_bins)
     pos_mask, neg_mask = np.cumsum(pos_y), np.cumsum(neg_y)
     pos_mask, neg_mask = (
-        pos_mask > pos_mask[-1] * (1 - tail_quant),
-        neg_mask > neg_mask[-1] * (1 - tail_quant),
+        pos_mask > pos_mask[-1] * (1 - tail_quant) if pos_mask.size > 0 else [],
+        neg_mask > neg_mask[-1] * (1 - tail_quant) if neg_mask.size > 0 else [],
     )
 
     pos_fit_x, _, pos_alpha, pos_beta, pos_r = fit_powerlaw(

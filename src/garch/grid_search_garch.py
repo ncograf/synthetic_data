@@ -12,29 +12,58 @@ from sklearn.model_selection import ParameterGrid
 seed = 3599
 N_STOCKS = 9216
 
-grid = {
-    "GARCH": {
-        "p": [1, 2, 3, 4],
-        "o": [0, 1, 2, 3, 4],
-        "q": [0, 1, 2, 3, 4],
-        "power": [0.5, 1, 1.5, 2, 3],
-        "dist": ["normal", "t", "skewt", "ged"],
-    },
-    "FIGARCH": {
-        "p": [1, 2, 3, 4],
-        "q": [0, 1, 2, 3, 4],
-        "power": [0.5, 1, 1.5, 2, 3],
-        "dist": ["normal", "t", "skewt", "ged"],
-    },
-    "EARCH": {
-        "p": [1, 2, 3, 4],
-        "o": [0, 1, 2, 3, 4],
-        "q": [0, 1, 2, 3, 4],
-        "power": [0.5, 1, 1.5, 2, 3],
-        "dist": ["normal", "t", "skewt", "ged"],
-    },
-    "ARCH": {"p": [1, 2, 3, 4], "dist": ["normal", "t", "skewt", "ged"]},
-}
+grid = [
+    (
+        "GARCH",
+        {
+            "p": [1, 2],
+            "o": [0, 1, 2],
+            "q": [1, 2],
+            "power": [0.5, 1, 2, 3],
+            "dist": ["normal", "t", "skewt", "ged"],
+        },
+    ),
+    (
+        "GARCH",
+        {
+            "p": [3, 4],
+            "o": [0, 2, 4],
+            "q": [3, 4],
+            "power": [0.5, 1, 2, 3],
+            "dist": ["normal", "t", "skewt", "ged"],
+        },
+    ),
+    (
+        "FIGARCH",
+        {
+            "p": [1, 2, 3],
+            "q": [0, 1, 2, 3],
+            "power": [0.5, 1, 2, 3],
+            "dist": ["normal", "t", "skewt", "ged"],
+        },
+    ),
+    (
+        "EGARCH",
+        {
+            "p": [1, 2],
+            "o": [0, 1, 2],
+            "q": [1, 2],
+            "power": [0.5, 1, 2, 3],
+            "dist": ["normal", "t", "skewt", "ged"],
+        },
+    ),
+    (
+        "EGARCH",
+        {
+            "p": [3, 4],
+            "o": [0, 2, 4],
+            "q": [3, 4],
+            "power": [0.5, 1, 2, 3],
+            "dist": ["normal", "t", "skewt", "ged"],
+        },
+    ),
+    ("ARCH", {"p": [1, 2, 3, 4], "dist": ["normal", "t", "skewt", "ged"]}),
+]
 
 # get data
 data_dir = Path(os.environ["DATA_DIR"])
@@ -56,8 +85,8 @@ real_log_ret[np.abs(real_log_ret) >= 2] = 0  # clean data
 
 experiments = []
 
-for vol in grid:
-    param_grid = list(ParameterGrid(grid[vol]))
+for vol, pg in grid:
+    param_grid = list(ParameterGrid(pg))
     config = {"vol": vol, "mean": "Constant"}
     for grid_conf in param_grid:
         config.update(grid_conf)
