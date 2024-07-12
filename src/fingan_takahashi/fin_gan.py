@@ -40,18 +40,25 @@ class FinGan(nn.Module):
 
         nn.Module.__init__(self)
 
-        self.gen_config = gen_config
-        self.disc_config = disc_config
+        self._gen_config = gen_config
+        self.gen_config = gen_config.copy()
+        self._disc_config = disc_config
+        self.disc_config = disc_config.copy()
         self.data_config = data_config
         self.dist_config = dist_config
 
-        self.gen_config["dtype"] = TypeConverter.str_to_torch(self.gen_config["dtype"])
-        self.disc_config["dtype"] = TypeConverter.str_to_torch(
-            self.disc_config["dtype"]
-        )
+        if isinstance(self.gen_config["dtype"], str):
+            self.gen_config["dtype"] = TypeConverter.str_to_torch(
+                self.gen_config["dtype"]
+            )
+
+        if isinstance(self.disc_config["dtype"], str):
+            self.disc_config["dtype"] = TypeConverter.str_to_torch(
+                self.disc_config["dtype"]
+            )
 
         model = self.gen_config["model"]
-        del self.gen_config["model"]  # remove model key
+        del self.gen_config["model"]
         if model == "mlp":
             self.gen = FinGanMLP(**self.gen_config)
         self.disc = FinGanDisc(**self.disc_config)
@@ -80,8 +87,8 @@ class FinGan(nn.Module):
         """
 
         dict_ = {
-            "gen_config": self.gen_config,
-            "disc_config": self.disc_config,
+            "gen_config": self._gen_config,
+            "disc_config": self._disc_config,
             "data_config": self.data_config,
             "dist_config": self.dist_config,
         }

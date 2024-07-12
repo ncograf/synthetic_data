@@ -13,6 +13,7 @@ import scipy.stats
 import static_stats
 import stylized_score
 import torch
+import wandb
 import wandb_logging
 from accelerate import Accelerator
 from accelerate.utils import set_seed
@@ -20,8 +21,6 @@ from datasets import SP500GanDataset
 from fin_gan import FinGan
 from torch.utils.data import DataLoader
 from type_converter import TypeConverter
-
-import wandb
 
 
 def train_fingan():
@@ -356,7 +355,7 @@ def sample_fingan(file: str | Path, seed: int = 99) -> npt.NDArray:
         npt.NDArray: log return simulations
     """
 
-    N_SEQ = 1000
+    N_SEQ = 233
     set_seed(seed)
 
     file = Path(file)
