@@ -90,12 +90,16 @@ for vol, pg in grid:
     config = {"vol": vol, "mean": "Constant"}
     for grid_conf in param_grid:
         config.update(grid_conf)
-        dir = train_garch._train_garch(config)
-        log_returns = train_garch.sample_garch(dir, seed=seed)
-        total_score, individual_scores = stylized_score.stylized_score(
-            real_log_ret, log_returns
-        )
-        experiments.append((total_score, individual_scores, config))
+
+        try:
+            dir = train_garch._train_garch(config)
+            log_returns = train_garch.sample_garch(dir, seed=seed)
+            total_score, individual_scores = stylized_score.stylized_score(
+                real_log_ret, log_returns
+            )
+            experiments.append((total_score, individual_scores, config))
+        except:  # noqa E722
+            experiments.append((2**31, "error", config))
 
 experiments.sort(key=lambda x: x[0])
 
