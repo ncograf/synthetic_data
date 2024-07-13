@@ -100,9 +100,10 @@ N = 1
 for model, pg in grid:
     config = {"vol": pg["model"], "power": pg["power"], "mean": "Constant"}
     for dist in pg["dist"]:
-        config.update({"dist": dist})
         for p in range(1, pg["max"] + 1):
             par_dict = {s: p for s in pg["par"]}
+            config = config.copy()
+            config.update({"dist": dist})
             config.update(par_dict)
 
             # try:
