@@ -59,6 +59,8 @@ def _train_garch(config, price_data: pd.DataFrame | None = None) -> Path:
     with Path(cache / "meta_data.json").open("w") as meta_file:
         meta_file.write(json.dumps(model_info, indent=4))
 
+    models_dict = {}
+
     for sym in symbols:
         sym_price = price_data.loc[:, sym]
 
@@ -81,7 +83,9 @@ def _train_garch(config, price_data: pd.DataFrame | None = None) -> Path:
             "fit_score": model_result.loglikelihood,
         }
 
-        torch.save(out_dict, cache / f"{sym}.pt")
+        models_dict[sym] = out_dict
+
+    torch.save(models_dict, cache / "garch_models.pt")
 
     return cache
 
@@ -106,18 +110,17 @@ def sample_garch(folder: str | Path, seed: int = 99) -> npt.NDArray:
 
     folder = Path(folder)
 
+    models_dict = torch.load(folder / "garch_models.pt")
     log_returns = []
-    for file in folder.iterdir():
-        if file.suffix == ".pt":
-            garch_dict = torch.load(file)
-            model = arch_uni.arch_model(y=None, **garch_dict["init_params"])
-
-            return_simulation = model.simulate(
-                garch_dict["fit_params"], nobs=LENGTH, burn=BURN
-            ).loc[:, "data"]
-            return_simulation = np.asarray(return_simulation) / 100 + 1
-            return_simulation[return_simulation <= 0] = 1e-8
-            log_returns.append(np.log(return_simulation))
+    for sym in models_dict:
+        garch_dict = models_dict[sym]
+        model = arch_uni.arch_model(y=None, **garch_dict["init_params"])
+        return_simulation = model.simulate(
+            garch_dict["fit_params"], nobs=LENGTH, burn=BURN
+        ).loc[:, "data"]
+        return_simulation = np.asarray(return_simulation) / 100 + 1
+        return_simulation[return_simulation <= 0] = 1e-8
+        log_returns.append(np.log(return_simulation))
 
     log_returns = np.stack(log_returns, axis=1)
 

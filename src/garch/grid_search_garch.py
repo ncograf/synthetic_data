@@ -7,62 +7,71 @@ import pandas as pd
 import real_data_loader
 import stylized_score
 import train_garch
-from sklearn.model_selection import ParameterGrid
 
 seed = 3599
 N_STOCKS = 9216
 
 grid = [
     (
-        "GARCH",
+        "ARCH",
         {
-            "p": [1, 2],
-            "o": [0, 1, 2],
-            "q": [1, 2],
-            "power": [0.5, 1, 2, 3],
+            "model": "ARCH",
+            "max": 5,
+            "par": ["p"],
+            "power": 2,
             "dist": ["normal", "t", "skewt", "ged"],
         },
     ),
     (
         "GARCH",
         {
-            "p": [3, 4],
-            "o": [0, 2, 4],
-            "q": [3, 4],
-            "power": [0.5, 1, 2, 3],
+            "model": "GARCH",
+            "max": 5,
+            "par": ["p", "q"],
+            "power": 2,
+            "dist": ["normal", "t", "skewt", "ged"],
+        },
+    ),
+    (
+        "GJR-GARCH",
+        {
+            "model": "GARCH",
+            "max": 5,
+            "par": ["p", "o", "q"],
+            "power": 2,
+            "dist": ["normal", "t", "skewt", "ged"],
+        },
+    ),
+    (
+        "TARCH",
+        {
+            "model": "GARCH",
+            "max": 5,
+            "par": ["p", "o", "q"],
+            "power": 1,
             "dist": ["normal", "t", "skewt", "ged"],
         },
     ),
     (
         "FIGARCH",
         {
-            "p": [1, 2, 3],
-            "q": [0, 1, 2, 3],
-            "power": [0.5, 1, 2, 3],
+            "model": "FIGARCH",
+            "max": 5,
+            "par": ["p", "q"],
+            "power": 2,
             "dist": ["normal", "t", "skewt", "ged"],
         },
     ),
     (
         "EGARCH",
         {
-            "p": [1, 2],
-            "o": [0, 1, 2],
-            "q": [1, 2],
-            "power": [0.5, 1, 2, 3],
+            "model": "EGARCH",
+            "max": 5,
+            "par": ["p", "q"],
+            "power": 2,
             "dist": ["normal", "t", "skewt", "ged"],
         },
     ),
-    (
-        "EGARCH",
-        {
-            "p": [3, 4],
-            "o": [0, 2, 4],
-            "q": [3, 4],
-            "power": [0.5, 1, 2, 3],
-            "dist": ["normal", "t", "skewt", "ged"],
-        },
-    ),
-    ("ARCH", {"p": [1, 2, 3, 4], "dist": ["normal", "t", "skewt", "ged"]}),
 ]
 
 # get data
@@ -83,27 +92,43 @@ np_data = np.asarray(real_data)
 real_log_ret = np.log(np_data[1:] / np_data[:-1])
 real_log_ret[np.abs(real_log_ret) >= 2] = 0  # clean data
 
+path = Path(os.environ["RESULT_DIR"]) / "garch_experiments.json"
 experiments = []
 
-for vol, pg in grid:
-    param_grid = list(ParameterGrid(pg))
-    config = {"vol": vol, "mean": "Constant"}
-    for grid_conf in param_grid:
-        config.update(grid_conf)
+N = 1
 
-        try:
+for model, pg in grid:
+    config = {"vol": pg["model"], "power": pg["power"], "mean": "Constant"}
+    for dist in pg["dist"]:
+        config.update({"dist": dist})
+        for p in range(1, pg["max"] + 1):
+            par_dict = {s: p for s in pg["par"]}
+            config.update(par_dict)
+
+            # try:
             dir = train_garch._train_garch(config)
-            log_returns = train_garch.sample_garch(dir, seed=seed)
-            total_score, individual_scores = stylized_score.stylized_score(
-                real_log_ret, log_returns
-            )
-            experiments.append((total_score, individual_scores, config))
-        except:  # noqa E722
-            experiments.append((2**31, "error", config))
 
-experiments.sort(key=lambda x: x[0])
+            total_score = []
+            individual_socore = []
+            try:
+                for i in range(N):
+                    log_returns = train_garch.sample_garch(dir, seed=(seed + i))
+                    tot, ind = stylized_score.stylized_score(real_log_ret, log_returns)
+                    total_score.append(tot)
+                    individual_socore.append(list(ind.values()))
 
-path = Path(os.environ["RESULT_DIR"]) / "garch_experiments.json"
+                experiments.append(
+                    {
+                        "score": np.nanmean(total_score),
+                        "score_std": np.nanstd(total_score),
+                        "ind_scores": list(np.nanmean(individual_socore, axis=0)),
+                        "ind_scores_std": list(np.nanstd(individual_socore, axis=0)),
+                        "config": config,
+                    }
+                )
+            except:  # noqa E722
+                experiments.append({"score": 2**31, "config": config})
 
-with path.open("w") as file:
-    file.write(json.dumps(experiments, ensure_ascii=True))
+            experiments.sort(key=lambda x: x["score"])
+            with path.open("w") as file:
+                file.write(json.dumps(experiments, ensure_ascii=True, indent=4))
