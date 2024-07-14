@@ -94,8 +94,11 @@ real_log_ret[np.abs(real_log_ret) >= 2] = 0  # clean data
 
 path = Path(os.environ["RESULT_DIR"]) / "garch_experiments.json"
 experiments = []
+if path.exists():
+    with path.open() as file:
+        experiments = json.load(file)
 
-N = 1
+N = 40
 
 for model, pg in grid:
     config = {"vol": pg["model"], "power": pg["power"], "mean": "Constant"}
@@ -105,6 +108,15 @@ for model, pg in grid:
             config = config.copy()
             config.update({"dist": dist})
             config.update(par_dict)
+
+            exists = False
+            for exp in experiments:
+                if exp["config"] == config:
+                    exists = True
+                    break
+
+            if exists:
+                continue
 
             # try:
             dir = train_garch._train_garch(config)
@@ -124,6 +136,7 @@ for model, pg in grid:
                         "score_std": np.nanstd(total_score),
                         "ind_scores": list(np.nanmean(individual_socore, axis=0)),
                         "ind_scores_std": list(np.nanstd(individual_socore, axis=0)),
+                        "path": str(dir),
                         "config": config,
                     }
                 )
