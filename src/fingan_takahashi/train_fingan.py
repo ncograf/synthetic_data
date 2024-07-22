@@ -3,17 +3,18 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict, List
 
+import click
 import cpuinfo
+import load_data
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
-import real_data_loader as data
 import scipy.stats
 import static_stats
 import stylized_score
 import torch
-import wandb
 import wandb_logging
 from accelerate import Accelerator
 from accelerate.utils import set_seed
@@ -22,8 +23,10 @@ from fin_gan import FinGan
 from torch.utils.data import DataLoader
 from type_converter import TypeConverter
 
+import wandb
 
-def train_fingan():
+
+def _train_fingan(config: Dict[str, Any] = {}):
     """Fit a FinGan Neural Network. I.e. Train the network on the given data.
 
     The method logs intermediate results every few epochs
@@ -39,12 +42,13 @@ def train_fingan():
             raise EnvironmentError("WANDB_PROJECT is not set!")
 
     # define training config and train model
-    config = {
-        "seq_len": 8192,
+    conf = {
+        "seq_len": 1024,
         "train_seed": 99,
         "dtype": "float32",
-        "epochs": 3000,
-        "batch_size": 24,
+        "epochs": 10,
+        "batch_size": 2,
+        # dist in studentt, normal, cauchy, laplace
         "dist": "studentt",
         # "moment_losses" : ['mean', 'variance', 'skewness', 'kurtosis'],
         "moment_losses": [],
@@ -61,30 +65,21 @@ def train_fingan():
         },
     }
 
-    root_dir = Path(__file__).parent.parent.parent
+    conf.update(config)
+
     N_TICKS = 9216
 
     # setup cache for the train run
     TIME_FORMAT = "%Y_%m_%d-%H_%M_%S"
     t = datetime.now().strftime(TIME_FORMAT)
-    cache = Path(f"{root_dir}/data/cache/FinGanTakahashi_{t}")
+    cache = Path(os.environ["RESULT_DIR"]) / f"FinGanTakahashi_{t}"
     cache.mkdir(parents=True, exist_ok=True)
 
     # load real data
-    data_loader = data.RealDataLoader(cache=root_dir / "data/cache")
-    price_data = data_loader.get_timeseries(
-        "Adj Close", data_path=root_dir / "data/raw_yahoo_data"
-    )
-
-    # all colums in the dataframe must have at least seq_len non_nan elements
-    non_nans = np.array(np.sum(~np.isnan(price_data), axis=0))
-    price_data = price_data.drop(
-        price_data.columns[non_nans <= N_TICKS], axis="columns"
-    )
-    price_data = price_data.iloc[-N_TICKS:]
+    log_returns = load_data.load_log_returns("sp500", N_TICKS)
 
     # accelerator is used to efficiently use resources
-    set_seed(config["train_seed"])
+    set_seed(conf["train_seed"])
     accelerator = Accelerator()
     device = accelerator.device
 
@@ -96,10 +91,8 @@ def train_fingan():
         cuda_name = torch.cuda.get_device_name(device)
         print(f"GPU: {cuda_name}")
 
-    with wandb.init(tags=["FinGanTakahashi", config["dist"]] + config["moment_losses"]):
+    with wandb.init(tags=["FinGanTakahashi", conf["dist"]] + conf["moment_losses"]):
         # process data
-        log_returns = np.array(price_data)
-        log_returns = np.log(log_returns[1:] / log_returns[:-1])
         real_stats = stylized_score._compute_stats(log_returns, "real")
 
         # determine shift and scale
@@ -115,7 +108,7 @@ def train_fingan():
 
         # log wandb if wandb logging is active
         if wandb.run is not None:
-            wandb.config.update(config)
+            wandb.config.update(conf)
             wandb.config["data_stats"] = real_static_stats
             wandb.config["train_config.cpu"] = cpu_name
             wandb.config["train_config.gpu"] = cuda_name
@@ -123,7 +116,7 @@ def train_fingan():
             wandb.define_metric("*", step_metric="epoch")
 
         # set distribution
-        match config["dist"]:
+        match conf["dist"]:
             case "studentt":
                 df, loc, scale = scipy.stats.t.fit(log_returns.flatten())
                 fit = {"df": df, "loc": loc, "scale": scale}
@@ -133,7 +126,7 @@ def train_fingan():
                 loc, scale = scipy.stats.cauchy.fit(log_returns.flatten())
                 fit = {"loc": loc, "scale": scale}
             case "stdnormal":
-                config["dist"] = "normal"
+                conf["dist"] = "normal"
                 fit = {"loc": 0, "scale": 1}
             case "laplace":
                 loc, scale = scipy.stats.laplace.fit(log_returns.flatten())
@@ -141,29 +134,27 @@ def train_fingan():
 
         # read config
         gen_config = {
-            "seq_len": config["seq_len"],
-            "dtype": config["dtype"],
+            "seq_len": conf["seq_len"],
+            "dtype": conf["dtype"],
             "model": "mlp",
         }
-        disc_config = {"input_dim": config["seq_len"], "dtype": config["dtype"]}
-        dist_config = {"dist": config["dist"], **fit}
-        batch_size = config["batch_size"]
-        epochs = config["epochs"]
-        dtype = TypeConverter.str_to_numpy(config["dtype"])
+        disc_config = {"input_dim": conf["seq_len"], "dtype": conf["dtype"]}
+        dist_config = {"dist": conf["dist"], **fit}
+        batch_size = conf["batch_size"]
+        epochs = conf["epochs"]
+        dtype = TypeConverter.str_to_numpy(conf["dtype"])
 
         # create dataset (note that the dataset will sample randomly during training (see source for more information))
         dataset = SP500GanDataset(
-            log_returns.astype(dtype), batch_size * 1024, config["seq_len"]
+            log_returns.astype(dtype), batch_size * 1024, conf["seq_len"]
         )
         loader = DataLoader(dataset, batch_size, pin_memory=True)
 
         # initialize model and optimiers
         model = FinGan(gen_config, disc_config, data_config, dist_config)
-        gen_optim = torch.optim.Adam(
-            model.gen.parameters(), **config["optim_gen_config"]
-        )
+        gen_optim = torch.optim.Adam(model.gen.parameters(), **conf["optim_gen_config"])
         disc_optim = torch.optim.Adam(
-            model.disc.parameters(), **config["optim_disc_config"]
+            model.disc.parameters(), **conf["optim_disc_config"]
         )
         bce_criterion = torch.nn.BCELoss()
 
@@ -226,17 +217,17 @@ def train_fingan():
                 gen_std = torch.std(flat_fake_batch)
 
                 # Compute and add momemt losses if configured
-                if "mean" in config["moment_losses"]:
+                if "mean" in conf["moment_losses"]:
                     gen_err += ((gen_mean - mean) / (abs(mean) + 0.1)) ** 2
-                if "variance" in config["moment_losses"]:
+                if "variance" in conf["moment_losses"]:
                     gen_var = torch.var(flat_fake_batch)
                     gen_err += ((gen_var - var) / (var + 0.1)) ** 2
-                if "skewness" in config["moment_losses"]:
+                if "skewness" in conf["moment_losses"]:
                     gen_skewness = torch.mean((flat_fake_batch - gen_mean) ** 3) / (
                         gen_std**3
                     )
                     gen_err += ((gen_skewness - skewness) / (abs(skewness) + 0.1)) ** 2
-                if "kurtosis" in config["moment_losses"]:
+                if "kurtosis" in conf["moment_losses"]:
                     gen_kurtosis = torch.mean((flat_fake_batch - gen_mean) ** 4) / (
                         gen_std**4
                     )
@@ -372,6 +363,25 @@ def sample_fingan(file: str | Path, seed: int = 99) -> npt.NDArray:
     log_returns = log_returns.detach().cpu().numpy().T
 
     return log_returns
+
+
+@click.command()
+@click.option(
+    "--dist",
+    type=click.STRING,
+    default="normal",
+    help='Distribution to sample from ["normal", "studentt", "cauchy", "laplace"]',
+)
+@click.option(
+    "--moment_loss",
+    "-m",
+    multiple=True,
+    default=[],
+    help='Moment losses to use ["mean", "variance", "skewness", "kurtosis"]',
+)
+def train_fingan(dist: str, moment_loss: List[str]):
+    config = {"dist": dist, "moment_losses": list(moment_loss)}
+    _train_fingan(config)
 
 
 if __name__ == "__main__":
