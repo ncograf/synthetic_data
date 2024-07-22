@@ -1,10 +1,73 @@
 from typing import Any, Dict, List, Tuple
 
 import boosted_stats
+import lagged_correlation
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
+import torch
 from power_fit import fit_powerlaw
+
+
+def coarse_fine_volatility_torch(
+    log_returns: torch.Tensor, tau: int, max_lag: int
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Coarse fine volatility: compute the lead lag
+
+    :math:```
+        p(k) = Corr(v_c(t+k), v_f)
+        v_c(t) = | \sum_i r_{t - i} |
+        v_f(t) = \sum_i | r_{t - i} |
+
+        \Delta p(k) = p(k) - p(-k)
+        ```
+    Args:
+        log_returns (npt.ArrayLike): returns
+        tau (int): timespan to sum over in v_c and v_f
+        max_lag (int): max lag to compute in correlation
+
+    Returns:
+        Tuple[ndarray, ndarray, ndarray, ndarray]: lead_lag p(k), lead_lag x, delta lead lag, delta lead lag x
+    """
+
+    # hack by setting nans to 0
+    nan_mask = torch.isnan(log_returns)
+    log_returns[nan_mask] = 0
+
+    nan_mask_shifted = torch.isnan(log_returns[:-tau])
+
+    # compute coarse volatiltiy |sum r_t|
+    cum_sum = torch.cumsum(log_returns, dim=0)
+    v_c_tau = torch.abs(cum_sum[tau:] - cum_sum[:-tau])
+    v_c_tau[nan_mask_shifted] = torch.nan
+
+    # compute fine volatiltiy sum |r_t|
+    abs_log_return = torch.abs(log_returns)
+    abs_cumsum = torch.cumsum(abs_log_return, dim=0)
+    v_f_tau = abs_cumsum[tau:] - abs_cumsum[:-tau]
+    v_f_tau = v_f_tau / tau
+    v_f_tau[nan_mask_shifted] = torch.nan
+
+    stat_pos = lagged_correlation.lagged_corr(v_f_tau, v_c_tau, max_lag, dim=0)
+    stat_neg = lagged_correlation.lagged_corr(v_c_tau, v_f_tau, max_lag, dim=0)
+
+    # normalize to get correlation
+    v_f_std = torch.sqrt(
+        torch.nanmean((v_f_tau - torch.nanmean(v_f_tau, dim=0)) ** 2, dim=0)
+    )
+    v_c_std = torch.sqrt(
+        torch.nanmean((v_c_tau - torch.nanmean(v_c_tau, dim=0)) ** 2, dim=0)
+    )
+    stat_neg = stat_neg / (v_c_std * v_f_std)
+    stat_pos = stat_pos / (v_c_std * v_f_std)
+
+    stat = torch.cat([torch.flip(stat_neg, dims=[0]), stat_pos[1:]], dim=0)
+    lead_lag = stat_pos - stat_neg
+
+    lead_lag_x = torch.arange(max_lag + 1)
+    stat_x = torch.concatenate([-torch.flip(lead_lag_x, dims=[0]), lead_lag_x[1:]])
+
+    return stat, stat_x, lead_lag, lead_lag_x
 
 
 def coarse_fine_volatility(
@@ -84,12 +147,12 @@ def coarse_fine_volatility(
     stat_pos = stat_pos / (v_c_std * v_f_std)
 
     stat = np.concatenate([np.flip(stat_neg, axis=0), stat_pos[1:]], axis=0)
-    lead_lag = stat_pos - stat_neg
+    delta_lead_lag = stat_pos - stat_neg
 
-    lead_lag_x = np.arange(max_lag + 1)
-    stat_x = np.concatenate([-np.flip(lead_lag_x), lead_lag_x[1:]])
+    delta_lead_lag_x = np.arange(max_lag + 1)
+    stat_x = np.concatenate([-np.flip(delta_lead_lag_x), delta_lead_lag_x[1:]])
 
-    return stat, stat_x, lead_lag, lead_lag_x
+    return stat, stat_x, delta_lead_lag, delta_lead_lag_x
 
 
 def coarse_fine_volatility_stats(
@@ -97,13 +160,12 @@ def coarse_fine_volatility_stats(
 ) -> Dict[str, Any]:
     """Coarse Fine Volatility Statistics
 
-    :math:```
+    :math:
         p(k) = Corr(v_c(t+k), v_f)
         v_c(t) = | \sum_i r_{t - i} |
         v_f(t) = \sum_i | r_{t - i} |
 
         \Delta p(k) = p(k) - p(-k)
-        ```
 
     Args:
         log_returns (npt.ArrayLike): log returns
@@ -126,8 +188,14 @@ def coarse_fine_volatility_stats(
             corr_std: standard deviation for fits
     """
 
-    ll, ll_x, dll, dll_x = coarse_fine_volatility(
-        log_returns=log_returns, tau=tau, max_lag=max_lag
+    ll, ll_x, dll, dll_x = coarse_fine_volatility_torch(
+        log_returns=torch.tensor(log_returns), tau=tau, max_lag=max_lag
+    )
+    ll, ll_x, dll, dll_x = (
+        np.asarray(ll),
+        np.asarray(ll_x),
+        np.asarray(dll),
+        np.asarray(dll_x),
     )
 
     argmin = np.nanargmin(np.nanmean(dll, axis=1))

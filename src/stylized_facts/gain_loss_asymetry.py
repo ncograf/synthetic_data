@@ -1,10 +1,59 @@
+import time
 from typing import Any, Dict, List, Tuple
 
 import boosted_stats
 import gen_inv_gamma
+import load_data
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
+import torch
+
+
+def gain_loss_asymmetry_torch(log_price: torch.Tensor, max_lag: int, theta: float):
+    """Gain Loss assymetry statisitcs EXTREMELY SLOW
+
+    Compute the discrete pdf functions (histogramms for bins: 1, 2, 3, ..., max_lag)
+    of the gains and losses statistics.
+
+    Args:
+        log_price (npt.ArrayLike): log prices
+        max_lag (int): maximum lag to compute
+        theta (float): threshold parameter
+
+    Returns:
+        Tuple[npt.NDArray, npt.NDArray]: gains_statistic, loss_statistic
+    """
+
+    numpy = False
+    if not torch.is_tensor(log_price):
+        numpy = True
+        log_price = torch.tensor(log_price)
+
+    t = time.time()
+    log_price = log_price.nan_to_num(0, 0, 0)
+    n = log_price.shape[0]
+    cs = torch.cumsum(log_price, dim=0)
+    cs = torch.nn.functional.pad(cs, (0, 0, 0, max_lag))
+    cs_unfolded = cs.unfold(0, n, 1)  # max_lag x n_stocks x n
+    cs = cs.T  # n_stocks x (n + max_lag)
+    cs = cs.reshape(1, *cs.shape)[:, :, :-max_lag]  # 1 x n_stocks x n
+    print(f"unfold and cumsum {time.time() - t}")
+
+    log_p_incr = cs - cs_unfolded  # max_lag x n_stocks x n
+
+    t = time.time()
+    gain_values = torch.argmax((log_p_incr > theta).type(torch.int8), dim=0)
+    print(f"argmax gains {time.time() - t}")
+    t = time.time()
+    loss_values = torch.argmax((-log_p_incr < -theta).type(torch.int8), dim=0)
+    print(f"argmax losses {time.time() - t}")
+
+    if numpy:
+        gain_values = np.asarray(gain_values)
+        loss_values = np.asarray(loss_values)
+
+    return gain_values, loss_values
 
 
 def gain_loss_asymmetry(
@@ -32,7 +81,6 @@ def gain_loss_asymmetry(
             f"Log Price has {log_price.ndim} dimensions should have 1 or 2."
         )
 
-    # compute the (r_{t+k} - mu) part of the correlation and the (r_t - mu) part separately
     if log_price.dtype.name == "float32":
         boosted = boosted_stats.gain_loss_asym_float(log_price, max_lag, theta, False)
     elif log_price.dtype.name == "float64":
@@ -223,3 +271,18 @@ def visualize_stat(
 
     plot.set(**gain_loss_axis_setting)
     plot.legend(loc="upper right")
+
+
+data = load_data.load_log_returns("sp500")
+data = np.cumsum(data, axis=0)
+
+t = time.time()
+test = gain_loss_asymmetry_torch(data, max_lag=1000, theta=0.1)
+print("torch ", time.time() - t)
+
+t = time.time()
+test = gain_loss_asymmetry(data, max_lag=1000, theta=0.1)
+print("normal ", time.time() - t)
+
+
+print(test[0].shape)

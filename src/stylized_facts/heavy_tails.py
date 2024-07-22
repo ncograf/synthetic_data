@@ -1,53 +1,72 @@
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
+import load_data
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
+import torch
 from power_fit import fit_powerlaw
 
 
-def _discrete_pdf(log_returns: npt.ArrayLike, n_bins: int = 1000):
-    # distribution of all returns
-    log_returns = np.asarray(log_returns)
-    log_returns = log_returns[~np.isnan(log_returns) & ~np.isinf(log_returns)]
+def discrete_pdf(
+    log_returns: torch.Tensor, n_bins: int = 1000
+) -> torch.Tensor | npt.NDArray:
+    numpy = False
+    if not torch.is_tensor(log_returns):
+        numpy = True
+        log_returns = torch.tensor(log_returns)
 
-    # compute the (r_{t+k} - mu) part of the correlation and the (r_t - mu) part separately
-    bin_density, bin_edges = np.histogram(log_returns, bins=n_bins, density=False)
-    bin_starts = bin_edges[:-1]
-    bin_density = bin_density / log_returns.size
-    return bin_density, bin_starts
+    # distribution flattens log returns and remves nans
+    log_returns = log_returns.nan_to_num(0, 0, 0)
+    log_returns = log_returns.flatten()
 
+    min, mu, max = (
+        torch.min(log_returns),
+        torch.mean(log_returns),
+        torch.max(log_returns),
+    )
+    exp = 3
+    pos_bin_end = torch.pow(
+        torch.linspace(
+            1e-3 ** (1 / exp), torch.pow(max - mu, 1 / exp), n_bins // 2 + 1
+        ),
+        exp,
+    )
+    pos_diffs = torch.diff(pos_bin_end)
+    neg_bin_end = torch.pow(
+        torch.linspace(
+            1e-3 ** (1 / exp), torch.pow(mu - min, 1 / exp), n_bins // 2 + 1
+        ),
+        exp,
+    )
+    neg_diffs = torch.diff(neg_bin_end)
 
-def discrete_pdf(log_returns: npt.ArrayLike, n_bins: int = 1000) -> Tuple[npt.NDArray]:
-    """Compute `heavy tails`, i.e. pdf approximation as discrete histogram
+    pos_log_ret = log_returns[log_returns > mu] - mu
+    neg_log_ret = -(log_returns[log_returns <= mu] - mu)
 
-    Args:
-        log_returns (array_like): data to be fit
-        n_bins (int, optional): number of bins in histogram. Defaults to 1000.
+    pos_log_ret = torch.sort(pos_log_ret)[0]
+    neg_log_ret = torch.sort(neg_log_ret)[0]
 
-    Returns:
-        Tuple[npt.NDArray]: positive_density, positive_bins, negative_density, negative_bins
-    """
-    log_returns = np.asarray(log_returns)
-    if log_returns.ndim == 1:
-        log_returns = log_returns.reshape((-1, 1))
-    elif log_returns.ndim > 2:
-        raise RuntimeError(
-            f"Log Returns have {log_returns.ndim} dimensions must have 1 or 2."
+    pos_cum_cnt = torch.searchsorted(pos_log_ret, pos_bin_end)
+    neg_cum_cnt = torch.searchsorted(neg_log_ret, neg_bin_end)
+
+    pos_cum_cnt = pos_cum_cnt[1:] - pos_cum_cnt[:-1]
+    neg_cum_cnt = neg_cum_cnt[1:] - neg_cum_cnt[:-1]
+
+    pos_dens = pos_cum_cnt / (log_returns.numel() * pos_diffs)
+    neg_dens = neg_cum_cnt / (log_returns.numel() * neg_diffs)
+
+    if numpy:
+        out = (
+            np.asarray(pos_dens),
+            np.asarray(pos_bin_end[1:] + mu),
+            np.asarray(neg_dens),
+            np.asarray(neg_bin_end[1:] + mu),
         )
+    else:
+        out = pos_dens, pos_bin_end + mu, neg_dens, neg_bin_end + mu
 
-    # normalize returns
-    std = np.nanstd(log_returns)
-    log_returns = log_returns / std
-
-    dens, bins = _discrete_pdf(log_returns, n_bins=2 * n_bins)
-
-    pos_dens = dens[bins > 0]
-    pos_bins = bins[bins > 0]
-    neg_dens = np.flip(dens[bins < 0])
-    neg_bins = -np.flip(bins[bins < 0])
-
-    return pos_dens, pos_bins, neg_dens, neg_bins
+    return out
 
 
 def heavy_tails_stats(
@@ -242,3 +261,15 @@ def visualize_stat(
     plot.set_xlim(xlim)
     plot.set_ylim(ylim)
     plot.legend(loc="lower left")
+
+
+data = load_data.load_log_returns("sp500")
+
+plt.hist(data.flatten(), density=True, bins=2000)
+
+pos_dens, pos_bins, neg_dens, neg_bins = discrete_pdf(data, 1000)
+plt.plot(pos_bins, pos_dens)
+plt.plot(np.asarray(neg_bins), np.asarray(neg_dens))
+plt.xscale("log")
+plt.yscale("log")
+plt.show()

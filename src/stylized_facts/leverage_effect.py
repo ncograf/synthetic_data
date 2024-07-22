@@ -1,10 +1,42 @@
 from typing import Any, Dict, List
 
 import boosted_stats
+import lagged_correlation
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
+import torch
 from power_fit import fit_powerlaw
+
+
+def leverage_effect_torch(log_returns: torch.Tensor, max_lag: int) -> torch.Tensor:
+    """Linear unpredictability
+
+    :math:`Corr(r_t, r_{t+k}) \approx 0, \quad \text{for } k \geq 1`
+
+    where k is chosen sucht that k <= `max_lag`
+
+    Args:
+        log_returns (pd.DataFrame): price log returns
+        max_lag (int): maximal lag to compute
+
+    Returns:
+        npt.NDArray: max_lag x (log_returns.shape[1]) for each stock
+    """
+
+    if not torch.is_tensor(log_returns):
+        log_returns = torch.tensor(log_returns)
+
+    # make asolute values
+    vol_returns = log_returns**2
+
+    var = torch.nanmean((log_returns - torch.nanmean(log_returns, dim=0)) ** 2, dim=0)
+    cov = lagged_correlation.lagged_corr(
+        log_returns, vol_returns, max_lag=max_lag, dim=0
+    )[1:]
+
+    vol_cluster = cov / torch.pow(var, 3 / 2)
+    return vol_cluster
 
 
 def leverage_effect(log_returns: npt.ArrayLike, max_lag: int) -> npt.NDArray:
@@ -63,7 +95,11 @@ def leverage_effect_stats(log_returns: npt.ArrayLike, max_lag: int) -> Dict[str,
             beta_median: median fit rate over index
     """
 
-    leveff = leverage_effect(log_returns=log_returns, max_lag=max_lag)
+    if not torch.is_tensor(log_returns):
+        log_returns = torch.tensor(log_returns)
+
+    leveff = leverage_effect_torch(log_returns, max_lag=max_lag)
+    leveff = np.asarray(leveff)
     x = np.arange(1, leveff.shape[0] + 1)
     y = np.mean(leveff, axis=1)
     _, _, alpha, beta, corr = fit_powerlaw(x, -y, optimize="none")
