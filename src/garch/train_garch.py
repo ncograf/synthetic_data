@@ -6,10 +6,10 @@ from pathlib import Path
 
 import arch.univariate as arch_uni
 import click
+import load_data
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
-import real_data_loader
 import torch
 
 
@@ -32,20 +32,11 @@ def _train_garch(config, price_data: pd.DataFrame | None = None) -> Path:
         Path : path to the results directory
     """
 
-    N_TICKS = 9216
+    MIN_T = 9216
 
     # load real data
-    data_dir = Path(os.environ["DATA_DIR"])
-    data_loader = real_data_loader.RealDataLoader(cache=data_dir / "cache")
-    price_data = data_loader.get_timeseries(
-        "Adj Close", data_path=data_dir / "raw_yahoo_data"
-    )
-
-    # all colums in the dataframe must have at least seq_len non_nan elements
-    non_nans = np.array(np.sum(~np.isnan(price_data), axis=0))
-    price_data = price_data.drop(
-        price_data.columns[non_nans <= N_TICKS], axis="columns"
-    )
+    price_data = load_data.load_prices("sp500")
+    log_returns = load_data.get_log_returns(price_data, MIN_T)
 
     TIME_FORMAT = "%Y_%m_%d-%H_%M_%S"
     time = datetime.now().strftime(TIME_FORMAT)
@@ -61,15 +52,9 @@ def _train_garch(config, price_data: pd.DataFrame | None = None) -> Path:
 
     models_dict = {}
 
-    for sym in symbols:
-        sym_price = price_data.loc[:, sym]
-
-        # algorithms only work with dataframes
-        if isinstance(sym_price, pd.Series):
-            sym_price = sym_price.to_frame()
-
+    for i, sym in enumerate(symbols):
         # create data
-        data = np.array(sym_price)
+        data = log_returns[:, i]
         returns = ((data[1:] / data[:-1]) - 1) * 100
         return_mask = ~np.isnan(returns).flatten()
 
