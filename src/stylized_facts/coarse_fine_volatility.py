@@ -9,7 +9,7 @@ import torch
 from power_fit import fit_powerlaw
 
 
-def coarse_fine_volatility_torch(
+def coarse_fine_volatility(
     log_returns: torch.Tensor, tau: int, max_lag: int
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """Coarse fine volatility: compute the lead lag
@@ -29,6 +29,11 @@ def coarse_fine_volatility_torch(
     Returns:
         Tuple[ndarray, ndarray, ndarray, ndarray]: lead_lag p(k), lead_lag x, delta lead lag, delta lead lag x
     """
+
+    numpy = False
+    if not torch.is_tensor(log_returns):
+        numpy = True
+        log_returns = torch.tensor(log_returns)
 
     # hack by setting nans to 0
     nan_mask = torch.isnan(log_returns)
@@ -67,10 +72,18 @@ def coarse_fine_volatility_torch(
     lead_lag_x = torch.arange(max_lag + 1)
     stat_x = torch.concatenate([-torch.flip(lead_lag_x, dims=[0]), lead_lag_x[1:]])
 
+    if numpy:
+        return (
+            np.asarray(stat),
+            np.asarray(stat_x),
+            np.asarray(lead_lag),
+            np.asarray(lead_lag_x),
+        )
+
     return stat, stat_x, lead_lag, lead_lag_x
 
 
-def coarse_fine_volatility(
+def coarse_fine_volatility_depr(
     log_returns: npt.ArrayLike, tau: int, max_lag: int
 ) -> Tuple[npt.NDArray, npt.NDArray, npt.NDArray, npt.NDArray]:
     """Coarse fine volatility: compute the lead lag
@@ -188,14 +201,8 @@ def coarse_fine_volatility_stats(
             corr_std: standard deviation for fits
     """
 
-    ll, ll_x, dll, dll_x = coarse_fine_volatility_torch(
-        log_returns=torch.tensor(log_returns), tau=tau, max_lag=max_lag
-    )
-    ll, ll_x, dll, dll_x = (
-        np.asarray(ll),
-        np.asarray(ll_x),
-        np.asarray(dll),
-        np.asarray(dll_x),
+    ll, ll_x, dll, dll_x = coarse_fine_volatility(
+        log_returns=log_returns, tau=tau, max_lag=max_lag
     )
 
     argmin = np.nanargmin(np.nanmean(dll, axis=1))

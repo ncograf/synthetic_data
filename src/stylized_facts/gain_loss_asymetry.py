@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 import torch
+from scipy.stats import wasserstein_distance
 
 
 def gain_loss_asymmetry_torch(log_price: torch.Tensor, max_lag: int, theta: float):
@@ -211,7 +212,7 @@ def visualize_stat(
     gain_plot_setting = {
         "alpha": 0.8,
         "marker": "o",
-        "color": "violet",
+        # "color": "violet",
         "markersize": 3,
         "linestyle": "None",
         "label": r"gain $\theta > 0$",
@@ -220,7 +221,7 @@ def visualize_stat(
     loss_plot_setting = {
         "alpha": 0.8,
         "marker": "o",
-        "color": "cornflowerblue",
+        # "color": "cornflowerblue",
         "markersize": 3,
         "linestyle": "None",
         "label": r"loss $\theta < 0$",
@@ -273,16 +274,49 @@ def visualize_stat(
     plot.legend(loc="upper right")
 
 
-data = load_data.load_log_returns("sp500")
-data = np.cumsum(data, axis=0)
+if __name__ == "__main__":
+    sp500 = np.cumsum(load_data.load_log_returns("sp500"), axis=0)
+    smi = np.cumsum(load_data.load_log_returns("smi"), axis=0)
+    dax = np.cumsum(load_data.load_log_returns("dax"), axis=0)
+    # visualize_stat(plt.gca(), data, 'test', 0.1, interval=True)
 
-t = time.time()
-test = gain_loss_asymmetry_torch(data, max_lag=1000, theta=0.1)
-print("torch ", time.time() - t)
+    lag = 60
+    sp500 = np.mean(gain_loss_asymmetry(sp500, max_lag=lag, theta=0.1), axis=-1)
+    smi = np.mean(gain_loss_asymmetry(smi, max_lag=lag, theta=0.1), axis=-1)
+    dax = np.mean(gain_loss_asymmetry(dax, max_lag=lag, theta=0.1), axis=-1)
 
-t = time.time()
-test = gain_loss_asymmetry(data, max_lag=1000, theta=0.1)
-print("normal ", time.time() - t)
+    values = np.arange(1, lag + 2, 1) / lag
+    dax_smi = [wasserstein_distance(values, dax[i, :], smi[i, :]) for i in [0, 1]]
+    sp_dax = [
+        wasserstein_distance(values, values, sp500[i, :], dax[i, :]) for i in [0, 1]
+    ]
+    sp_smi = [
+        wasserstein_distance(values, values, sp500[i, :], smi[i, :]) for i in [0, 1]
+    ]
 
+    print(wasserstein_distance(values, values, sp500[0, :], sp500[1, :]))
 
-print(test[0].shape)
+    plt.plot(dax_smi, label=f"dax smi {dax_smi}", linestyle="none", marker="o")
+    plt.plot(sp_dax, label=f"sp500 dax {sp_dax}", linestyle="none", marker="o")
+    plt.plot(sp_smi, label=f"sp500 smi {sp_smi}", linestyle="none", marker="o")
+    plt.legend()
+    plt.show()
+
+    sp500 = np.cumsum(load_data.load_log_returns("sp500"), axis=0)
+    smi = np.cumsum(load_data.load_log_returns("smi"), axis=0)
+    dax = np.cumsum(load_data.load_log_returns("dax"), axis=0)
+
+    visualize_stat(plt.gca(), sp500, "test", [], False)
+    visualize_stat(plt.gca(), dax, "test", [], False)
+    visualize_stat(plt.gca(), smi, "test", [], False)
+    plt.show()
+
+    # t = time.time()
+    # test = gain_loss_asymmetry_torch(data, max_lag=1000, theta=0.1)
+    # print("torch ", time.time() - t)
+
+    # t = time.time()
+    # test = gain_loss_asymmetry(data, max_lag=1000, theta=0.1)
+    # print("normal ", time.time() - t)
+
+    # print(test[0].shape)

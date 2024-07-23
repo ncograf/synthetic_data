@@ -9,10 +9,8 @@ import torch
 from scipy.stats import linregress
 
 
-def linear_unpredictability_torch(
-    log_returns: torch.Tensor, max_lag: int
-) -> torch.Tensor:
-    """Linear unpredictability
+def linear_unpredictability(log_returns: torch.Tensor, max_lag: int) -> torch.Tensor:
+    r"""Linear unpredictability
 
     :math:`Corr(r_t, r_{t+k}) \approx 0, \quad \text{for } k \geq 1`
 
@@ -26,6 +24,11 @@ def linear_unpredictability_torch(
         npt.NDArray: max_lag x (log_returns.shape[1]) for each stock
     """
 
+    numpy = False
+    if not torch.is_tensor(log_returns):
+        numpy = True
+        log_returns = torch.tensor(log_returns)
+
     # compute the means / var for each stock
     var = torch.nanmean((log_returns - torch.nanmean(log_returns, dim=0)) ** 2, dim=0)
 
@@ -33,11 +36,17 @@ def linear_unpredictability_torch(
     cov = lagged_correlation.auto_corr(log_returns, max_lag=max_lag, dim=0)
 
     lin_unpred = cov / var
+
+    if numpy:
+        lin_unpred = np.asarray(lin_unpred)[1:]
+
     return lin_unpred
 
 
-def linear_unpredictability(log_returns: npt.ArrayLike, max_lag: int) -> npt.NDArray:
-    """Linear unpredictability
+def linear_unpredictability_depr(
+    log_returns: npt.ArrayLike, max_lag: int
+) -> npt.NDArray:
+    r"""Linear unpredictability
 
     :math:`Corr(r_t, r_{t+k}) \approx 0, \quad \text{for } k \geq 1`
 
@@ -97,10 +106,7 @@ def linear_unpredictability_stats(
 
     """
 
-    lin_upred = linear_unpredictability_torch(
-        log_returns=torch.tensor(log_returns), max_lag=max_lag
-    )[1:]
-    lin_upred = np.asarray(lin_upred)
+    lin_upred = linear_unpredictability(log_returns=log_returns, max_lag=max_lag)
     regression = linregress(
         np.linspace(1, max_lag, max_lag, endpoint=True), np.mean(lin_upred, axis=1)
     )
@@ -125,7 +131,11 @@ def linear_unpredictability_stats(
 
 
 def visualize_stat(
-    plot: plt.Axes, log_returns: npt.NDArray, name: str, print_stats: List[str]
+    plot: plt.Axes,
+    log_returns: npt.NDArray,
+    name: str,
+    print_stats: List[str],
+    bstrap: bool = False,
 ):
     data = linear_unpredictability_stats(log_returns=log_returns, max_lag=1000)
     ac_data = np.mean(data["data"], axis=1)

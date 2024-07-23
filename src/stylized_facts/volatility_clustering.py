@@ -9,9 +9,7 @@ import torch
 from power_fit import fit_powerlaw
 
 
-def volatility_clustering_torch(
-    log_returns: torch.Tensor, max_lag: int
-) -> torch.Tensor:
+def volatility_clustering(log_returns: torch.Tensor, max_lag: int) -> torch.Tensor:
     """Compute Autocorrelation of absolute log returns
 
     Args:
@@ -21,6 +19,11 @@ def volatility_clustering_torch(
     Returns:
         npt.NDArray: autocorrelation (max_lag x stocks)
     """
+
+    numpy = False
+    if not torch.is_tensor(log_returns):
+        numpy = True
+        log_returns = torch.tensor(log_returns)
 
     if not torch.is_tensor(log_returns):
         log_returns = torch.tensor(log_returns)
@@ -36,10 +39,13 @@ def volatility_clustering_torch(
 
     vol_cluster = cov / var
 
+    if numpy:
+        vol_cluster = np.asarray(vol_cluster)
+
     return vol_cluster
 
 
-def volatility_clustering(log_returns: npt.ArrayLike, max_lag: int) -> npt.NDArray:
+def volatility_clustering_depr(log_returns: npt.ArrayLike, max_lag: int) -> npt.NDArray:
     """Compute Autocorrelation of absolute log returns
 
     Args:
@@ -105,10 +111,7 @@ def volatility_clustering_stats(
             beta_max: max value of the fitted rate over index
     """
 
-    vol_clust = volatility_clustering_torch(
-        log_returns=torch.tensor(log_returns), max_lag=max_lag
-    )
-    vol_clust = np.asarray(vol_clust)
+    vol_clust = volatility_clustering(log_returns=log_returns, max_lag=max_lag)
     x = np.arange(1, vol_clust.shape[0] + 1)
     fit_x, _, alpha, beta, corr = fit_powerlaw(
         x, np.mean(vol_clust, axis=1), optimize=(0, 150)

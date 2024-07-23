@@ -9,7 +9,7 @@ import torch
 from power_fit import fit_powerlaw
 
 
-def leverage_effect_torch(log_returns: torch.Tensor, max_lag: int) -> torch.Tensor:
+def leverage_effect(log_returns: torch.Tensor, max_lag: int) -> torch.Tensor:
     """Linear unpredictability
 
     :math:`Corr(r_t, r_{t+k}) \approx 0, \quad \text{for } k \geq 1`
@@ -24,7 +24,9 @@ def leverage_effect_torch(log_returns: torch.Tensor, max_lag: int) -> torch.Tens
         npt.NDArray: max_lag x (log_returns.shape[1]) for each stock
     """
 
+    numpy = False
     if not torch.is_tensor(log_returns):
+        numpy = True
         log_returns = torch.tensor(log_returns)
 
     # make asolute values
@@ -35,11 +37,15 @@ def leverage_effect_torch(log_returns: torch.Tensor, max_lag: int) -> torch.Tens
         log_returns, vol_returns, max_lag=max_lag, dim=0
     )[1:]
 
-    vol_cluster = cov / torch.pow(var, 3 / 2)
-    return vol_cluster
+    lev_eff = cov / torch.pow(var, 3 / 2)
+
+    if numpy:
+        lev_eff = np.asarray(lev_eff)
+
+    return lev_eff
 
 
-def leverage_effect(log_returns: npt.ArrayLike, max_lag: int) -> npt.NDArray:
+def leverage_effect_depr(log_returns: npt.ArrayLike, max_lag: int) -> npt.NDArray:
     """Leverage effect
 
     Computes the correlation between current returns and future volatility (squared returns)
@@ -98,7 +104,7 @@ def leverage_effect_stats(log_returns: npt.ArrayLike, max_lag: int) -> Dict[str,
     if not torch.is_tensor(log_returns):
         log_returns = torch.tensor(log_returns)
 
-    leveff = leverage_effect_torch(log_returns, max_lag=max_lag)
+    leveff = leverage_effect(log_returns, max_lag=max_lag)
     leveff = np.asarray(leveff)
     x = np.arange(1, leveff.shape[0] + 1)
     y = np.mean(leveff, axis=1)

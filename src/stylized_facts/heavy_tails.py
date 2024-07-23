@@ -1,5 +1,6 @@
-from typing import Any, Dict, List
+from typing import Any, Dict
 
+import bootstrap
 import load_data
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,8 +10,11 @@ from power_fit import fit_powerlaw
 
 
 def discrete_pdf(
-    log_returns: torch.Tensor, n_bins: int = 1000
+    log_returns: torch.Tensor, n_bins: int | None = None
 ) -> torch.Tensor | npt.NDArray:
+    if n_bins is None:
+        n_bins = np.maximum(np.minimum(2000, np.asarray(log_returns).size // 400), 10)
+
     numpy = False
     if not torch.is_tensor(log_returns):
         numpy = True
@@ -19,26 +23,27 @@ def discrete_pdf(
     # distribution flattens log returns and remves nans
     log_returns = log_returns.nan_to_num(0, 0, 0)
     log_returns = log_returns.flatten()
+    log_returns = log_returns / torch.std(log_returns)
 
     min, mu, max = (
         torch.min(log_returns),
         torch.mean(log_returns),
         torch.max(log_returns),
     )
-    exp = 3
+    exp = 4
     pos_bin_end = torch.pow(
         torch.linspace(
             1e-3 ** (1 / exp), torch.pow(max - mu, 1 / exp), n_bins // 2 + 1
         ),
         exp,
-    )
+    )[int(n_bins * exp / 100) :]
     pos_diffs = torch.diff(pos_bin_end)
     neg_bin_end = torch.pow(
         torch.linspace(
             1e-3 ** (1 / exp), torch.pow(mu - min, 1 / exp), n_bins // 2 + 1
         ),
         exp,
-    )
+    )[int(n_bins * exp / 100) :]
     neg_diffs = torch.diff(neg_bin_end)
 
     pos_log_ret = log_returns[log_returns > mu] - mu
@@ -59,14 +64,40 @@ def discrete_pdf(
     if numpy:
         out = (
             np.asarray(pos_dens),
-            np.asarray(pos_bin_end[1:] + mu),
+            np.asarray(pos_bin_end[1:]),
             np.asarray(neg_dens),
-            np.asarray(neg_bin_end[1:] + mu),
+            np.asarray(neg_bin_end[1:]),
         )
     else:
-        out = pos_dens, pos_bin_end + mu, neg_dens, neg_bin_end + mu
+        out = pos_dens, pos_bin_end, neg_dens, neg_bin_end
 
     return out
+
+
+def heavy_tails(dens: npt.ArrayLike, bins: npt.ArrayLike, tq: float):
+    """Compute tail slope of the empirical distribution
+
+    Args:
+        dens (npt.ArrayLike): densities
+        bins (npt.ArrayLike): bin ends
+        tq (float): tail quantile to be considered
+
+    Returns:
+        ndarray: slope, intercept
+    """
+
+    dens, bins = np.asarray(dens), np.asarray(bins)
+
+    p_mask = np.cumsum(dens)
+    p_mask = p_mask > p_mask[-1] * (1 - tq) if p_mask.size > 0 else []
+    p_mask = p_mask & (dens > 0)
+
+    pX = np.log(bins[p_mask])
+    pX = np.stack([pX, np.ones_like(pX)], axis=1)
+    pY = np.log(dens[p_mask])
+    p = np.linalg.lstsq(pX, pY, rcond=None)[0]
+
+    return p, bins[p_mask]
 
 
 def heavy_tails_stats(
@@ -176,13 +207,33 @@ def heavy_tails_stats(
     return stats
 
 
+def visualize_boostrap(plot: plt.Axes, b_dist: npt.NDArray, x_lim: npt.NDArray):
+    B = b_dist.shape[1]
+    ninty_five = np.array([B * 0.025, B * 0.975]).astype(int)
+    ninty_five = b_dist[:, ninty_five]
+
+    lin_x = np.linspace(x_lim[0], x_lim[1], num=10)
+
+    # compute positive fits
+    pos_y_high = np.exp(ninty_five[1, 0]) * np.power(lin_x, ninty_five[0, 0])
+    pos_y_low = np.exp(ninty_five[1, 1]) * np.power(lin_x, ninty_five[0, 1])
+    plot.fill_between(lin_x, pos_y_high, pos_y_low, fc="navy", alpha=0.1)
+
+    # compute negative fits
+    neg_y_high = np.exp(ninty_five[3, 0]) * np.power(lin_x, ninty_five[2, 0])
+    neg_y_low = np.exp(ninty_five[3, 1]) * np.power(lin_x, ninty_five[2, 1])
+    plot.fill_between(lin_x, neg_y_high, neg_y_low, fc="red", alpha=0.1)
+
+
 def visualize_stat(
-    plot: plt.Axes, log_returns: npt.NDArray, name: str, print_stats: List[str]
+    plot: plt.Axes,
+    log_returns: npt.NDArray,
+    name: str,
+    tq: float = 0.1,
+    interval: bool = False,
 ):
-    # compute statistics
-    stat = heavy_tails_stats(log_returns=log_returns, n_bins=1000, tail_quant=0.1)
-    pos_x, pos_y, pos_fit_x = stat["pos_bins"], stat["pos_dens"], stat["pos_powerlaw_x"]
-    neg_x, neg_y, neg_fit_x = stat["neg_bins"], stat["neg_dens"], stat["neg_powerlaw_x"]
+    # compute distribution
+    pos_y, pos_x, neg_y, neg_x = discrete_pdf(log_returns)
 
     # plot data
     plot.set(
@@ -216,28 +267,24 @@ def visualize_stat(
     ylim = plot.get_ylim()
 
     # compute positive fits
-    pos_alpha, pos_beta = stat["pos_alpha"], stat["pos_beta"]
-    pos_x_lin = np.linspace(np.min(pos_fit_x), np.max(pos_fit_x), num=1000)
+    (pos_beta, pos_alpha), pos_x_fit = heavy_tails(pos_y, pos_x, tq=tq)
+    pos_x_lin = np.linspace(np.min(pos_x_fit), np.max(pos_x_fit), num=100)
     pos_y_lin = np.exp(pos_alpha) * np.power(pos_x_lin, pos_beta)
 
     # adjust the lines to fit the plot
     pos_filter = (pos_y_lin > ylim[0]) & (pos_y_lin < ylim[1])
-    pos_x_lin = pos_x_lin[pos_filter][:-100]
-    pos_y_lin = pos_y_lin[pos_filter][:-100]
+    pos_x_lin = pos_x_lin[pos_filter][:-15]
+    pos_y_lin = pos_y_lin[pos_filter][:-15]
 
     # compute negative fit
-    neg_alpha, neg_beta = stat["neg_alpha"], stat["neg_beta"]
-    neg_x_lin = np.linspace(np.min(neg_fit_x), np.max(neg_fit_x), num=1000)
+    (neg_beta, neg_alpha), neg_x_fit = heavy_tails(neg_y, neg_x, tq=tq)
+    neg_x_lin = np.linspace(np.min(neg_x_fit), np.max(neg_x_fit), num=100)
     neg_y_lin = np.exp(neg_alpha) * np.power(neg_x_lin, neg_beta)
 
     # adjust the lines to fit the plot
     neg_filter = (neg_y_lin > ylim[0]) & (neg_y_lin < ylim[1])
-    neg_x_lin = neg_x_lin[neg_filter][:-100]
-    neg_y_lin = neg_y_lin[neg_filter][:-100]
-
-    # print statistics if needed
-    for key in print_stats:
-        print(f"{name} heavy tails {key} {stat[key]}")
+    neg_x_lin = neg_x_lin[neg_filter][:-15]
+    neg_y_lin = neg_y_lin[neg_filter][:-15]
 
     # plot the fitted lines
     plot.plot(
@@ -262,14 +309,63 @@ def visualize_stat(
     plot.set_ylim(ylim)
     plot.legend(loc="lower left")
 
+    if interval:
 
-data = load_data.load_log_returns("sp500")
+        def stf(data):
+            pd, pb, nd, nb = discrete_pdf(data)
+            (pb, pa), _ = heavy_tails(pd, pb, tq)
+            (nb, na), _ = heavy_tails(nd, nb, tq)
 
-plt.hist(data.flatten(), density=True, bins=2000)
+            return np.array([pb, pa, nb, na]).reshape(-1, 1)
 
-pos_dens, pos_bins, neg_dens, neg_bins = discrete_pdf(data, 1000)
-plt.plot(pos_bins, pos_dens)
-plt.plot(np.asarray(neg_bins), np.asarray(neg_dens))
-plt.xscale("log")
-plt.yscale("log")
-plt.show()
+        b_dist, _ = bootstrap.boostrap_distribution(
+            log_returns, stf, B=500, S=24, L=4096
+        )
+        x_lim = (np.min(pos_x_lin), np.max(pos_x_lin))
+
+        visualize_boostrap(plot, b_dist, x_lim)
+
+
+if __name__ == "__main__":
+    sp500 = load_data.load_log_returns("sp500")
+    smi = load_data.load_log_returns("smi")
+    dax = load_data.load_log_returns("dax")
+    # visualize_stat(plt.gca(), data, 'test', 0.1, interval=True)
+
+    def stf(data):
+        pd, pb, nd, nb = discrete_pdf(data)
+        (pb, pa), _ = heavy_tails(pd, pb, 0.1)
+        (nb, na), _ = heavy_tails(nd, nb, 0.1)
+
+        return np.array([pb, pa, nb, na]).reshape(-1, 1)
+
+    from scipy.stats import wasserstein_distance
+
+    B = 500
+    S = 24
+    L = 4096
+    stf_b_sp500, stf_sp500 = bootstrap.boostrap_distribution(sp500, stf, B, S, L)
+    stf_b_smi, stf_smi = bootstrap.boostrap_distribution(smi, stf, B, S, L)
+    stf_b_dax, stf_dax = bootstrap.boostrap_distribution(dax, stf, B, S, L)
+
+    sp_smi = []
+    sp_dax = []
+    dax_smi = []
+
+    fact = 0.1
+    for i in range(stf_b_dax.shape[0]):
+        dax_smi.append(
+            wasserstein_distance(stf_b_dax[i, :] * fact, stf_b_smi[i, :] * fact)
+        )
+        sp_dax.append(
+            wasserstein_distance(stf_b_dax[i, :] * fact, stf_b_sp500[i, :] * fact)
+        )
+        sp_smi.append(
+            wasserstein_distance(stf_b_smi[i, :] * fact, stf_b_sp500[i, :] * fact)
+        )
+
+    plt.plot(dax_smi, label=f"dax smi {np.mean(dax_smi)}", linestyle="none", marker="o")
+    plt.plot(sp_dax, label=f"sp500 dax {np.mean(sp_dax)}", linestyle="none", marker="o")
+    plt.plot(sp_smi, label=f"sp500 smi {np.mean(sp_smi)}", linestyle="none", marker="o")
+    plt.legend()
+    plt.show()

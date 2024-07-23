@@ -1,9 +1,10 @@
+import bootstrap
 import coarse_fine_volatility
 import gain_loss_asymetry
 import heavy_tails
 import leverage_effect
 import linear_unpredictability
-import matplotlib
+import load_data
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
@@ -24,7 +25,6 @@ def visualize_stylized_facts(log_returns: npt.ArrayLike) -> plt.Figure:
     figure_style = {
         "text.usetex": True,
         "text.latex.preamble": r"\usepackage{amsmath}",
-        "figure.figsize": (16, 10),
         "figure.titlesize": 22,
         "axes.titlesize": 18,
         "axes.labelsize": 16,
@@ -47,104 +47,76 @@ def visualize_stylized_facts(log_returns: npt.ArrayLike) -> plt.Figure:
     }
 
     plt.rcParams.update(figure_style)
-    fig, axes = plt.subplots(**subplot_layout, constrained_layout=True)
-
-    # prepare data
-    log_returns = np.asarray(log_returns)
-    if log_returns.ndim == 1:
-        log_returns = log_returns.reshape((-1, 1))
-    elif log_returns.ndim > 2:
-        raise RuntimeError(f"Log Returns has {log_returns.ndim} dimensions.")
-
-    log_price = np.cumsum(log_returns, axis=0)
-
-    linear_unpredictability.visualize_stat(axes[0, 0], log_returns, "", [])
-    heavy_tails.visualize_stat(axes[0, 1], log_returns, "", [])
-    volatility_clustering.visualize_stat(axes[0, 2], log_returns, "", [])
-    leverage_effect.visualize_stat(axes[1, 0], log_returns, "", [])
-    coarse_fine_volatility.visualize_stat(axes[1, 1], log_returns, "", [])
-    gain_loss_asymetry.visualize_stat(axes[1, 2], log_price, "", [], fit=False)
-
-    return fig
-
-
-def visualize_stylized_facts_paper(
-    log_returns: npt.ArrayLike, textwidth: float
-) -> plt.Figure:
-    """Visualizes all stilized facts and returns the plt figure
-
-    Args:
-        log_returns (array_like):  (n_timesteps x m_stocks) or (n_timesteps) return data.
-        textwidth (float): Textwith to create figure for
-
-    Returns:
-        plt.Figure: matplotlib figure ready to plot / save
-    """
-
-    # configure plt plots
-    figure_style = {
-        "text.usetex": True,
-        "pgf.preamble": r"\usepackage{amsmath}",
-        "pgf.texsystem": "pdflatex",
-        "pgf.rcfonts": False,
-    }
-    subplot_layout = {
-        "ncols": 3,
-        "nrows": 2,
-        "sharex": "none",
-        "sharey": "none",
-    }
-
-    matplotlib.use("pgf")
-    plt.rcParams.update(figure_style)
-    plt.style.use(["science", "ieee"])
+    # plt.style.use(["science", "ieee"])
 
     aspect_ratio = 10 / 16
-    scale = 1.0
-    width = textwidth * scale
+    width = 16
     height = width * aspect_ratio
     fig, axes = plt.subplots(
-        **subplot_layout, constrained_layout=True, figsize=(width, height), dpi=600
+        **subplot_layout, constrained_layout=True, figsize=(width, height)
     )
 
     # prepare data
     log_returns = np.asarray(log_returns)
     if log_returns.ndim == 1:
         log_returns = log_returns.reshape((-1, 1))
-    elif log_returns.ndim > 2:
-        raise RuntimeError(f"Log Returns has {log_returns.ndim} dimensions.")
-
     log_price = np.cumsum(log_returns, axis=0)
 
-    line_size = 1
-    emph_size = 1.2
+    line_size = 2
+    line_color = "cornflowerblue"
+    line_color2 = "violet"
 
-    lu_data = linear_unpredictability.linear_unpredictability_stats(
-        log_returns=log_returns, max_lag=1000
+    emph_size = 2
+    emph_color = "navy"
+    emph_color2 = "red"
+
+    B = 500
+    S = 24
+    L = 4096
+
+    tail_quantile = 0.1  # used for the fit in the heavy tails
+
+    ###########################
+    # LINEAR UNPREDICATBILITY #
+    ###########################
+    plot = axes[0, 0]
+    stf = linear_unpredictability.linear_unpredictability
+    kwargs = {"max_lag": 1000}
+    lu_bstrap, lu_mean = bootstrap.boostrap_distribution(
+        log_returns, stf, B, S, L, **kwargs
     )
-    lu_data = np.mean(lu_data["data"], axis=1)
-    axes[0, 0].set(
+    ninty_five = np.array([B * 0.025, B * 0.975]).astype(int)
+    ninty_five = lu_bstrap[:, ninty_five]
+    x = np.arange(1, lu_mean.shape[0] + 1)
+
+    plot.set(
         title="linear unpredictability",
         ylabel=r"$Corr(r_t, r_{t+k})$",
-        xlabel=r"lag $k$",
+        xlabel=r"lag $k$ (days)",
         xscale="log",
         yscale="linear",
-        ylim=(-1, 1),
+        ylim=(-0.25, 0.25),
     )
-    axes[0, 0].plot(
-        lu_data,
+    plot.plot(
+        x,
+        lu_mean,
         marker=".",
-        color="cornflowerblue",
+        color=line_color,
         markersize=line_size,
         linestyle="None",
     )
+    plot.fill_between(x, ninty_five[:, 0], ninty_five[:, 1], fc=line_color, alpha=0.2)
 
-    # compute statistics
-    stat = heavy_tails.heavy_tails_stats(
-        log_returns=log_returns, n_bins=1000, tail_quant=0.1
-    )
-    pos_x, pos_y, pos_fit_x = stat["pos_bins"], stat["pos_dens"], stat["pos_powerlaw_x"]
-    neg_x, neg_y, neg_fit_x = stat["neg_bins"], stat["neg_dens"], stat["neg_powerlaw_x"]
+    ###############
+    # HEAVY TAILS #
+    ###############
+    def stf(data):
+        pd, pb, nd, nb = heavy_tails.discrete_pdf(data)
+        (pb, pa), _ = heavy_tails.heavy_tails(pd, pb, tail_quantile)
+        (nb, na), _ = heavy_tails.heavy_tails(nd, nb, tail_quantile)
+        return np.array([pb, pa, nb, na]).reshape(-1, 1)
+
+    pos_y, pos_x, neg_y, neg_x = heavy_tails.discrete_pdf(log_returns)
 
     # plot data
     plot = axes[0, 1]
@@ -158,241 +130,235 @@ def visualize_stylized_facts_paper(
     plot.plot(
         pos_x,
         pos_y,
-        alpha=0.8,
+        alpha=0.7,
         marker=".",
-        color="violet",
+        color=line_color2,
         markersize=line_size,
         linestyle="None",
     )
     plot.plot(
         neg_x,
         neg_y,
-        alpha=0.8,
+        alpha=0.7,
         marker=".",
-        color="cornflowerblue",
+        color=line_color,
         markersize=line_size,
         linestyle="None",
     )
-    xlim = plot.get_xlim()
     ylim = plot.get_ylim()
 
-    # compute positive fits
-    pos_alpha, pos_beta = stat["pos_alpha"], stat["pos_beta"]
-    pos_x_lin = np.linspace(np.min(pos_fit_x), np.max(pos_fit_x), num=1000)
+    # compute positive fit and cosmetics
+    (pos_beta, pos_alpha), pos_x_fit = heavy_tails.heavy_tails(
+        pos_y, pos_x, tq=tail_quantile
+    )
+    pos_x_lin = np.linspace(np.min(pos_x_fit), np.max(pos_x_fit), num=100)
     pos_y_lin = np.exp(pos_alpha) * np.power(pos_x_lin, pos_beta)
-
-    # adjust the lines to fit the plot
     pos_filter = (pos_y_lin > ylim[0]) & (pos_y_lin < ylim[1])
-    pos_x_lin = pos_x_lin[pos_filter][:-100]
-    pos_y_lin = pos_y_lin[pos_filter][:-100]
+    pos_x_lin = pos_x_lin[pos_filter][:-15]
+    pos_y_lin = pos_y_lin[pos_filter][:-15]
 
-    # compute negative fit
-    neg_alpha, neg_beta = stat["neg_alpha"], stat["neg_beta"]
-    neg_x_lin = np.linspace(np.min(neg_fit_x), np.max(neg_fit_x), num=1000)
+    # compute negative fit and cosmetics
+    (neg_beta, neg_alpha), neg_x_fit = heavy_tails.heavy_tails(
+        neg_y, neg_x, tq=tail_quantile
+    )
+    neg_x_lin = np.linspace(np.min(neg_x_fit), np.max(neg_x_fit), num=100)
     neg_y_lin = np.exp(neg_alpha) * np.power(neg_x_lin, neg_beta)
-
-    # adjust the lines to fit the plot
     neg_filter = (neg_y_lin > ylim[0]) & (neg_y_lin < ylim[1])
-    neg_x_lin = neg_x_lin[neg_filter][:-100]
-    neg_y_lin = neg_y_lin[neg_filter][:-100]
+    neg_x_lin = neg_x_lin[neg_filter][:-15]
+    neg_y_lin = neg_y_lin[neg_filter][:-15]
+
+    ht_bstrap, _ = bootstrap.boostrap_distribution(
+        log_returns, stf, B=500, S=24, L=4096
+    )
+    x_bstrap = (
+        np.minimum(np.min(pos_x_lin), np.min(neg_x_lin)),
+        np.maximum(np.max(pos_x_lin), np.max(neg_x_lin)),
+    )
 
     # plot the fitted lines
     plot.plot(
         pos_x_lin,
         pos_y_lin,
-        linewidth=emph_size,
+        label=f"pos. $c_p \\, \\tilde{{r}}_t^{{\\, {pos_beta:.2f}}}$",
+        linewidth=line_size,
         linestyle="--",
         alpha=1,
-        color="red",
+        color=emph_color2,
     )
     plot.plot(
         neg_x_lin,
         neg_y_lin,
-        linewidth=emph_size,
+        label=f"neg. $c_n \\, \\tilde{{r}}_t^{{\\, {neg_beta:.2f}}}$",
+        linewidth=line_size,
         linestyle="--",
         alpha=1,
-        color="navy",
+        color=emph_color,
     )
-    plot.set_xlim(xlim)
-    plot.set_ylim(ylim)
 
+    ninty_five = np.array([B * 0.025, B * 0.975]).astype(int)
+    ninty_five = ht_bstrap[:, ninty_five]
+    x_bstrap = np.linspace(x_bstrap[0], x_bstrap[1], num=10)
+
+    # compute positive fits
+    pos_y_high = np.exp(ninty_five[1, 0]) * np.power(x_bstrap, ninty_five[0, 0])
+    pos_y_low = np.exp(ninty_five[1, 1]) * np.power(x_bstrap, ninty_five[0, 1])
+    plot.fill_between(x_bstrap, pos_y_high, pos_y_low, fc=emph_color2, alpha=0.1)
+
+    # compute negative fits
+    neg_y_high = np.exp(ninty_five[3, 0]) * np.power(x_bstrap, ninty_five[2, 0])
+    neg_y_low = np.exp(ninty_five[3, 1]) * np.power(x_bstrap, ninty_five[2, 1])
+    plot.fill_between(x_bstrap, neg_y_high, neg_y_low, fc=emph_color, alpha=0.1)
+    plot.legend(loc="lower left")
+
+    #########################
+    # VOLATILITY CLUSTERING #
+    #########################
     plot = axes[0, 2]
-    stat = volatility_clustering.volatility_clustering_stats(
-        log_returns=log_returns, max_lag=1000
+    stf = volatility_clustering.volatility_clustering
+    kwargs = {"max_lag": 1000}
+    vc_bstrap, vc_mean = bootstrap.boostrap_distribution(
+        log_returns, stf, B, S, L, **kwargs
     )
-    pos_y, x_lin, alpha, beta = (
-        np.mean(stat["vol_clust"], axis=1),
-        stat["power_fit_x"],
-        stat["alpha"],
-        stat["beta"],
-    )
-    pos_x = np.arange(1, pos_y.size + 1)
-    y_lin = np.exp(alpha) * np.power(x_lin, beta)
+    ninty_five = np.array([B * 0.025, B * 0.975]).astype(int)
+    ninty_five = vc_bstrap[:, ninty_five]
+    x = np.arange(1, vc_mean.shape[0] + 1)
+
     plot.set(
         title="volatility clustering",
         ylabel=r"$Corr(|r_t|, |r_{t+k}|)$",
-        xlabel=r"lag $k$",
+        xlabel=r"lag $k$ (days)",
         xscale="log",
         yscale="log",
     )
     plot.plot(
-        pos_x,
-        pos_y,
-        alpha=0.8,
+        x,
+        vc_mean,
+        alpha=1,
         marker=".",
-        color="cornflowerblue",
+        color=line_color,
         markersize=line_size,
         linestyle="None",
     )
-    plot.plot(
-        x_lin,
-        y_lin,
-        linestyle="--",
-        linewidth=emph_size,
-        color="navy",
-    )
+    plot.fill_between(x, ninty_five[:, 0], ninty_five[:, 1], fc=line_color, alpha=0.2)
 
-    stat = leverage_effect.leverage_effect_stats(log_returns=log_returns, max_lag=100)
-    lev_eff = stat["lev_eff"]
-    y = np.mean(lev_eff, axis=1)
-    x = np.arange(1, y.size + 1)
-
-    pow_c, pow_rate = stat["alpha"], stat["beta"]
-    x_lin = np.linspace(np.min(x), np.max(x), num=100)
-    y_pow = -np.exp(pow_c) * np.power(x_lin, pow_rate)
-
+    ###################
+    # LEVERAGE EFFECT #
+    ###################
     plot = axes[1, 0]
+    stf = leverage_effect.leverage_effect
+    kwargs = {"max_lag": 1000}
+    le_bstrap, le_mean = bootstrap.boostrap_distribution(
+        log_returns, stf, B, S, L, **kwargs
+    )
+    ninty_five = np.array([B * 0.025, B * 0.975]).astype(int)
+    ninty_five = le_bstrap[:, ninty_five]
+    x = np.arange(1, le_mean.shape[0] + 1)
+
     plot.set(
         title="leverage effect",
         ylabel=r"$L(k)$",
-        xlabel=r"lag $k$",
+        xlabel=r"lag $k$ (days)",
         xscale="linear",
         yscale="linear",
     )
     plot.plot(
         x,
-        y,
-        alpha=0.8,
-        marker="None",
-        color="cornflowerblue",
-        markersize=0,
-        linestyle="-",
-        linewidth=line_size,
+        le_mean,
+        alpha=1,
+        marker=".",
+        color=line_color,
+        markersize=line_size,
+        linestyle="None",
     )
-    # plot.plot(x_lin, y_lin, label="$\\tau = 50.267$", color="red", linestyle="--", alpha=1)
-    plot.plot(
-        x_lin[2:],
-        y_pow[2:],
-        color="navy",
-        linestyle="--",
-        linewidth=emph_size,
-    )
-    # plot.plot( x_lin[5:], y_lin_qiu[5:], label="Qiu paper $\\tau = 13$", color="navy", linestyle="--", alpha=0.3)
+    plot.fill_between(x, ninty_five[:, 0], ninty_five[:, 1], fc=line_color, alpha=0.2)
     plot.axhline(y=0, linestyle="--", c="black", alpha=0.4)
 
-    stat = coarse_fine_volatility.coarse_fine_volatility_stats(
-        log_returns=log_returns, tau=5, max_lag=100
-    )
-    dll, dll_x = np.mean(stat["delta_lead_lag"], axis=1), stat["delta_lead_lag_k"]
-    ll, ll_x = np.mean(stat["lead_lag"], axis=1), stat["lead_lag_k"]
-    argmin, alpha, beta = stat["argmin"], stat["alpha"], stat["beta"]
+    ##########################
+    # COARSE FINE VOLATILITY #
+    ##########################
     plot = axes[1, 1]
+    kwargs = {"tau": 5, "max_lag": 120}
+
+    def stf(data, tau, max_lag):
+        _, _, dll, _ = coarse_fine_volatility.coarse_fine_volatility(data, tau, max_lag)
+        return dll
+
+    dll_bstrap, _ = bootstrap.boostrap_distribution(log_returns, stf, B, S, L, **kwargs)
+    ll_mean, ll_x, dll_mean, dll_x = coarse_fine_volatility.coarse_fine_volatility(
+        data, **kwargs
+    )
+    ll_mean, dll_mean = np.mean(ll_mean, axis=1), np.mean(dll_mean, axis=1)
+    ninty_five = np.array([B * 0.025, B * 0.975]).astype(int)
+    ninty_five = dll_bstrap[:, ninty_five]
+
     plot.set(
         title="coarse-fine volatility",
         ylabel=r"$\rho(k)$",
-        xlabel=r"lag $k$",
+        xlabel=r"lag $k$ (days)",
         xscale="linear",
         yscale="linear",
     )
-    plot.plot(dll_x, dll, c="blue")
-    plot.plot(
-        dll_x[argmin],
-        dll[argmin],
-        linestyle="none",
-        marker=".",
-        markersize=emph_size,
-        c="red",
-    )
     plot.plot(
         ll_x,
-        ll,
+        ll_mean,
         marker=".",
-        color="cornflowerblue",
+        color=line_color,
         markersize=line_size,
         linestyle="none",
     )
     plot.plot(
         dll_x,
-        dll,
+        dll_mean,
         marker="none",
-        color="orange",
+        color=line_color2,
         markersize=0,
         linestyle="-",
         linewidth=emph_size,
     )
-    x_lin = dll_x[argmin + 2 :]
-    y_lin = -np.exp(alpha) * (x_lin**beta)
-    plot.plot(
-        x_lin,
-        y_lin,
-        color="red",
-        alpha=1,
+    plot.fill_between(
+        dll_x, ninty_five[:, 0], ninty_five[:, 1], fc=line_color2, alpha=0.3
     )
     plot.axhline(y=0, linestyle="--", c="black", alpha=0.4)
 
-    stat = gain_loss_asymetry.gain_loss_asymmetry_stat(
+    ##########################
+    # COARSE FINE VOLATILITY #
+    ##########################
+    gain, loss = gain_loss_asymetry.gain_loss_asymmetry(
         log_price=log_price, max_lag=1000, theta=0.1
     )
-    gain, loss = stat["gain"], stat["loss"]
-    gain_data = np.mean(gain, axis=1)
-    loss_data = np.mean(loss, axis=1)
+    gain_mean = np.mean(gain, axis=1)
+    loss_mean = np.mean(loss, axis=1)
 
     plot = axes[1, 2]
     plot.set(
         title="gain loss asymmetry",
         ylabel=r"return time probability",
-        xlabel=r"lag $k$ in days",
+        xlabel=r"lag $k$ (days)",
         xscale="log",
         yscale="linear",
     )
 
     plot.plot(
-        gain_data,
-        alpha=0.8,
+        gain_mean,
+        alpha=1,
         marker=".",
-        color="violet",
-        markersize=line_size,
+        color=line_color2,
+        markersize=2 * line_size,
         linestyle="None",
     )
     plot.plot(
-        loss_data,
-        alpha=0.8,
+        loss_mean,
+        alpha=1,
         marker=".",
-        color="cornflowerblue",
-        markersize=line_size,
+        color=line_color,
+        markersize=2 * line_size,
         linestyle="None",
-    )
-
-    max_gain, max_loss, arg_max_gain, arg_max_loss = (
-        stat["max_gain"],
-        stat["max_loss"],
-        stat["arg_max_gain"],
-        stat["arg_max_loss"],
-    )
-
-    plot.plot(
-        [arg_max_gain, arg_max_gain],
-        [0, max_gain],
-        color="red",
-        linestyle=":",
-        linewidth=line_size,
-    )
-    plot.plot(
-        [arg_max_loss, arg_max_loss],
-        [0, max_loss],
-        color="navy",
-        linestyle=":",
-        linewidth=line_size,
     )
 
     return fig
+
+
+if __name__ == "__main__":
+    data = load_data.load_log_returns("sp500")
+    visualize_stylized_facts(data)
+    plt.show()

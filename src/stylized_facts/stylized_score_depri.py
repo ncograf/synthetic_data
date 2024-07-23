@@ -1,15 +1,16 @@
 from typing import Any, Dict, Literal
 
-import bootstrap
 import coarse_fine_volatility
 import gain_loss_asymetry
 import heavy_tails
 import leverage_effect
 import linear_unpredictability
+import load_data
+import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
-import train_garch
 import volatility_clustering
+from power_fit import fit_powerlaw
 
 
 def stylized_score(log_returns: npt.ArrayLike, syn_log_returns: npt.ArrayLike):
@@ -165,40 +166,70 @@ def _stylized_score(
 
 
 if __name__ == "__main__":
-    import load_data
-
     sp500 = load_data.load_log_returns("sp500")
     smi = load_data.load_log_returns("smi")
 
-    B = 5
-    S = 24
-    L = 4096
-
-    st_fact = leverage_effect.leverage_effect
-    kwargs = {"max_lag": 1000}
-
-    # comptue samples for garch
-    garch_b = []
-    for i in range(B):
-        garch_sample = train_garch.sample_garch(
-            "/home/nico/thesis/code/data/cache/garch_experiments/GARCH_t_2024_07_14-05_58_35",
-            n_stocks=S,
-            len=L,
-        )
-        garch_b.append(np.mean(np.asarray(st_fact(garch_sample, **kwargs)), axis=1))
-        print(f"sampled {i}")
-    garch_b = np.asarray(garch_b).T
-    sp500_b, _ = bootstrap.boostrap_distribution(sp500, st_fact, B, S, L, **kwargs)
-
-    import matplotlib.pyplot as plt
-    from scipy.stats import wasserstein_distance
-
-    test = []
-    for i in range(sp500_b.shape[0]):
-        test.append(wasserstein_distance(sp500_b[i, :], garch_b[i, :]))
-
-    plt.plot(
-        test, label=f"sp500 vs garch {np.mean(test)}", linestyle="none", marker="o"
+    sp500_stats = _compute_stats(sp500, "real")
+    ht_pos_real, ht_neg_real = (
+        sp500_stats["ht_real_stat"]["pos_beta"],
+        sp500_stats["ht_real_stat"]["neg_beta"],
     )
-    plt.legend()
+
+    smi_lu_mse = np.mean(
+        linear_unpredictability.linear_unpredictability(smi, max_lag=1000) ** 2
+    )
+    print(f"lin upred {smi_lu_mse}")
+
+    # select the lower quantiles and compute fit
+    tail_quant = 0.2
+    pos_y, pos_x, neg_y, neg_x = heavy_tails.discrete_pdf(smi, n_bins=1000)
+    pos_mask, neg_mask = np.cumsum(pos_y), np.cumsum(neg_y)
+    pos_mask, neg_mask = (
+        pos_mask > pos_mask[-1] * (1 - tail_quant) if pos_mask.size > 0 else [],
+        neg_mask > neg_mask[-1] * (1 - tail_quant) if neg_mask.size > 0 else [],
+    )
+    _, _, _, pos_beta, _ = fit_powerlaw(
+        pos_x[pos_mask], pos_y[pos_mask], optimize="none"
+    )
+    _, _, _, neg_beta, _ = fit_powerlaw(
+        neg_x[neg_mask], neg_y[neg_mask], optimize="none"
+    )
+    tail_score = np.abs(pos_beta - ht_pos_real) + np.abs(neg_beta - ht_neg_real)
+    print(f"tail score {tail_score}")
+
+    smi_vol_clust = volatility_clustering.volatility_clustering(smi, max_lag=100)
+    beta = sp500_stats["vc_real_stat"]["beta"]
+    alpha = sp500_stats["vc_real_stat"]["alpha"]
+    slope = np.power(np.arange(1, 101, 1), beta) * np.exp(alpha)
+
+    vc_score = np.mean((np.mean(smi_vol_clust, axis=1) - slope) ** 2)
+
+    vc_score_std_ = np.mean((smi_vol_clust - slope.reshape(-1, 1)) ** 2, axis=0)
+    vc_score_std = np.std(vc_score_std_)
+    vc_score_min = np.min(vc_score_std_)
+    vc_score_max = np.max(vc_score_std_)
+
+    print(f"vc score {vc_score}")
+    print(f"vc std {vc_score_std}")
+    print(f"vc min {vc_score_min}")
+    print(f"vc max {vc_score_max}")
+
+    smi_lev_eff = leverage_effect.leverage_effect(smi, max_lag=100)
+    beta = sp500_stats["le_real_stat"]["beta"]
+    alpha = sp500_stats["le_real_stat"]["alpha"]
+    slope = np.power(np.arange(1, 101, 1), beta) * np.exp(alpha)
+
+    plt.plot(-slope)
+    plt.plot(np.mean(smi_lev_eff, axis=1))
     plt.show()
+
+    vc_score = np.mean((np.mean(smi_lev_eff, axis=1) - slope) ** 2)
+    vc_score_std_ = np.mean((smi_lev_eff - slope.reshape(-1, 1)) ** 2, axis=0)
+    vc_score_std = np.std(vc_score_std_)
+    vc_score_min = np.min(vc_score_std_)
+    vc_score_max = np.max(vc_score_std_)
+
+    print(f"le score {vc_score}")
+    print(f"le std {vc_score_std}")
+    print(f"le min {vc_score_min}")
+    print(f"le max {vc_score_max}")
