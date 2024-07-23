@@ -67,16 +67,18 @@ def _load_prices(symbols: List[str], path: Path) -> pd.DataFrame:
     return data
 
 
-def get_log_returns(price_data: npt.ArrayLike, min_len: int) -> npt.NDArray:
+def get_log_returns(price_data: pd.DataFrame, min_len: int) -> npt.NDArray:
     """Compute log return data and filter data based for sufficient data
 
     Args:
-        price_data (npt.ArrayLike): price data
+        price_data (pd.DataFrame): price data
         min_len (int): minimal number of prices listed to pass filter
 
     Returns:
-        npt.NDArray: log returns for stocks (T x #stocks)
+        npt.NDArray, list: log returns for stocks (T x #stocks), stock_symbols
     """
+
+    symbols = price_data.columns
 
     price_data = np.asarray(price_data, dtype=np.float64)
     nan_mask = ~np.isnan(price_data)  # returns pd.dataframe
@@ -86,7 +88,9 @@ def get_log_returns(price_data: npt.ArrayLike, min_len: int) -> npt.NDArray:
     log_return_data = log_return_data[-min_len:, num_non_nans >= min_len]
     log_return_data[np.isnan(log_return_data)] = 0
 
-    return log_return_data
+    symbols = list(symbols[num_non_nans >= min_len])
+
+    return log_return_data, symbols
 
 
 def load_prices(index: Literal["dax", "smi", "sp500"]) -> pd.DataFrame:
@@ -121,4 +125,5 @@ def load_log_returns(
     """
 
     prices = load_prices(index)
-    return get_log_returns(prices, min_len)
+    log_ret, _ = get_log_returns(prices, min_len)
+    return log_ret
