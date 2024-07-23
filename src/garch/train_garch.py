@@ -1,6 +1,5 @@
 import json
 import os
-import random
 from datetime import datetime
 from pathlib import Path
 
@@ -36,14 +35,12 @@ def _train_garch(config, price_data: pd.DataFrame | None = None) -> Path:
 
     # load real data
     price_data = load_data.load_prices("sp500")
-    log_returns = load_data.get_log_returns(price_data, MIN_T)
+    log_returns, symbols = load_data.get_log_returns(price_data, MIN_T)
 
     TIME_FORMAT = "%Y_%m_%d-%H_%M_%S"
     time = datetime.now().strftime(TIME_FORMAT)
     cache = Path(os.environ["RESULT_DIR"]) / f"{config['vol']}_{config['dist']}_{time}"
     cache.mkdir(parents=True, exist_ok=True)
-
-    symbols = price_data.columns
 
     # store model info data
     model_info = {"config": config, "time": time, "symbols": list(symbols)}
@@ -55,7 +52,7 @@ def _train_garch(config, price_data: pd.DataFrame | None = None) -> Path:
     for i, sym in enumerate(symbols):
         # create data
         data = log_returns[:, i]
-        returns = ((data[1:] / data[:-1]) - 1) * 100
+        returns = (np.exp(data) - 1) * 100
         return_mask = ~np.isnan(returns).flatten()
 
         # fit garch models
@@ -75,33 +72,36 @@ def _train_garch(config, price_data: pd.DataFrame | None = None) -> Path:
     return cache
 
 
-def sample_garch(folder: str | Path, seed: int = 99) -> npt.NDArray:
+def sample_garch(
+    folder: str | Path, n_stocks: int = -1, len: int = 8192
+) -> npt.NDArray:
     """Generate data from garch model
 
     Args:
         folder (str | Path): path to the garch
-        seed (int, optional): manual seed. Defaults to 99.
+        n_stocks (int): number of stocks
+        len (int): sampled sequence length
 
     Returns:
         npt.NDArray: log return simulations
     """
 
-    LENGTH = 8192
     BURN = 512
 
-    np.random.seed(seed)
-    random.seed(seed)
-    torch.manual_seed(seed)
-
     folder = Path(folder)
-
     models_dict = torch.load(folder / "garch_models.pt")
+
+    symbols = list(models_dict.keys())
+
+    if n_stocks > 0:
+        symbols = np.random.choice(symbols, n_stocks, replace=True)
+
     log_returns = []
-    for sym in models_dict:
+    for sym in symbols:
         garch_dict = models_dict[sym]
         model = arch_uni.arch_model(y=None, **garch_dict["init_params"])
         return_simulation = model.simulate(
-            garch_dict["fit_params"], nobs=LENGTH, burn=BURN
+            garch_dict["fit_params"], nobs=len, burn=BURN
         ).loc[:, "data"]
         return_simulation = np.asarray(return_simulation) / 100 + 1
         return_simulation[return_simulation <= 0] = 1e-8
