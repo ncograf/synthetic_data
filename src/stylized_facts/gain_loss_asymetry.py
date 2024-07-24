@@ -89,8 +89,8 @@ def gain_loss_asymmetry(
     else:
         raise ValueError(f"Unsupported data type: {log_price.dtype.name}")
 
-    boosted_gain = boosted[0] / boosted[0].sum(axis=0)
-    boosted_loss = boosted[1] / boosted[1].sum(axis=0)
+    boosted_gain = boosted[0] / (np.nansum(boosted[0], axis=0) + 1e-10)
+    boosted_loss = boosted[1] / (np.nansum(boosted[1], axis=0) + 1e-10)
     return boosted_gain, boosted_loss
 
 
