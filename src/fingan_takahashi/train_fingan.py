@@ -13,6 +13,7 @@ import numpy.typing as npt
 import pandas as pd
 import scipy.stats
 import static_stats
+import stylized_loss
 import stylized_score
 import torch
 import wandb_logging
@@ -43,15 +44,18 @@ def _train_fingan(config: Dict[str, Any] = {}):
 
     # define training config and train model
     conf = {
-        "seq_len": 1024,
+        "seq_len": 8192,
         "train_seed": 99,
         "dtype": "float32",
-        "epochs": 10,
-        "batch_size": 2,
+        "epochs": 2000,
+        "batch_size": 24,
         # dist in studentt, normal, cauchy, laplace
         "dist": "studentt",
         # "moment_losses" : ['mean', 'variance', 'skewness', 'kurtosis'],
         "moment_losses": [],
+        # "stylized_losses": ['lu', 'le', 'cf', 'vc'],
+        "stylized_losses": [],
+        "stylized_lambda": 5,
         "optim_gen_config": {
             "lr": 2e-4,
             "betas": (0.5, 0.999),
@@ -91,9 +95,15 @@ def _train_fingan(config: Dict[str, Any] = {}):
         cuda_name = torch.cuda.get_device_name(device)
         print(f"GPU: {cuda_name}")
 
-    with wandb.init(tags=["FinGanTakahashi", conf["dist"]] + conf["moment_losses"]):
+    with wandb.init(
+        tags=["FinGanTakahashi", conf["dist"]]
+        + conf["moment_losses"]
+        + conf["stylized_losses"]
+    ):
         # process data
-        real_stats = stylized_score._compute_stats(log_returns, "real")
+        real_stf = stylized_score.boostrap_stylized_facts(
+            log_returns, 500, conf["batch_size"], L=conf["seq_len"]
+        )
 
         # determine shift and scale
         data_config = {"scale": 1, "shift": 0}
@@ -141,6 +151,7 @@ def _train_fingan(config: Dict[str, Any] = {}):
         disc_config = {"input_dim": conf["seq_len"], "dtype": conf["dtype"]}
         dist_config = {"dist": conf["dist"], **fit}
         batch_size = conf["batch_size"]
+        stl = conf["stylized_lambda"]
         epochs = conf["epochs"]
         dtype = TypeConverter.str_to_numpy(conf["dtype"])
 
@@ -218,7 +229,8 @@ def _train_fingan(config: Dict[str, Any] = {}):
 
                 # Compute and add momemt losses if configured
                 if "mean" in conf["moment_losses"]:
-                    gen_err += ((gen_mean - mean) / (abs(mean) + 0.1)) ** 2
+                    mean_loss = ((gen_mean - mean) / (abs(mean) + 0.1)) ** 2
+                    gen_err += mean_loss
                 if "variance" in conf["moment_losses"]:
                     gen_var = torch.var(flat_fake_batch)
                     gen_err += ((gen_var - var) / (var + 0.1)) ** 2
@@ -232,6 +244,19 @@ def _train_fingan(config: Dict[str, Any] = {}):
                         gen_std**4
                     )
                     gen_err += ((gen_kurtosis - kurtosis) / (kurtosis + 0.1)) ** 2
+
+                if "lu" in conf["stylized_losses"]:
+                    lu_loss = stylized_loss.lu_loss(fake_batch)
+                    gen_err += stl * lu_loss
+                if "le" in conf["stylized_losses"]:
+                    le_loss = stylized_loss.le_loss(fake_batch, real_batch)
+                    gen_err += stl * le_loss
+                if "cf" in conf["stylized_losses"]:
+                    cf_loss = stylized_loss.cf_loss(fake_batch, real_batch)
+                    gen_err += stl * cf_loss
+                if "vc" in conf["stylized_losses"]:
+                    vc_loss = stylized_loss.vc_loss(fake_batch, real_batch)
+                    gen_err += stl * vc_loss
 
                 accelerator.backward(gen_err)
 
@@ -252,14 +277,24 @@ def _train_fingan(config: Dict[str, Any] = {}):
             }
 
             # get returns (note the transposition due to batch sampling)
-            log_ret_sim = model.sample(batch_size=201).detach().cpu().numpy().T
+            log_ret_sim = model.sample(batch_size=512).detach().cpu().numpy().T
             log_ret_sim = log_ret_sim * data_config["scale"] + data_config["shift"]
             old_best_score = best_score
             try:
-                syn_stats = stylized_score._compute_stats(log_ret_sim, "syn")
-                total_score, scores = stylized_score._stylized_score(
-                    **syn_stats, **real_stats
+                syn_stf = stylized_score.boostrap_stylized_facts(
+                    log_ret_sim, 200, conf["batch_size"], conf["seq_len"]
                 )
+                total_score, scores, _ = stylized_score._stylized_score(
+                    real_stf, syn_stf
+                )
+                scores = {
+                    "lu": scores[0],
+                    "ht": scores[1],
+                    "vc": scores[2],
+                    "le": scores[3],
+                    "cf": scores[4],
+                    "gl": scores[5],
+                }
                 scores["total_score"] = total_score
                 best_score = np.minimum(total_score, best_score)
                 logs.update(scores)
@@ -373,14 +408,25 @@ def sample_fingan(file: str | Path, seed: int = 99) -> npt.NDArray:
     help='Distribution to sample from ["normal", "studentt", "cauchy", "laplace"]',
 )
 @click.option(
-    "--moment_loss",
+    "--moment-loss",
     "-m",
     multiple=True,
     default=[],
     help='Moment losses to use ["mean", "variance", "skewness", "kurtosis"]',
 )
-def train_fingan(dist: str, moment_loss: List[str]):
-    config = {"dist": dist, "moment_losses": list(moment_loss)}
+@click.option(
+    "--stylized-loss",
+    "-s",
+    multiple=True,
+    default=[],
+    help='Stylized losses to use ["lu", "le", "cf", "vc"]',
+)
+def train_fingan(dist: str, moment_loss: List[str], stylized_loss: List[str]):
+    config = {
+        "dist": dist,
+        "moment_losses": list(moment_loss),
+        "stylized_losses": list(stylized_loss),
+    }
     _train_fingan(config)
 
 
