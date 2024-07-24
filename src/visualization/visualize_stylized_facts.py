@@ -145,7 +145,11 @@ def visualize_stylized_facts(log_returns: npt.ArrayLike) -> plt.Figure:
         markersize=line_size,
         linestyle="None",
     )
+
+    # the the plot limits for the drawing
     ylim = plot.get_ylim()
+    log_lim, log_mean = np.log(ylim), np.mean(np.log(ylim))
+    ylim = np.exp((log_lim - log_mean) * 0.9 + log_mean)
 
     # compute positive fit and cosmetics
     (pos_beta, pos_alpha), pos_x_fit = heavy_tails.heavy_tails(
@@ -154,18 +158,18 @@ def visualize_stylized_facts(log_returns: npt.ArrayLike) -> plt.Figure:
     pos_x_lin = np.linspace(np.min(pos_x_fit), np.max(pos_x_fit), num=100)
     pos_y_lin = np.exp(pos_alpha) * np.power(pos_x_lin, pos_beta)
     pos_filter = (pos_y_lin > ylim[0]) & (pos_y_lin < ylim[1])
-    pos_x_lin = pos_x_lin[pos_filter][:-15]
-    pos_y_lin = pos_y_lin[pos_filter][:-15]
+    pos_x_lin = pos_x_lin[pos_filter]
+    pos_y_lin = pos_y_lin[pos_filter]
 
     # compute negative fit and cosmetics
     (neg_beta, neg_alpha), neg_x_fit = heavy_tails.heavy_tails(
         neg_y, neg_x, tq=tail_quantile
     )
-    neg_x_lin = np.linspace(np.min(neg_x_fit), np.max(neg_x_fit), num=100)
+    neg_x_lin = np.linspace(np.min(neg_x_fit), np.max(neg_x_fit), num=10)
     neg_y_lin = np.exp(neg_alpha) * np.power(neg_x_lin, neg_beta)
     neg_filter = (neg_y_lin > ylim[0]) & (neg_y_lin < ylim[1])
-    neg_x_lin = neg_x_lin[neg_filter][:-15]
-    neg_y_lin = neg_y_lin[neg_filter][:-15]
+    neg_x_lin = neg_x_lin[neg_filter]
+    neg_y_lin = neg_y_lin[neg_filter]
 
     ht_bstrap, _ = bootstrap.boostrap_distribution(
         log_returns, stf, B=500, S=24, L=4096
@@ -285,7 +289,7 @@ def visualize_stylized_facts(log_returns: npt.ArrayLike) -> plt.Figure:
 
     dll_bstrap, _ = bootstrap.boostrap_distribution(log_returns, stf, B, S, L, **kwargs)
     ll_mean, ll_x, dll_mean, dll_x = coarse_fine_volatility.coarse_fine_volatility(
-        data, **kwargs
+        log_returns, **kwargs
     )
     ll_mean, dll_mean = np.mean(ll_mean, axis=1), np.mean(dll_mean, axis=1)
     ninty_five = np.array([B * 0.025, B * 0.975]).astype(int)
