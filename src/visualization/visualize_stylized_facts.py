@@ -250,7 +250,7 @@ def visualize_stylized_facts(log_returns: npt.ArrayLike) -> plt.Figure:
     ###################
     plot = axes[1, 0]
     stf = leverage_effect.leverage_effect
-    kwargs = {"max_lag": 1000}
+    kwargs = {"max_lag": 100}
     le_bstrap, le_mean = bootstrap.boostrap_distribution(
         log_returns, stf, B, S, L, **kwargs
     )
