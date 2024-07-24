@@ -87,7 +87,9 @@ def auto_corr(x: torch.Tensor, max_lag: int, dim=-1) -> torch.Tensor:
 
     # compute number of values
     num = torch.sum(~torch.isnan(x), dim=dim).unsqueeze(0).expand((max_lag + 1, -1))
-    lag_penality = torch.arange(max_lag + 1).unsqueeze(1).expand(num.shape)
+    lag_penality = num.new_tensor(
+        torch.arange(max_lag + 1).unsqueeze(1).expand(num.shape)
+    )
     num = num - lag_penality
 
     x = x.nan_to_num(0, 0, 0)
@@ -121,7 +123,9 @@ def lagged_corr(x: torch.Tensor, y: torch.Tensor, max_lag: int, dim=-1) -> torch
     num_x = torch.sum(~torch.isnan(x), dim=dim).unsqueeze(0).expand((max_lag + 1, -1))
     num_y = torch.sum(~torch.isnan(y), dim=dim).unsqueeze(0).expand((max_lag + 1, -1))
     num = torch.max(num_x, num_y)
-    lag_penality = torch.arange(max_lag + 1).unsqueeze(1).expand(num.shape)
+    lag_penality = num.new_tensor(
+        torch.arange(max_lag + 1).unsqueeze(1).expand(num.shape)
+    )
     num = num - lag_penality
 
     x = x.nan_to_num(0, 0, 0)
