@@ -56,7 +56,7 @@ grid = [
         "FIGARCH",
         {
             "model": "FIGARCH",
-            "max": 5,
+            "max": 1,
             "par": ["p", "q"],
             "power": 2,
             "dist": ["normal", "t", "skewt", "ged"],
@@ -98,13 +98,17 @@ if path.exists():
     with path.open() as file:
         experiments = json.load(file)
 
-N = 40
+N = 50
 
 for model, pg in grid:
     config = {"vol": pg["model"], "power": pg["power"], "mean": "Constant"}
     for dist in pg["dist"]:
-        for p in range(1, pg["max"] + 1):
-            par_dict = {s: p for s in pg["par"]}
+        if model == 'FIGARCH':
+            par_grid = [{'p' : 1, 'q' : 0},{'p' : 1, 'q' : 1},{'p' : 0, 'q' : 0}]
+        else:
+            par_grid = [{s: p for s in pg['par']} for p in range(1, pg['max'] + 1)]
+
+        for par_dict in par_grid:
             config = config.copy()
             config.update({"dist": dist})
             config.update(par_dict)
