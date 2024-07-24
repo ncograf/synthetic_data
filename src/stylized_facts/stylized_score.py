@@ -1,4 +1,5 @@
-from typing import Any, Dict, Literal
+import warnings
+from typing import Callable, Tuple
 
 import bootstrap
 import coarse_fine_volatility
@@ -10,158 +11,118 @@ import numpy as np
 import numpy.typing as npt
 import train_garch
 import volatility_clustering
+from scipy.stats import wasserstein_distance
 
 
-def stylized_score(log_returns: npt.ArrayLike, syn_log_returns: npt.ArrayLike):
-    syn_stats = _compute_stats(syn_log_returns, "syn")
-    real_stats = _compute_stats(log_returns, "real")
-    return _stylized_score(**syn_stats, **real_stats)
+def _stf_score(
+    stf: Callable,
+    real_data: npt.ArrayLike,
+    syn_data: npt.ArrayLike,
+    B: int,
+    S: int,
+    L: int,
+    **kwargs,
+) -> Tuple[npt.ArrayLike, float]:
+    real_data = np.asarray(real_data)
+    syn_data = np.asarray(syn_data)
+
+    # two dimensional data needs to be boostrapped
+    if real_data.ndim == 2:
+        real_data, _ = bootstrap.boostrap_distribution(
+            real_data, stf, B, S, L, **kwargs
+        )
+    else:
+        assert real_data.ndim == 3
+        real_data = np.asarray([np.mean(stf(d, **kwargs), axis=1) for d in real_data]).T
+
+    if syn_data.ndim == 2:
+        dist_b, _ = bootstrap.boostrap_distribution(syn_data, stf, B, S, L, **kwargs)
+    else:
+        assert syn_data.ndim == 3
+        dist_b = np.asarray([np.mean(stf(d, **kwargs), axis=1) for d in syn_data]).T
+
+    n = real_data.shape[0]
+    assert dist_b.shape[0] == real_data.shape[0]
+
+    w_dist = []
+    for i in range(n):
+        std = np.std(real_data[i, :])
+        w_dist.append(wasserstein_distance(real_data[i, :] / std, dist_b[i, :] / std))
+
+    return np.asarray(w_dist), np.mean(w_dist)
 
 
-def _compute_stats(log_returns: npt.ArrayLike, kind: Literal["real", "syn"]):
-    log_prices = np.cumsum(log_returns, axis=0)
-    stats = {}
-    stats[f"lu_{kind}_stat"] = linear_unpredictability.linear_unpredictability_stats(
-        log_returns, max_lag=1000
-    )
-    stats[f"ht_{kind}_stat"] = heavy_tails.heavy_tails_stats(
-        log_returns, n_bins=1000, tail_quant=0.1
-    )
-    stats[f"vc_{kind}_stat"] = volatility_clustering.volatility_clustering_stats(
-        log_returns, max_lag=1000
-    )
-    stats[f"le_{kind}_stat"] = leverage_effect.leverage_effect_stats(
-        log_returns, max_lag=100
-    )
-    stats[f"cfv_{kind}_stat"] = coarse_fine_volatility.coarse_fine_volatility_stats(
-        log_returns, tau=5, max_lag=100
-    )
-    stats[f"gl_{kind}_stat"] = gain_loss_asymetry.gain_loss_asymmetry_stat(
-        log_prices, max_lag=1000, theta=0.1
-    )
-
-    return stats
-
-
-def _stylized_score(
-    lu_real_stat: Dict[str, Any],
-    lu_syn_stat: Dict[str, Any],
-    ht_real_stat: Dict[str, Any],
-    ht_syn_stat: Dict[str, Any],
-    vc_real_stat: Dict[str, Any],
-    vc_syn_stat: Dict[str, Any],
-    le_real_stat: Dict[str, Any],
-    le_syn_stat: Dict[str, Any],
-    cfv_real_stat: Dict[str, Any],
-    cfv_syn_stat: Dict[str, Any],
-    gl_real_stat: Dict[str, Any],
-    gl_syn_stat: Dict[str, Any],
+def stylized_score(
+    real_data: npt.ArrayLike, syn_data: npt.ArrayLike, B: int, S: int, L: int
 ):
-    EPS = 1e-9
+    tail_quantile = 0.1
+    tau = 5
+    theta = 0.1
 
-    ###########################
-    # LINEAR UNPREDICTABILITY #
-    ###########################
-    lurealmse, lu_real_mse_std = lu_real_stat["mse"], lu_real_stat["mse_std"]
-    lu_syn_mse, lu_syn_mse_std = lu_syn_stat["mse"], lu_syn_stat["mse_std"]
-    lu_score = [
-        np.abs((lurealmse - lu_syn_mse) / (lu_real_mse_std + EPS)),
-        np.abs(lu_syn_mse_std / (lu_real_mse_std + EPS) - 1),
-    ]
-    lu_score = np.nanmean(lu_score)
+    def stf_ht(data, qt):
+        pd, pb, nd, nb = heavy_tails.discrete_pdf(data)
+        (pb, _), _ = heavy_tails.heavy_tails(pd, pb, qt)
+        (nb, _), _ = heavy_tails.heavy_tails(nd, nb, qt)
 
-    ###############
-    # HEAVY TAILS #
-    ###############
-    htreal = (
-        ht_real_stat["pos_beta"],
-        ht_real_stat["neg_beta"],
-    )
-    htrealstd = (
-        ht_real_stat["pos_beta_std"],
-        ht_real_stat["neg_beta_std"],
-    )
+        return np.array([pb, nb]).reshape(-1, 1)
 
-    htsyn = (
-        ht_syn_stat["pos_beta"],
-        ht_syn_stat["neg_beta"],
+    def stf_cf(data, tau, max_lag):
+        _, _, dll, _ = coarse_fine_volatility.coarse_fine_volatility(data, tau, max_lag)
+        return dll
+
+    stf_lu = linear_unpredictability.linear_unpredictability
+    stf_vc = volatility_clustering.volatility_clustering
+    stf_le = leverage_effect.leverage_effect
+
+    lu_scores, lus = _stf_score(stf_lu, real_data, syn_data, B, S, L, max_lag=1000)
+    ht_scores, hts = _stf_score(stf_ht, real_data, syn_data, B, S, L, qt=tail_quantile)
+    vc_scores, vcs = _stf_score(stf_vc, real_data, syn_data, B, S, L, max_lag=1000)
+    le_scores, les = _stf_score(stf_le, real_data, syn_data, B, S, L, max_lag=100)
+    cf_scores, cfs = _stf_score(
+        stf_cf, real_data, syn_data, B, S, L, max_lag=40, tau=tau
     )
 
-    ht_score = [
-        np.abs((a - b) / (c + EPS)) for a, b, c in zip(htreal, htsyn, htrealstd)
-    ]
-    ht_score = np.nanmean(ht_score)
+    gl_max = 100
+    values = np.arange(1, gl_max + 2, 1)
 
-    #########################
-    # VOLATILITY CLUSTERING #
-    #########################
-    vcreal = [vc_real_stat["beta"]]
-    vcrealstd = [vc_real_stat["beta_std"]]
-    vcsyn = [vc_syn_stat["beta"]]
+    if real_data.ndim == 3:
+        real_data = np.concatenate(real_data.tolist(), axis=1)
+    if syn_data.ndim == 3:
+        syn_data = np.concatenate(syn_data.tolist(), axis=1)
 
-    vc_score = [
-        np.abs((a - b) / (c + EPS)) for a, b, c in zip(vcreal, vcsyn, vcrealstd)
-    ]
-    vc_score = np.nanmean(vc_score)
-
-    ###################
-    # LEVERAGE EFFECT #
-    ###################
-    lereal = [le_real_stat["beta"]]
-    lerealstd = [le_real_stat["beta_std"]]
-
-    lesyn = [le_syn_stat["beta"]]
-
-    le_score = [np.abs((a - b) / c) for a, b, c in zip(lereal, lesyn, lerealstd)]
-    le_score = np.nanmean(le_score)
-
-    ##########################
-    # COARSE FINE VOLATILITY #
-    ##########################
-
-    cfvreal = (cfv_real_stat["beta"], cfv_real_stat["argmin"])
-    cfvrealstd = (
-        cfv_real_stat["beta_std"],
-        cfv_real_stat["argmin_std"],
+    real_gains, real_loss = np.nanmean(
+        gain_loss_asymetry.gain_loss_asymmetry(real_data, max_lag=gl_max, theta=theta),
+        axis=2,
+    )
+    syn_gains, syn_loss = np.nanmean(
+        gain_loss_asymetry.gain_loss_asymmetry(syn_data, max_lag=gl_max, theta=theta),
+        axis=2,
     )
 
-    cfvsyn = cfv_syn_stat["beta"], cfv_syn_stat["argmin"]
-
-    cfv_score = [np.abs((a - b) / c) for a, b, c in zip(cfvreal, cfvsyn, cfvrealstd)]
-    cfv_score = np.nanmean(cfv_score)
-
-    #############################
-    # GAIN LOSS ASYMMETRY SCORE #
-    #############################
-    gl_real = (gl_real_stat["arg_diff"],)
-    gl_real_std = (gl_real_stat["arg_diff_std"],)
-
-    gl_syn = [
-        gl_syn_stat["arg_diff"],
-    ]
-
-    # asymmetric loss function, punish negative deviations stronger than postive ones
-    # the factor is determined by the ratio of the extreme values
-    asym = (gl_real_stat["arg_diff"] - gl_real_stat["arg_diff_min"]) / (
-        gl_real_stat["arg_diff_max"] - gl_real_stat["arg_diff"]
+    n_gains = np.sum(real_gains)
+    mu_gains = np.dot(real_gains, np.arange(1, real_gains.size + 1)) / n_gains
+    std_gains = np.sqrt(
+        np.dot((np.arange(1, real_gains.size + 1) - mu_gains) ** 2, real_gains)
+        / n_gains
     )
-    gl_score = [
-        (asym if (a - b) < 0 else 1) * np.abs((a - b) / c)
-        for a, b, c in zip(gl_real, gl_syn, gl_real_std)
-    ]
-    gl_score = np.nanmean(gl_score)
 
-    scores = {
-        "lin unpred": lu_score,
-        "heavy tails": ht_score,
-        "vol cluster": vc_score,
-        "lev effect": le_score,
-        "cf vol": cfv_score,
-        "gain loss": gl_score,
-    }
-    total_score = np.nanmean(list(scores.values()))
+    n_loss = np.sum(real_loss)
+    mu_loss = np.dot(real_loss, np.arange(1, real_loss.size + 1)) / n_loss
+    std_loss = np.sqrt(
+        np.dot((np.arange(1, real_loss.size + 1) - mu_loss) ** 2, real_loss) / n_loss
+    )
 
-    return total_score, scores
+    values_g = values / std_gains
+    values_l = values / std_loss
+    gain_score = wasserstein_distance(values_g, values_g, real_gains, syn_gains)
+    loss_score = wasserstein_distance(values_l, values_l, real_loss, syn_loss)
+    gl_socres = np.asarray([gain_score, loss_score])
+    gls = np.mean(gl_socres)
+
+    scores = np.array((lus, hts, vcs, les, cfs, gls))
+    score_arrays = [lu_scores, ht_scores, vc_scores, le_scores, cf_scores]
+
+    return scores, np.mean(scores), score_arrays
 
 
 if __name__ == "__main__":
@@ -170,35 +131,23 @@ if __name__ == "__main__":
     sp500 = load_data.load_log_returns("sp500")
     smi = load_data.load_log_returns("smi")
 
-    B = 5
+    B = 50
     S = 24
     L = 4096
 
-    st_fact = leverage_effect.leverage_effect
-    kwargs = {"max_lag": 1000}
-
     # comptue samples for garch
-    garch_b = []
-    for i in range(B):
-        garch_sample = train_garch.sample_garch(
-            "/home/nico/thesis/code/data/cache/garch_experiments/GARCH_t_2024_07_14-05_58_35",
-            n_stocks=S,
-            len=L,
-        )
-        garch_b.append(np.mean(np.asarray(st_fact(garch_sample, **kwargs)), axis=1))
-        print(f"sampled {i}")
-    garch_b = np.asarray(garch_b).T
-    sp500_b, _ = bootstrap.boostrap_distribution(sp500, st_fact, B, S, L, **kwargs)
+    with warnings.catch_warnings(action="ignore"):
+        garch_b = []
+        for i in range(B):
+            garch_sample = train_garch.sample_garch(
+                "/home/nico/thesis/code/data/cache/garch_experiments/GARCH_ged_2024_07_14-02_42_08",
+                n_stocks=S,
+                len=L,
+            )
+            print(f"sample garch {i}")
+            garch_b.append(garch_sample)
 
-    import matplotlib.pyplot as plt
-    from scipy.stats import wasserstein_distance
+    syn_data = np.asarray(garch_b[1])
 
-    test = []
-    for i in range(sp500_b.shape[0]):
-        test.append(wasserstein_distance(sp500_b[i, :], garch_b[i, :]))
-
-    plt.plot(
-        test, label=f"sp500 vs garch {np.mean(test)}", linestyle="none", marker="o"
-    )
-    plt.legend()
-    plt.show()
+    scores, mu_score, _ = stylized_score(sp500, syn_data, B, S, L)
+    print(scores, mu_score)
