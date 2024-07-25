@@ -142,7 +142,7 @@ def _train_fingan(config: Dict[str, Any] = {}):
                 fit = {"loc": 0, "scale": 1}
             case "laplace":
                 loc, scale = scipy.stats.laplace.fit(log_returns.flatten())
-                fit = {"loc": 0, "scale": 1}
+                fit = {"loc": loc, "scale": scale}
 
         # read config
         gen_config = {
