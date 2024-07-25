@@ -16,7 +16,8 @@ def log_stylized_facts(
     local_path: str | Path,
     wandb_path: str,
     figure_title: str,
-    log_returns: npt.ArrayLike,
+    stf: npt.ArrayLike,
+    stf_dist: npt.ArrayLike,
 ):
     """Log stylized facts and catch errors (errors will be printed but not thrown)
 
@@ -24,14 +25,15 @@ def log_stylized_facts(
         local_path (str | Path): local path to store image of stylized facts
         wandb_path (str): wandb path to store stylized facts
         figure_title (str): title of figure with stylized facts
-        log_returns (npt.): return data
+        stf (array_like): precomputed stylized facts
+        stf_dist (array_like): distribution of stylied facts
     """
 
     matplotlib.use("Agg")
 
     # compute stylized facts
     try:
-        plot = vst.visualize_stylized_facts(log_returns=log_returns)
+        plot = vst.visualize_stylized_facts(stf, stf_dist)
         plot.suptitle(figure_title)
         plot.savefig(local_path)
         if wandb.run is not None:

@@ -72,13 +72,36 @@ def _train_garch(config, price_data: pd.DataFrame | None = None) -> Path:
     return cache
 
 
+def load_garch(file: str | Path) -> dict:
+    """Load garch models from memory
+
+    Args:
+        file (str | Path): file containing all garch models
+
+    Returns:
+        dict : dict with tuples containing models and parameters
+    """
+
+    file = Path(file)
+    models_dict = torch.load(file)
+    symbols = list(models_dict.keys())
+
+    garch_dict = {}
+    for sym in symbols:
+        model = arch_uni.arch_model(y=None, **(models_dict[sym]["init_params"]))
+        params = models_dict[sym]["fit_params"]
+        garch_dict[sym] = (model, params)
+
+    return garch_dict
+
+
 def sample_garch(
-    folder: str | Path, n_stocks: int = -1, len: int = 8192
+    garch_models: dict, n_stocks: int = -1, len: int = 8192
 ) -> npt.NDArray:
     """Generate data from garch model
 
     Args:
-        folder (str | Path): path to the garch
+        garch_models (dict): Dictonary of garch models
         n_stocks (int): number of stocks
         len (int): sampled sequence length
 
@@ -87,22 +110,15 @@ def sample_garch(
     """
 
     BURN = 512
-
-    folder = Path(folder)
-    models_dict = torch.load(folder / "garch_models.pt")
-
-    symbols = list(models_dict.keys())
+    symbols = list(garch_models.keys())
 
     if n_stocks > 0:
         symbols = np.random.choice(symbols, n_stocks, replace=True)
 
     log_returns = []
     for sym in symbols:
-        garch_dict = models_dict[sym]
-        model = arch_uni.arch_model(y=None, **garch_dict["init_params"])
-        return_simulation = model.simulate(
-            garch_dict["fit_params"], nobs=len, burn=BURN
-        ).loc[:, "data"]
+        model, params = garch_models[sym]
+        return_simulation = model.simulate(params, nobs=len, burn=BURN).loc[:, "data"]
         return_simulation = np.asarray(return_simulation) / 100 + 1
         return_simulation[return_simulation <= 0] = 1e-8
         log_returns.append(np.log(return_simulation))

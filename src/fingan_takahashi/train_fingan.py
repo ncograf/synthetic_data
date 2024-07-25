@@ -47,7 +47,7 @@ def _train_fingan(config: Dict[str, Any] = {}):
         "seq_len": 8192,
         "train_seed": 99,
         "dtype": "float32",
-        "epochs": 2000,
+        "epochs": 1000,
         "batch_size": 24,
         # dist in studentt, normal, cauchy, laplace
         "dist": "studentt",
@@ -101,8 +101,10 @@ def _train_fingan(config: Dict[str, Any] = {}):
         + conf["stylized_losses"]
     ):
         # process data
+        bootstraps = 300
+        bootstrap_samples = 24
         real_stf = stylized_score.boostrap_stylized_facts(
-            log_returns, 500, conf["batch_size"], L=conf["seq_len"]
+            log_returns, bootstraps, bootstrap_samples, L=conf["seq_len"]
         )
 
         # determine shift and scale
@@ -156,8 +158,9 @@ def _train_fingan(config: Dict[str, Any] = {}):
         dtype = TypeConverter.str_to_numpy(conf["dtype"])
 
         # create dataset (note that the dataset will sample randomly during training (see source for more information))
+        num_batches = 1024
         dataset = SP500GanDataset(
-            log_returns.astype(dtype), batch_size * 1024, conf["seq_len"]
+            log_returns.astype(dtype), batch_size * num_batches, conf["seq_len"]
         )
         loader = DataLoader(dataset, batch_size, pin_memory=True)
 
@@ -277,14 +280,21 @@ def _train_fingan(config: Dict[str, Any] = {}):
             }
 
             # get returns (note the transposition due to batch sampling)
-            log_ret_sim = model.sample(batch_size=512).detach().cpu().numpy().T
-            log_ret_sim = log_ret_sim * data_config["scale"] + data_config["shift"]
+            def sampler(S):
+                return (
+                    model.sample(batch_size=S, unnormalize=True)
+                    .detach()
+                    .cpu()
+                    .numpy()
+                    .T
+                )
+
             old_best_score = best_score
             try:
-                syn_stf = stylized_score.boostrap_stylized_facts(
-                    log_ret_sim, 200, conf["batch_size"], conf["seq_len"]
+                syn_stf = stylized_score.stylied_facts_from_model(
+                    sampler, bootstraps, bootstrap_samples
                 )
-                total_score, scores, _ = stylized_score._stylized_score(
+                total_score, scores, _ = stylized_score.stylized_score(
                     real_stf, syn_stf
                 )
                 scores = {
@@ -300,7 +310,9 @@ def _train_fingan(config: Dict[str, Any] = {}):
                 logs.update(scores)
             except Exception as e:
                 print(f"Expeption occured on coputing stylized statistics: {str(e)}.")
-            logs["stats"] = static_stats.static_stats(log_ret_sim)
+            sampled_data = sampler(bootstraps)
+            stf = stylized_score.compute_mean_stylized_fact(sampled_data)
+            logs["stats"] = static_stats.static_stats(sampled_data)
 
             # log eopch loss if wandb is activated
             if wandb.run is not None:
@@ -338,14 +350,15 @@ def _train_fingan(config: Dict[str, Any] = {}):
                     local_path=loc_path / "stylized_facts.png",
                     wandb_path=f"{epoch_name}/stylized_facts.png",
                     figure_title=f"Stylized Facts FinGAN Takahashi (epoch {epoch + 1})",
-                    log_returns=log_ret_sim,
+                    stf=stf,
+                    stf_dist=syn_stf,
                 )
 
                 wandb_logging.log_temp_series(
                     local_path=loc_path / "sample_returns.png",
                     wandb_path=f"{epoch_name}/sample_returns.png",
                     figure_title=f"Simulated Log Returns FinGAN Takahashi (epoch {epoch + 1})",
-                    temp_data=pd.Series(log_ret_sim[:, 0]),  # pick the first sample
+                    temp_data=pd.Series(sampled_data[:, 0]),  # pick the first sample
                 )
 
                 wandb_logging.log_temp_series(
@@ -353,7 +366,7 @@ def _train_fingan(config: Dict[str, Any] = {}):
                     wandb_path=f"{epoch_name}/sample_prices.png",
                     figure_title=f"Simulated Prices FinGAN Takahashi (epoch {epoch + 1})",
                     temp_data=pd.Series(
-                        np.exp(np.cumsum(log_ret_sim[:, 0]))
+                        np.exp(np.cumsum(sampled_data[:, 0]))
                     ),  # pick the first sample
                 )
 
@@ -369,21 +382,15 @@ def _train_fingan(config: Dict[str, Any] = {}):
         print("Finished training Takahashi Fin Gan!")
 
 
-def sample_fingan(file: str | Path, seed: int = 99) -> npt.NDArray:
-    """Generate data from the trained model
-
+def load_fingan(file: str) -> FinGan:
+    """Load model from memory
 
     Args:
-        file (str | Path): path to the GARCH.
-        seed (int, optional): manual seed. Defaults to 99.
+        file (str): File to get model from
 
     Returns:
-        npt.NDArray: log return simulations
+        FinGan: initialized model
     """
-
-    N_SEQ = 233
-    set_seed(seed)
-
     file = Path(file)
 
     accelerator = Accelerator()
@@ -393,8 +400,22 @@ def sample_fingan(file: str | Path, seed: int = 99) -> npt.NDArray:
     model.load_state_dict(model_dict["state_dict"])
     model = accelerator.prepare(model)
 
+    return model
+
+
+def sample_fingan(model: FinGan, batch_size: int = 24) -> npt.NDArray:
+    """Generate data from the trained model
+
+    Args:
+        file (FinGan): Initialized model
+        batch_size (int): number of seqences to sample from model
+
+    Returns:
+        npt.NDArray: log return simulations
+    """
+
     # sample and bring the returns to the cpu (transpse to get dates in axis 0)
-    log_returns = model.sample(batch_size=N_SEQ, unnormalize=True)
+    log_returns = model.sample(batch_size=batch_size, unnormalize=True)
     log_returns = log_returns.detach().cpu().numpy().T
 
     return log_returns
@@ -431,5 +452,5 @@ def train_fingan(dist: str, moment_loss: List[str], stylized_loss: List[str]):
 
 
 if __name__ == "__main__":
-    # os.environ["WANDB_MODE"] = "disabled"
+    os.environ["WANDB_MODE"] = "disabled"
     train_fingan()

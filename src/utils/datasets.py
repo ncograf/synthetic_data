@@ -6,9 +6,16 @@ from torch.utils.data import Dataset
 
 
 class SP500Dataset(Dataset):
-    def __init__(self, price_data: pd.DataFrame, num_elements: int, seq_len: int):
+    def __init__(
+        self,
+        price_data: pd.DataFrame,
+        num_elements: int,
+        seq_len: int,
+        rand_start: bool = False,
+    ):
         self.seq_len = seq_len
         self.num_elements = num_elements
+        self.rand_start = rand_start
 
         # all colums in the dataframe must have at least seq_len non_nan elements
         non_nans = np.array(np.sum(~np.isnan(price_data), axis=0))
@@ -41,7 +48,10 @@ class SP500Dataset(Dataset):
         data = np.array(self.price_data.loc[:, symbol].dropna())
         log_returns = np.log(data[1:] / data[:-1])
 
-        start_idx = np.random.randint(0, log_returns.size - self.seq_len)
+        if self.rand_start:
+            start_idx = np.random.randint(0, log_returns.size - self.seq_len)
+        else:
+            start_idx = log_returns.size - self.seq_len
         end_idx = start_idx + self.seq_len
 
         return torch.tensor(log_returns[start_idx:end_idx])
