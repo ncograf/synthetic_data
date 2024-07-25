@@ -298,12 +298,12 @@ def _train_fingan(config: Dict[str, Any] = {}):
                     real_stf, syn_stf
                 )
                 scores = {
-                    "lu": scores[0],
-                    "ht": scores[1],
-                    "vc": scores[2],
-                    "le": scores[3],
-                    "cf": scores[4],
-                    "gl": scores[5],
+                    "stylized_scores/lu": scores[0],
+                    "stylized_scores/ht": scores[1],
+                    "stylized_scores/vc": scores[2],
+                    "stylized_scores/le": scores[3],
+                    "stylized_scores/cf": scores[4],
+                    "stylized_scores/gl": scores[5],
                 }
                 scores["total_score"] = total_score
                 best_score = np.minimum(total_score, best_score)
@@ -312,7 +312,8 @@ def _train_fingan(config: Dict[str, Any] = {}):
                 print(f"Expeption occured on coputing stylized statistics: {str(e)}.")
             sampled_data = sampler(bootstraps)
             stf = stylized_score.compute_mean_stylized_fact(sampled_data)
-            logs["stats"] = static_stats.static_stats(sampled_data)
+            for key, value in static_stats.static_stats(sampled_data).items():
+                logs[f"stats/{key}"] = value
 
             # log eopch loss if wandb is activated
             if wandb.run is not None:
