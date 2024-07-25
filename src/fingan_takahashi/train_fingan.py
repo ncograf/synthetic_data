@@ -452,5 +452,5 @@ def train_fingan(dist: str, moment_loss: List[str], stylized_loss: List[str]):
 
 
 if __name__ == "__main__":
-    os.environ["WANDB_MODE"] = "disabled"
+    # os.environ["WANDB_MODE"] = "disabled"
     train_fingan()
