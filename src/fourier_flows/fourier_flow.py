@@ -1,10 +1,10 @@
 from typing import Any, Dict, Tuple
 
+import numpy as np
 import torch
 import torch.nn as nn
 from fourier_transform_layer import FourierTransformLayer
 from spectral_filtering_layer import SpectralFilteringLayer
-from torch.distributions.multivariate_normal import MultivariateNormal
 from type_converter import TypeConverter
 
 
@@ -15,7 +15,7 @@ class FourierFlow(nn.Module):
         seq_len: int,
         num_layer: int,
         dist_config: Dict[str, Any],
-        dtype: str = "float32",
+        dtype: str | torch.dtype = "float32",
         use_dft: bool = True,
         dft_scale: float = 1,
         dft_shift: float = 0,
@@ -61,12 +61,6 @@ class FourierFlow(nn.Module):
             )
 
         self.latent_size = seq_len // 2 + 1
-        self.mu = nn.Parameter(
-            torch.zeros(2 * self.latent_size, dtype=self.dtype), requires_grad=False
-        )
-        self.sigma = nn.Parameter(
-            torch.eye(2 * self.latent_size, dtype=self.dtype), requires_grad=False
-        )
 
         self.layers = nn.ModuleList(
             [
@@ -93,9 +87,6 @@ class FourierFlow(nn.Module):
             fn (function): Function to be applied
         """
         super(self.__class__, self)._apply(fn)
-
-        # reinitialize the multivariate distribution
-        self.dist_z = MultivariateNormal(self.mu, self.sigma)
         return self
 
     def _init_weights(self, module: nn.Module):
@@ -174,10 +165,11 @@ class FourierFlow(nn.Module):
             log_jac_dets.append(log_jac_det)
 
         # compute 'log likelyhood' of last ouput
+        d = np.prod(x_fft.shape[:-1])
         z = torch.cat([x_fft[:, :, 0], x_fft[:, :, 1]], dim=1)
-        log_prob_z = torch.sum(dist.log_prob(z), dim=-1)
+        log_prob_z = torch.sum(dist.log_prob(z), dim=-1) / d
 
-        log_jac_dets = torch.stack(log_jac_dets, dim=0)
+        log_jac_dets = torch.stack(log_jac_dets, dim=0) / d
         log_jac_det_sum = torch.sum(log_jac_dets, dim=0)
 
         return z, log_prob_z, log_jac_det_sum

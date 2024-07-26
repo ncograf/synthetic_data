@@ -3,12 +3,13 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict
 
 import cpuinfo
+import load_data
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
-import real_data_loader as data
 import scipy.stats
 import static_stats
 import stylized_score
@@ -24,7 +25,7 @@ from type_converter import TypeConverter
 import wandb
 
 
-def train_fourierflow():
+def train_fourierflow(conf: Dict[str, Any] = {}):
     """Fit a FourierFlow Neural Network. I.e. Train the network on the given data.
 
     The method logs intermediate results every few epochs
@@ -43,44 +44,35 @@ def train_fourierflow():
     config = {
         "train_seed": 99,
         "dtype": "float32",
-        "seq_len": 1024,
+        "seq_len": 8192,
         "fourier_flow_config": {
-            "hidden_dim": 128,
+            "hidden_dim": 1024,
             "num_layer": 10,
         },
-        "epochs": 3000,
-        "batch_size": 128,
-        "dist": "studentt",
+        "epochs": 1000,
+        "batch_size": 20,
+        "dist": "normal",
         "optim_gen_config": {
-            "lr": 2e-4,
-            "betas": (0.5, 0.999),
+            "lr": 1e-3,
+            # "betas": (0.5, 0.999),
         },
         "lr_config": {
             "gamma": 0.999,
         },
     }
 
-    root_dir = Path(__file__).parent.parent.parent
+    conf.update(config)
+
     N_TICKS = 9216
 
     # setup cache for the train run
     TIME_FORMAT = "%Y_%m_%d-%H_%M_%S"
     t = datetime.now().strftime(TIME_FORMAT)
-    cache = Path(f"{root_dir}/data/cache/FourierFlow_{t}")
+    cache = Path(os.environ["RESULT_DIR"]) / f"FourierFlow_{t}"
     cache.mkdir(parents=True, exist_ok=True)
 
     # load real data
-    data_loader = data.RealDataLoader(cache=root_dir / "data/cache")
-    price_data = data_loader.get_timeseries(
-        "Adj Close", data_path=root_dir / "data/raw_yahoo_data"
-    )
-
-    # all colums in the dataframe must have at least seq_len non_nan elements
-    non_nans = np.array(np.sum(~np.isnan(price_data), axis=0))
-    price_data = price_data.drop(
-        price_data.columns[non_nans <= N_TICKS], axis="columns"
-    )
-    price_data = price_data.iloc[-N_TICKS:]
+    log_returns = load_data.load_log_returns("sp500", N_TICKS)
 
     # accelerator is used to efficiently use resources
     set_seed(config["train_seed"])
@@ -97,20 +89,22 @@ def train_fourierflow():
 
     with wandb.init(tags=["FourierFlow", config["dist"]]):
         # process data
-        log_returns = np.array(price_data)
-        log_returns = np.log(log_returns[1:] / log_returns[:-1])
-        real_stats = stylized_score._compute_stats(log_returns, "real")
+        bootstraps = 382
+        bootstrap_samples = 24
+        real_stf = stylized_score.boostrap_stylized_facts(
+            log_returns, bootstraps, bootstrap_samples, L=conf["seq_len"]
+        )
 
         # get distribution
         real_static_stats = static_stats.static_stats(log_returns)
         mean = real_static_stats["mean"]
         std = real_static_stats["std"]
+        # var = real_static_stats["variance"]
+        # skewness = real_static_stats["skewness"]
+        # kurtosis = real_static_stats["kurtosis"]
 
         # determine shift and scale
-        data_config = {"scale": 1, "shift": 0}
-
-        # get distribution
-        real_static_stats = static_stats.static_stats(log_returns)
+        # data_config = {"scale": 1, "shift": 0}
 
         # log wandb if wandb logging is active
         if wandb.run is not None:
@@ -120,13 +114,6 @@ def train_fourierflow():
             wandb.config["train_config.gpu"] = cuda_name
             wandb.config["train_config.device"] = device
             wandb.define_metric("*", step_metric="epoch")
-
-        # read config
-        fourier_flow_config = config["fourier_flow_config"]
-        fourier_flow_config["seq_len"] = config["seq_len"]
-        batch_size = config["batch_size"]
-        epochs = config["epochs"]
-        dtype = TypeConverter.str_to_numpy(config["dtype"])
 
         # set distribution
         match config["dist"]:
@@ -143,12 +130,20 @@ def train_fourierflow():
                 fit = {"loc": 0, "scale": 1}
             case "laplace":
                 loc, scale = scipy.stats.laplace.fit(log_returns.flatten())
-                fit = {"loc": 0, "scale": 1}
+                fit = {"loc": loc, "scale": scale}
         dist_config = {"dist": config["dist"], **fit}
 
+        # read config
+        fourier_flow_config = config["fourier_flow_config"]
+        fourier_flow_config["seq_len"] = config["seq_len"]
+        batch_size = config["batch_size"]
+        epochs = config["epochs"]
+        dtype = TypeConverter.str_to_numpy(config["dtype"])
+
         # create dataset (note that the dataset will sample randomly during training (see source for more information))
+        num_batches = 256
         dataset = SP500GanDataset(
-            log_returns.astype(dtype), batch_size * 10, config["seq_len"]
+            log_returns.astype(dtype), batch_size * num_batches, config["seq_len"]
         )
         loader = DataLoader(dataset, batch_size, pin_memory=True)
 
@@ -183,26 +178,40 @@ def train_fourierflow():
                 epoch_loss += loss.item()
 
             logs = {
-                "loss": epoch_loss,
+                "loss": epoch_loss / len(loader),
                 "epoch_time": time.time() - epoch_time,
                 "epoch": epoch,
             }
 
             # get returns (note the transposition due to batch sampling)
-            log_ret_sim = model.sample(batch_size=201).detach().cpu().numpy().T
-            log_ret_sim = log_ret_sim * data_config["scale"] + data_config["shift"]
+            def sampler(S):
+                return model.sample(batch_size=S).detach().cpu().numpy().T
+
             old_best_score = best_score
             try:
-                syn_stats = stylized_score._compute_stats(log_ret_sim, "syn")
-                total_score, scores = stylized_score._stylized_score(
-                    **syn_stats, **real_stats
+                syn_stf = stylized_score.stylied_facts_from_model(
+                    sampler, bootstraps, bootstrap_samples
                 )
+                total_score, scores, _ = stylized_score.stylized_score(
+                    real_stf, syn_stf
+                )
+                scores = {
+                    "stylized_scores/lu": scores[0],
+                    "stylized_scores/ht": scores[1],
+                    "stylized_scores/vc": scores[2],
+                    "stylized_scores/le": scores[3],
+                    "stylized_scores/cf": scores[4],
+                    "stylized_scores/gl": scores[5],
+                }
                 scores["total_score"] = total_score
                 best_score = np.minimum(total_score, best_score)
                 logs.update(scores)
             except Exception as e:
                 print(f"Expeption occured on coputing stylized statistics: {str(e)}.")
-            logs["stats"] = static_stats.static_stats(log_ret_sim)
+            sampled_data = sampler(bootstraps)
+            stf = stylized_score.compute_mean_stylized_fact(sampled_data)
+            for key, value in static_stats.static_stats(sampled_data).items():
+                logs[f"stats/{key}"] = value
 
             # log eopch loss if wandb is activated
             if wandb.run is not None:
@@ -240,14 +249,15 @@ def train_fourierflow():
                     local_path=loc_path / "stylized_facts.png",
                     wandb_path=f"{epoch_name}/stylized_facts.png",
                     figure_title=f"Stylized Facts Fourier Flow (epoch {epoch + 1})",
-                    log_returns=log_ret_sim,
+                    stf=stf,
+                    stf_dist=syn_stf,
                 )
 
                 wandb_logging.log_temp_series(
                     local_path=loc_path / "sample_returns.png",
                     wandb_path=f"{epoch_name}/sample_returns.png",
                     figure_title=f"Simulated Log Returns Fourier Flow (epoch {epoch + 1})",
-                    temp_data=pd.Series(log_ret_sim[:, 0]),  # pick the first sample
+                    temp_data=pd.Series(sampled_data[:, 0]),  # pick the first sample
                 )
 
                 wandb_logging.log_temp_series(
@@ -255,13 +265,15 @@ def train_fourierflow():
                     wandb_path=f"{epoch_name}/sample_prices.png",
                     figure_title=f"Simulated Prices Fourier Flow (epoch {epoch + 1})",
                     temp_data=pd.Series(
-                        np.exp(np.cumsum(log_ret_sim[:, 0]))
+                        np.exp(np.cumsum(sampled_data[:, 0]))
                     ),  # pick the first sample
                 )
 
                 # print progress every n epochs
                 print(
-                    (f"epoch: {epoch + 1:>6d}/{epochs},\tlast loss {epoch_loss:>6.4f}")
+                    (
+                        f"epoch: {epoch + 1:>6d}/{epochs},\tlast loss {epoch_loss / len(loader):>6.4f}"
+                    )
                 )
 
         # after the last epoch free memory
@@ -269,21 +281,15 @@ def train_fourierflow():
         print("Finished training Fourier Flow!")
 
 
-def sample_fourier_flow(file: str | Path, seed: int = 99) -> npt.NDArray:
-    """Generate data from the trained model
-
+def load_fourierflow(file: str) -> FourierFlow:
+    """Load model from memory
 
     Args:
-        file (str | Path): path to the GARCH.
-        seed (int, optional): manual seed. Defaults to 99.
+        file (str): File to get model from
 
     Returns:
-        npt.NDArray: log return simulations
+        FourierFlow: initialized model
     """
-
-    N_SEQ = 1000
-    set_seed(seed)
-
     file = Path(file)
 
     accelerator = Accelerator()
@@ -293,13 +299,27 @@ def sample_fourier_flow(file: str | Path, seed: int = 99) -> npt.NDArray:
     model.load_state_dict(model_dict["state_dict"])
     model = accelerator.prepare(model)
 
+    return model
+
+
+def sample_fourierflow(model: FourierFlow, batch_size: int = 24) -> npt.NDArray:
+    """Generate data from the trained model
+
+    Args:
+        file (FourierFlow): Initialized model
+        batch_size (int): number of seqences to sample from model
+
+    Returns:
+        npt.NDArray: log return simulations
+    """
+
     # sample and bring the returns to the cpu (transpse to get dates in axis 0)
-    log_returns = model.sample(batch_size=N_SEQ, unnormalize=True)
+    log_returns = model.sample(batch_size=batch_size)
     log_returns = log_returns.detach().cpu().numpy().T
 
     return log_returns
 
 
 if __name__ == "__main__":
-    os.environ["WANDB_MODE"] = "disabled"
+    # os.environ["WANDB_MODE"] = "disabled"
     train_fourierflow()

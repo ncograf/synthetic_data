@@ -10,7 +10,7 @@ class SpectralFilteringLayer(nn.Module):
         self,
         seq_len: int,
         hidden_dim: int,
-        dtype: str = "float32",
+        dtype: str | torch.dtype = "float32",
     ):
         """Spectral filtering layer for seqences
 
@@ -69,7 +69,7 @@ class SpectralFilteringLayer(nn.Module):
 
         # The jacobian is a diagonal matrix for each time series and hence
         # see https://arxiv.org/abs/1605.08803
-        log_jac_det = torch.sum(torch.log(H), dim=-1)
+        log_jac_det = torch.sum(torch.log(H))
 
         return Y, log_jac_det
 
