@@ -3,8 +3,9 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 
+import click
 import cpuinfo
 import load_data
 import numpy as np
@@ -12,6 +13,7 @@ import numpy.typing as npt
 import pandas as pd
 import scipy.stats
 import static_stats
+import stylized_loss
 import stylized_score
 import torch
 import wandb_logging
@@ -25,7 +27,7 @@ from type_converter import TypeConverter
 import wandb
 
 
-def train_fourierflow(conf: Dict[str, Any] = {}):
+def _train_fourierflow(conf: Dict[str, Any] = {}):
     """Fit a FourierFlow Neural Network. I.e. Train the network on the given data.
 
     The method logs intermediate results every few epochs
@@ -52,6 +54,9 @@ def train_fourierflow(conf: Dict[str, Any] = {}):
         "epochs": 1000,
         "batch_size": 20,
         "dist": "normal",
+        # "stylized_losses": ['lu', 'le', 'cf', 'vc'],
+        "stylized_losses": [],
+        "stylized_lambda": 50,
         "optim_gen_config": {
             "lr": 1e-3,
             # "betas": (0.5, 0.999),
@@ -137,6 +142,7 @@ def train_fourierflow(conf: Dict[str, Any] = {}):
         fourier_flow_config = config["fourier_flow_config"]
         fourier_flow_config["seq_len"] = config["seq_len"]
         batch_size = config["batch_size"]
+        stl = conf["stylized_lambda"]
         epochs = config["epochs"]
         dtype = TypeConverter.str_to_numpy(config["dtype"])
 
@@ -167,8 +173,21 @@ def train_fourierflow(conf: Dict[str, Any] = {}):
             for real_batch, _ in loader:
                 optim.zero_grad()
 
-                _, log_prob_z, log_jac_det = model(real_batch)
+                fake_batch, log_prob_z, log_jac_det = model(real_batch)
                 loss = torch.mean(-log_prob_z - log_jac_det)
+
+                if "lu" in conf["stylized_losses"]:
+                    lu_loss = stylized_loss.lu_loss(fake_batch)
+                    loss += stl * lu_loss
+                if "le" in conf["stylized_losses"]:
+                    le_loss = stylized_loss.le_loss(fake_batch, real_batch)
+                    loss += stl * le_loss
+                if "cf" in conf["stylized_losses"]:
+                    cf_loss = stylized_loss.cf_loss(fake_batch, real_batch)
+                    loss += stl * cf_loss
+                if "vc" in conf["stylized_losses"]:
+                    vc_loss = stylized_loss.vc_loss(fake_batch, real_batch)
+                    loss += stl * vc_loss
 
                 accelerator.backward(loss)  # compute gradients
 
@@ -318,6 +337,28 @@ def sample_fourierflow(model: FourierFlow, batch_size: int = 24) -> npt.NDArray:
     log_returns = log_returns.detach().cpu().numpy().T
 
     return log_returns
+
+
+@click.command()
+@click.option(
+    "--dist",
+    type=click.STRING,
+    default="normal",
+    help='Distribution to sample from ["normal", "studentt", "cauchy", "laplace"]',
+)
+@click.option(
+    "--stylized-loss",
+    "-s",
+    multiple=True,
+    default=[],
+    help='Stylized losses to use ["lu", "le", "cf", "vc"]',
+)
+def train_fourierflow(dist: str, stylized_loss: List[str]):
+    config = {
+        "dist": dist,
+        "stylized_losses": list(stylized_loss),
+    }
+    _train_fourierflow(config)
 
 
 if __name__ == "__main__":
