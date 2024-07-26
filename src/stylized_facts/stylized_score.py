@@ -10,6 +10,7 @@ import linear_unpredictability
 import numpy as np
 import numpy.typing as npt
 import train_fingan
+import train_fourier_flow
 import train_garch
 import volatility_clustering
 from scipy.stats import wasserstein_distance
@@ -181,8 +182,8 @@ def stylized_score(
         np.dot((np.arange(1, real_gain.size + 1) - mu_gains) ** 2, real_gain) / n_gains
     )
 
-    real_loss = real_loss[gli[0] : gli[1]]
-    syn_loss = syn_loss[gli[0] : gli[1]]
+    real_loss = real_loss[gli[0] : gli[1]] + 1e-10
+    syn_loss = syn_loss[gli[0] : gli[1]] + 1e-10
     n_loss = np.sum(real_loss)
     mu_loss = np.dot(real_loss, np.arange(1, real_loss.size + 1)) / n_loss
     std_loss = np.sqrt(
@@ -214,9 +215,13 @@ if __name__ == "__main__":
     sp500 = load_data.load_log_returns("sp500")
     smi = load_data.load_log_returns("smi")
 
-    B = 50
+    B = 512
     S = 24
     L = 8192
+
+    fingan_ = True
+    fourierflow_ = True
+    garch_ = False
 
     fingan = train_fingan.load_fingan(
         "/home/nico/thesis/code/data/cache/results/epoch_43/model.pt"
@@ -224,6 +229,13 @@ if __name__ == "__main__":
 
     def fingan_sampler(S):
         return train_fingan.sample_fingan(model=fingan, batch_size=S)
+
+    fourierflow = train_fourier_flow.load_fourierflow(
+        "/home/nico/thesis/code/data/cache/results/FourierFlow_2024_07_26-14_03_38/epoch_1/model.pt"
+    )
+
+    def ff_sampler(S):
+        return train_fourier_flow.sample_fourierflow(model=fourierflow, batch_size=S)
 
     garch_models = train_garch.load_garch(
         "/home/nico/thesis/code/data/cache/garch_experiments/GARCH_ged_2024_07_14-03_28_28/garch_models.pt"
@@ -234,17 +246,18 @@ if __name__ == "__main__":
             return train_garch.sample_garch(garch_models, S, L)
 
     real_stf = boostrap_stylized_facts(sp500, B, S, L)
-    syn_stf = stylied_facts_from_model(fingan_sampler, B, S)
-    mu_score, scores, _ = stylized_score(real_stf, syn_stf)
 
-    print(scores, mu_score)
+    if fingan_:
+        syn_stf = stylied_facts_from_model(fingan_sampler, B, S)
+        mu_score, scores, _ = stylized_score(real_stf, syn_stf)
+        print(f"fingan scores {scores} {mu_score}")
 
-    syn_stf = stylied_facts_from_model(garch_sampler, B, S)
-    mu_score, scores, _ = stylized_score(real_stf, syn_stf)
-    print(scores, mu_score)
+    if garch_:
+        syn_stf = stylied_facts_from_model(garch_sampler, B, S)
+        mu_score, scores, _ = stylized_score(real_stf, syn_stf)
+        print(f"garch scores {scores} {mu_score}")
 
-    # visualize_stylized_facts.visualize_stylized_facts(np.concatenate(syn_data,axis=1))
-    # plt.show()
-
-    # visualize_stylized_facts.visualize_stylized_facts(sp500)
-    # plt.show()
+    if fourierflow_:
+        syn_stf = stylied_facts_from_model(ff_sampler, B, S)
+        mu_score, scores, _ = stylized_score(real_stf, syn_stf)
+        print(f"fourier flow scores {scores} {mu_score}")
