@@ -44,11 +44,11 @@ def _train_fingan(config: Dict[str, Any] = {}):
 
     # define training config and train model
     conf = {
-        "seq_len": 1024,
+        "seq_len": 8192,
         "train_seed": 99,
         "dtype": "float32",
         "epochs": 1000,
-        "batch_size": 2,
+        "batch_size": 24,
         # dist in studentt, normal, cauchy, laplace
         "dist": "studentt",
         # "moment_losses" : ['mean', 'variance', 'skewness', 'kurtosis'],
@@ -101,7 +101,7 @@ def _train_fingan(config: Dict[str, Any] = {}):
         + conf["stylized_losses"]
     ):
         # process data
-        bootstraps = 300
+        bootstraps = 382
         bootstrap_samples = 24
         real_stf = stylized_score.boostrap_stylized_facts(
             log_returns, bootstraps, bootstrap_samples, L=conf["seq_len"]
@@ -158,7 +158,7 @@ def _train_fingan(config: Dict[str, Any] = {}):
         dtype = TypeConverter.str_to_numpy(conf["dtype"])
 
         # create dataset (note that the dataset will sample randomly during training (see source for more information))
-        num_batches = 5
+        num_batches = 1024
         dataset = SP500GanDataset(
             log_returns.astype(dtype), batch_size * num_batches, conf["seq_len"]
         )
@@ -442,8 +442,8 @@ def sample_fingan(model: FinGan, batch_size: int = 24) -> npt.NDArray:
     "--stylized-loss",
     "-s",
     multiple=True,
-    # default=[],
-    default=["lu", "le", "cf", "vc"],
+    default=[],
+    # default=["lu", "le", "cf", "vc"],
     help='Stylized losses to use ["lu", "le", "cf", "vc"]',
 )
 def train_fingan(dist: str, moment_loss: List[str], stylized_loss: List[str]):
@@ -456,5 +456,5 @@ def train_fingan(dist: str, moment_loss: List[str], stylized_loss: List[str]):
 
 
 if __name__ == "__main__":
-    os.environ["WANDB_MODE"] = "disabled"
+    # os.environ["WANDB_MODE"] = "disabled"
     train_fingan()

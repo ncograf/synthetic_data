@@ -46,13 +46,13 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
     config = {
         "train_seed": 99,
         "dtype": "float32",
-        "seq_len": 1024,
+        "seq_len": 8192,
         "fourier_flow_config": {
-            "hidden_dim": 64,
-            "num_layer": 2,
+            "hidden_dim": 1024,
+            "num_layer": 10,
         },
         "epochs": 1000,
-        "batch_size": 2,
+        "batch_size": 128,
         "dist": "normal",
         # "stylized_losses": ['lu', 'le', 'cf', 'vc'],
         "stylized_losses": [],
@@ -147,7 +147,7 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
         dtype = TypeConverter.str_to_numpy(config["dtype"])
 
         # create dataset (note that the dataset will sample randomly during training (see source for more information))
-        num_batches = 2
+        num_batches = 1024
         dataset = SP500GanDataset(
             log_returns.astype(dtype), batch_size * num_batches, config["seq_len"]
         )
@@ -352,8 +352,8 @@ def sample_fourierflow(model: FourierFlow, batch_size: int = 24) -> npt.NDArray:
     "--stylized-loss",
     "-s",
     multiple=True,
-    # default=[],
-    default=["lu", "le", "cf", "vc"],
+    default=[],
+    # default=["lu", "le", "cf", "vc"],
     help='Stylized losses to use ["lu", "le", "cf", "vc"]',
 )
 def train_fourierflow(dist: str, stylized_loss: List[str]):
@@ -365,5 +365,5 @@ def train_fourierflow(dist: str, stylized_loss: List[str]):
 
 
 if __name__ == "__main__":
-    os.environ["WANDB_MODE"] = "disabled"
+    # os.environ["WANDB_MODE"] = "disabled"
     train_fourierflow()
