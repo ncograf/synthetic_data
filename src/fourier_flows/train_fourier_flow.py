@@ -66,7 +66,7 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
         },
     }
 
-    conf.update(config)
+    config.update(conf)
 
     N_TICKS = 9216
 
@@ -92,7 +92,7 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
         cuda_name = torch.cuda.get_device_name(device)
         print(f"GPU: {cuda_name}")
 
-    with wandb.init(tags=["FourierFlow", config["dist"]]):
+    with wandb.init(tags=["FourierFlow", config["dist"]] + config["stylized_losses"]):
         # process data
         bootstraps = 382
         bootstrap_samples = 24
