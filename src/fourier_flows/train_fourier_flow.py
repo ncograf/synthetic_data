@@ -97,7 +97,7 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
         bootstraps = 382
         bootstrap_samples = 24
         real_stf = stylized_score.boostrap_stylized_facts(
-            log_returns, bootstraps, bootstrap_samples, L=conf["seq_len"]
+            log_returns, bootstraps, bootstrap_samples, L=config["seq_len"]
         )
 
         # get distribution
@@ -142,7 +142,7 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
         fourier_flow_config = config["fourier_flow_config"]
         fourier_flow_config["seq_len"] = config["seq_len"]
         batch_size = config["batch_size"]
-        stl = conf["stylized_lambda"]
+        stl = config["stylized_lambda"]
         epochs = config["epochs"]
         dtype = TypeConverter.str_to_numpy(config["dtype"])
 
@@ -176,16 +176,16 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
                 fake_batch, log_prob_z, log_jac_det = model(real_batch)
                 loss = torch.mean(-log_prob_z - log_jac_det)
 
-                if "lu" in conf["stylized_losses"]:
+                if "lu" in config["stylized_losses"]:
                     lu_loss = stylized_loss.lu_loss(fake_batch)
                     loss += stl * lu_loss
-                if "le" in conf["stylized_losses"]:
+                if "le" in config["stylized_losses"]:
                     le_loss = stylized_loss.le_loss(fake_batch, real_batch)
                     loss += stl * le_loss
-                if "cf" in conf["stylized_losses"]:
+                if "cf" in config["stylized_losses"]:
                     cf_loss = stylized_loss.cf_loss(fake_batch, real_batch)
                     loss += stl * cf_loss
-                if "vc" in conf["stylized_losses"]:
+                if "vc" in config["stylized_losses"]:
                     vc_loss = stylized_loss.vc_loss(fake_batch, real_batch)
                     loss += stl * vc_loss
 
