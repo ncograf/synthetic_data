@@ -44,11 +44,11 @@ def _train_fingan(config: Dict[str, Any] = {}):
 
     # define training config and train model
     conf = {
-        "seq_len": 8192,
+        "seq_len": 1024,
         "train_seed": 99,
         "dtype": "float32",
         "epochs": 1000,
-        "batch_size": 24,
+        "batch_size": 2,
         # dist in studentt, normal, cauchy, laplace
         "dist": "studentt",
         # "moment_losses" : ['mean', 'variance', 'skewness', 'kurtosis'],
@@ -158,7 +158,7 @@ def _train_fingan(config: Dict[str, Any] = {}):
         dtype = TypeConverter.str_to_numpy(conf["dtype"])
 
         # create dataset (note that the dataset will sample randomly during training (see source for more information))
-        num_batches = 1024
+        num_batches = 5
         dataset = SP500GanDataset(
             log_returns.astype(dtype), batch_size * num_batches, conf["seq_len"]
         )
@@ -248,17 +248,19 @@ def _train_fingan(config: Dict[str, Any] = {}):
                     )
                     gen_err += ((gen_kurtosis - kurtosis) / (kurtosis + 0.1)) ** 2
 
+                fbt = fake_batch.transpose(0, 2).squeeze(1)
+                rbt = real_batch.transpose(0, 2).squeeze(1)
                 if "lu" in conf["stylized_losses"]:
-                    lu_loss = stylized_loss.lu_loss(fake_batch)
+                    lu_loss = stylized_loss.lu_loss(fbt)
                     gen_err += stl * lu_loss
                 if "le" in conf["stylized_losses"]:
-                    le_loss = stylized_loss.le_loss(fake_batch, real_batch)
+                    le_loss = stylized_loss.le_loss(fbt, rbt)
                     gen_err += stl * le_loss
                 if "cf" in conf["stylized_losses"]:
-                    cf_loss = stylized_loss.cf_loss(fake_batch, real_batch)
+                    cf_loss = stylized_loss.cf_loss(fbt, rbt)
                     gen_err += stl * cf_loss
                 if "vc" in conf["stylized_losses"]:
-                    vc_loss = stylized_loss.vc_loss(fake_batch, real_batch)
+                    vc_loss = stylized_loss.vc_loss(fbt, rbt)
                     gen_err += stl * vc_loss
 
                 accelerator.backward(gen_err)
@@ -440,7 +442,8 @@ def sample_fingan(model: FinGan, batch_size: int = 24) -> npt.NDArray:
     "--stylized-loss",
     "-s",
     multiple=True,
-    default=[],
+    # default=[],
+    default=["lu", "le", "cf", "vc"],
     help='Stylized losses to use ["lu", "le", "cf", "vc"]',
 )
 def train_fingan(dist: str, moment_loss: List[str], stylized_loss: List[str]):
@@ -453,5 +456,5 @@ def train_fingan(dist: str, moment_loss: List[str], stylized_loss: List[str]):
 
 
 if __name__ == "__main__":
-    # os.environ["WANDB_MODE"] = "disabled"
+    os.environ["WANDB_MODE"] = "disabled"
     train_fingan()

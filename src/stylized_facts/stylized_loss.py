@@ -6,14 +6,11 @@ import volatility_clustering
 
 
 def lu_loss(syn: torch.Tensor):
-    syn = syn.transpose(0, 2).squeeze(1)
     lin_upred = linear_unpredictability.linear_unpredictability(syn, 100)
     return torch.mean(lin_upred**2)
 
 
 def vc_loss(syn: torch.Tensor, real: torch.Tensor):
-    syn = syn.transpose(0, 2).squeeze(1)
-    real = real.transpose(0, 2).squeeze(1)
     syn_vc = torch.mean(volatility_clustering.volatility_clustering(syn, 150), dim=1)
     real_vc = torch.mean(volatility_clustering.volatility_clustering(real, 150), dim=1)
 
@@ -21,8 +18,6 @@ def vc_loss(syn: torch.Tensor, real: torch.Tensor):
 
 
 def le_loss(syn: torch.Tensor, real: torch.Tensor):
-    syn = syn.transpose(0, 2).squeeze(1)
-    real = real.transpose(0, 2).squeeze(1)
     syn_le = torch.mean(leverage_effect.leverage_effect(syn, max_lag=80), dim=1)
     real_le = torch.mean(leverage_effect.leverage_effect(real, max_lag=80), dim=1)
 
@@ -30,8 +25,6 @@ def le_loss(syn: torch.Tensor, real: torch.Tensor):
 
 
 def cf_loss(syn: torch.Tensor, real: torch.Tensor):
-    syn = syn.transpose(0, 2).squeeze(1)
-    real = real.transpose(0, 2).squeeze(1)
     syn_le = torch.mean(
         coarse_fine_volatility.coarse_fine_volatility(syn, max_lag=50, tau=5)[0], dim=1
     )

@@ -46,17 +46,17 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
     config = {
         "train_seed": 99,
         "dtype": "float32",
-        "seq_len": 8192,
+        "seq_len": 1024,
         "fourier_flow_config": {
-            "hidden_dim": 1024,
-            "num_layer": 10,
+            "hidden_dim": 64,
+            "num_layer": 2,
         },
         "epochs": 1000,
-        "batch_size": 20,
+        "batch_size": 2,
         "dist": "normal",
         # "stylized_losses": ['lu', 'le', 'cf', 'vc'],
         "stylized_losses": [],
-        "stylized_lambda": 50,
+        "stylized_lambda": 1,
         "optim_gen_config": {
             "lr": 1e-3,
             # "betas": (0.5, 0.999),
@@ -147,7 +147,7 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
         dtype = TypeConverter.str_to_numpy(config["dtype"])
 
         # create dataset (note that the dataset will sample randomly during training (see source for more information))
-        num_batches = 256
+        num_batches = 2
         dataset = SP500GanDataset(
             log_returns.astype(dtype), batch_size * num_batches, config["seq_len"]
         )
@@ -176,17 +176,19 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
                 fake_batch, log_prob_z, log_jac_det = model(real_batch)
                 loss = torch.mean(-log_prob_z - log_jac_det)
 
-                if "lu" in config["stylized_losses"]:
-                    lu_loss = stylized_loss.lu_loss(fake_batch)
+                fbt = fake_batch.transpose(0, 1)
+                rbt = real_batch.transpose(0, 1)
+                if "lu" in conf["stylized_losses"]:
+                    lu_loss = stylized_loss.lu_loss(fbt)
                     loss += stl * lu_loss
-                if "le" in config["stylized_losses"]:
-                    le_loss = stylized_loss.le_loss(fake_batch, real_batch)
+                if "le" in conf["stylized_losses"]:
+                    le_loss = stylized_loss.le_loss(fbt, rbt)
                     loss += stl * le_loss
-                if "cf" in config["stylized_losses"]:
-                    cf_loss = stylized_loss.cf_loss(fake_batch, real_batch)
+                if "cf" in conf["stylized_losses"]:
+                    cf_loss = stylized_loss.cf_loss(fbt, rbt)
                     loss += stl * cf_loss
-                if "vc" in config["stylized_losses"]:
-                    vc_loss = stylized_loss.vc_loss(fake_batch, real_batch)
+                if "vc" in conf["stylized_losses"]:
+                    vc_loss = stylized_loss.vc_loss(fbt, rbt)
                     loss += stl * vc_loss
 
                 accelerator.backward(loss)  # compute gradients
@@ -350,7 +352,8 @@ def sample_fourierflow(model: FourierFlow, batch_size: int = 24) -> npt.NDArray:
     "--stylized-loss",
     "-s",
     multiple=True,
-    default=[],
+    # default=[],
+    default=["lu", "le", "cf", "vc"],
     help='Stylized losses to use ["lu", "le", "cf", "vc"]',
 )
 def train_fourierflow(dist: str, stylized_loss: List[str]):
@@ -362,5 +365,5 @@ def train_fourierflow(dist: str, stylized_loss: List[str]):
 
 
 if __name__ == "__main__":
-    # os.environ["WANDB_MODE"] = "disabled"
+    os.environ["WANDB_MODE"] = "disabled"
     train_fourierflow()
