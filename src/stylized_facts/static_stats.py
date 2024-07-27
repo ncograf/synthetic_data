@@ -16,17 +16,17 @@ def static_stats(log_returns: npt.ArrayLike) -> Dict[str, float]:
 
     data = np.asarray(log_returns).flatten()
     data = data[~np.isnan(data)]
-    mean = np.mean(data)
-    std = np.std(data)
+    mean = np.nanmean(data)
+    std = np.nanstd(data)
     stats = {
         "mean": mean,
         "std": std,
-        "variance": np.var(data),
-        "skewness": np.mean((data - mean) ** 3) / (std**3),
-        "kurtosis": np.mean((data - mean) ** 4) / (std**4),
-        "min": np.min(data),
-        "max": np.max(data),
-        "median": np.median(data),
+        "variance": np.nanvar(data),
+        "skewness": np.nanmean((data - mean) ** 3) / (std**3),
+        "kurtosis": np.nanmean((data - mean) ** 4) / (std**4),
+        "min": np.nanmin(data),
+        "max": np.nanmax(data),
+        "median": np.nanmedian(data),
     }
 
     return stats
