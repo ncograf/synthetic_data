@@ -69,7 +69,7 @@ class SpectralFilteringLayer(nn.Module):
 
         # The jacobian is a diagonal matrix for each time series and hence
         # see https://arxiv.org/abs/1605.08803
-        log_jac_det = torch.sum(torch.log(H))
+        log_jac_det = torch.sum(torch.log(H), dim=-1)  # only sum batchwise
 
         return Y, log_jac_det
 

@@ -19,7 +19,7 @@ import torch
 import wandb_logging
 from accelerate import Accelerator
 from accelerate.utils import set_seed
-from datasets import SP500GanDataset
+from datasets import SP500DataSet
 from fourier_flow import FourierFlow
 from torch.utils.data import DataLoader
 from type_converter import TypeConverter
@@ -148,7 +148,7 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
 
         # create dataset (note that the dataset will sample randomly during training (see source for more information))
         num_batches = 1024
-        dataset = SP500GanDataset(
+        dataset = SP500DataSet(
             log_returns.astype(dtype), batch_size * num_batches, config["seq_len"]
         )
         loader = DataLoader(dataset, batch_size, pin_memory=True)
@@ -156,7 +156,7 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
         # initialize model and optimiers
         model = FourierFlow(**fourier_flow_config, dist_config=dist_config)
         optim = torch.optim.Adam(model.parameters(), **config["optim_gen_config"])
-        scheduler = torch.optim.lr_scheduler.ExponentialLR(optim, **config["lr_config"])
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optim, epochs)
 
         # wrap model, loader ... to get them to the right device
         loader, model, optim, scheduler = accelerator.prepare(

@@ -48,7 +48,6 @@ class FourierFlow(nn.Module):
         self.use_dft = use_dft
         self.dist_config = dist_config
 
-        # note that 100 is a fixed value defined in the models
         self.loc = nn.Parameter(
             torch.ones(1) * self.dist_config["loc"], requires_grad=False
         )
@@ -79,15 +78,6 @@ class FourierFlow(nn.Module):
         self.dft_shift = dft_shift  # float
 
         self.apply(self._init_weights)
-
-    def _apply(self, fn):
-        """Wraps the inherited apply function to reinitiate the Multivariate Normal
-
-        Args:
-            fn (function): Function to be applied
-        """
-        super(self.__class__, self)._apply(fn)
-        return self
 
     def _init_weights(self, module: nn.Module):
         """Initialize weights for module
@@ -167,10 +157,14 @@ class FourierFlow(nn.Module):
         # compute 'log likelyhood' of last ouput
         d = np.prod(x_fft.shape[:-1])
         z = torch.cat([x_fft[:, :, 0], x_fft[:, :, 1]], dim=1)
-        log_prob_z = torch.sum(dist.log_prob(z), dim=-1) / d
+        z = torch.nan_to_num(z, 0, 0, 0)  # gradients won't propagate here
+        log_prob_z = torch.sum(dist.log_prob(z), dim=-1)  # batchwise likelyhood
 
-        log_jac_dets = torch.stack(log_jac_dets, dim=0) / d
-        log_jac_det_sum = torch.sum(log_jac_dets, dim=0)
+        log_jac_dets = torch.stack(log_jac_dets, dim=0)
+        log_jac_det_sum = torch.sum(log_jac_dets, dim=0)  # batchwise jacobians
+
+        log_prob_z = log_prob_z / d  # scaling for loss in reasonable size
+        log_jac_det_sum = log_jac_det_sum / d  # scaling for loss in reasonable size
 
         return z, log_prob_z, log_jac_det_sum
 

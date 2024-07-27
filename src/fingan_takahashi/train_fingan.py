@@ -19,7 +19,7 @@ import torch
 import wandb_logging
 from accelerate import Accelerator
 from accelerate.utils import set_seed
-from datasets import SP500GanDataset
+from datasets import SP500DataSet
 from fin_gan import FinGan
 from torch.utils.data import DataLoader
 from type_converter import TypeConverter
@@ -159,7 +159,7 @@ def _train_fingan(config: Dict[str, Any] = {}):
 
         # create dataset (note that the dataset will sample randomly during training (see source for more information))
         num_batches = 1024
-        dataset = SP500GanDataset(
+        dataset = SP500DataSet(
             log_returns.astype(dtype), batch_size * num_batches, conf["seq_len"]
         )
         loader = DataLoader(dataset, batch_size, pin_memory=True)
