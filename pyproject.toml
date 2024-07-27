@@ -8,6 +8,7 @@ packages = [
     {include = "*", from = "src"},
     {include = "*", from = "src/data_source"},
     {include = "*", from = "src/fourier_flows"},
+    {include = "*", from = "src/real_nvps"},
     {include = "*", from = "src/garch"},
     {include = "*", from = "src/outlier"},
     {include = "*", from = "src/statistics"},
