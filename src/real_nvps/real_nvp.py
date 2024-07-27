@@ -15,6 +15,8 @@ class RealNVP(nn.Module):
         num_layer: int,
         dist_config: Dict[str, Any],
         dtype: str | torch.dtype = "float32",
+        scale: float = 1,
+        shift: float = 0,
     ):
         """Real NVP network for one dimensional time series
 
@@ -24,6 +26,8 @@ class RealNVP(nn.Module):
             num_layer (int): number of spectral layers to be used
             dist_config (Dict): distribution configuration
             dtype (torch.dtype, optional): type of data. Defaults to torch.float64.
+            scale (flaot): data scaling
+            shift (float): data shift
         """
 
         nn.Module.__init__(self)
@@ -39,6 +43,8 @@ class RealNVP(nn.Module):
         self.hidden_dim = hidden_dim
         self.n_layer = num_layer
         self.dist_config = dist_config
+        self.data_scale = scale
+        self.data_shift = shift
 
         self.loc = nn.Parameter(
             torch.ones(1) * self.dist_config["loc"], requires_grad=False
@@ -97,13 +103,15 @@ class RealNVP(nn.Module):
             "seq_len": self.seq_len,
             "dist_config": self.dist_config,
             "dtype": self.dtype_str,
+            "shift": self.data_shift,
+            "scale": self.data_scale,
         }
 
         return dict_
 
     def set_normilizing(self, X: torch.Tensor):
-        self.shift = torch.mean(X)
-        self.scale = torch.std(X)
+        self.data_shift = np.nanmean(X)
+        self.data_scale = np.nanstd(X)
 
     def forward(
         self, x: torch.Tensor
@@ -126,6 +134,8 @@ class RealNVP(nn.Module):
                 dist = torch.distributions.Cauchy(self.loc, self.scale)
             case "laplace":
                 dist = torch.distributions.Laplace(self.loc, self.scale)
+
+        x = (x - self.data_shift) / self.data_scale
 
         x = torch.stack([x[:, : self.latent_size], x[:, -self.latent_size :]], axis=-1)
 
@@ -172,6 +182,8 @@ class RealNVP(nn.Module):
             z = torch.concatenate([z_complex[:, :, 0], z_complex[:, 1:, 1]], axis=1)
         else:
             z = torch.concatenate([z_complex[:, :-1, 0], z_complex[:, 1:, 1]], axis=1)
+
+        z = z * self.data_scale + self.data_shift
 
         return z
 

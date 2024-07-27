@@ -11,7 +11,6 @@ import load_data
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
-import scipy.stats
 import static_stats
 import stylized_loss
 import stylized_score
@@ -48,7 +47,7 @@ def _train_real_nvp(conf: Dict[str, Any] = {}):
         "dtype": "float32",
         "seq_len": 4096,
         "real_nvp_config": {
-            "hidden_dim": 2048,
+            "hidden_dim": 1024,
             "num_layer": 10,
         },
         "epochs": 1000,
@@ -102,8 +101,8 @@ def _train_real_nvp(conf: Dict[str, Any] = {}):
 
         # get distribution
         real_static_stats = static_stats.static_stats(log_returns)
-        mean = real_static_stats["mean"]
-        std = real_static_stats["std"]
+        # mean = real_static_stats["mean"]
+        # std = real_static_stats["std"]
         # var = real_static_stats["variance"]
         # skewness = real_static_stats["skewness"]
         # kurtosis = real_static_stats["kurtosis"]
@@ -120,22 +119,23 @@ def _train_real_nvp(conf: Dict[str, Any] = {}):
             wandb.config["train_config.device"] = device
             wandb.define_metric("*", step_metric="epoch")
 
-        # set distribution
+        # set distribution note that we scale the data
         match config["dist"]:
             case "studentt":
-                df, loc, scale = scipy.stats.t.fit(log_returns.flatten())
-                fit = {"df": df, "loc": loc, "scale": scale}
+                # df, loc, scale = scipy.stats.t.fit(log_returns.flatten())
+                fit = {"df": 3, "loc": 0, "scale": 1}
             case "normal":
-                fit = {"loc": mean, "scale": std}
+                # fit = {"loc": mean, "scale": std}
+                fit = {"loc": 0, "scale": 1}
             case "cauchy":
-                loc, scale = scipy.stats.cauchy.fit(log_returns.flatten())
-                fit = {"loc": loc, "scale": scale}
+                # loc, scale = scipy.stats.cauchy.fit(log_returns.flatten())
+                fit = {"loc": 0, "scale": 1}
             case "stdnormal":
                 config["dist"] = "normal"
                 fit = {"loc": 0, "scale": 1}
             case "laplace":
-                loc, scale = scipy.stats.laplace.fit(log_returns.flatten())
-                fit = {"loc": loc, "scale": scale}
+                # loc, scale = scipy.stats.laplace.fit(log_returns.flatten())
+                fit = {"loc": 0, "scale": 1}
         dist_config = {"dist": config["dist"], **fit}
 
         # read config
@@ -155,6 +155,7 @@ def _train_real_nvp(conf: Dict[str, Any] = {}):
 
         # initialize model and optimiers
         model = RealNVP(**real_nvp_config, dist_config=dist_config)
+        model.set_normilizing(log_returns)
         optim = torch.optim.Adam(model.parameters(), **config["optim_gen_config"])
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optim, epochs)
 
