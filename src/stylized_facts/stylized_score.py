@@ -127,7 +127,7 @@ def stylied_facts_from_model(sample_func, B: int, S: int) -> List[npt.NDArray]:
             data = sample_func(S)
             t_data = np.asarray(np.mean(fact(data, **arg), axis=1)).T
             b_strap.append(t_data)
-        out_data.append(np.asarray(b_strap).T)
+        out_data.append(np.sort(np.asarray(b_strap).T, axis=1))
 
     data = sample_func(B)
     log_price = np.cumsum(data)

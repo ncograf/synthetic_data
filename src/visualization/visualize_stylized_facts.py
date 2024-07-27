@@ -330,12 +330,12 @@ if __name__ == "__main__":
     import train_fingan
     import train_garch
 
-    B = 50
-    S = 1
+    B = 200
+    S = 24
     L = 8192
 
-    real = True
-    fingan = False
+    real = False
+    fingan = True
     garch = False
 
     if real:
