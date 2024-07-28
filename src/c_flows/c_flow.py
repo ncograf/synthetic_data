@@ -219,7 +219,7 @@ class CFlow(nn.Module):
             dist_z = MultivariateNormal(self.zero, self.eye)
             z = dist_z.rsample(sample_shape=(x.shape[0], n))
 
-            signals = torch.zeros((x.shape[0], self.seq_len + n), dtype=self.dtype)
+            signals = torch.zeros((x.shape[0], self.seq_len + n), dtype=self.dtype).to(z.device)
             signals[:, : self.seq_len] = x
             for i in range(z.shape[1]):
                 curr_signal = signals[:, i : self.seq_len + i]
