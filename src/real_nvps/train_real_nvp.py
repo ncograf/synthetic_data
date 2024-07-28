@@ -11,7 +11,6 @@ import load_data
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
-import static_stats
 import stylized_loss
 import stylized_score
 import torch
@@ -55,7 +54,7 @@ def _train_real_nvp(conf: Dict[str, Any] = {}):
         "dist": "normal",
         # "stylized_losses": ['lu', 'le', 'cf', 'vc'],
         "stylized_losses": [],
-        "stylized_lambda": 1,
+        "stylized_lambda": 5,
         "optim_gen_config": {
             "lr": 1e-3,
             # "betas": (0.5, 0.999),
@@ -86,7 +85,7 @@ def _train_real_nvp(conf: Dict[str, Any] = {}):
     # read available hardware
     cuda_name = None
     cpu_name = cpuinfo.get_cpu_info()["brand_raw"]
-    print(f"FourierFlow training is using:\nCPU: {cpu_name}")
+    print(f"Real NVP training is using:\nCPU: {cpu_name}")
     if torch.cuda.is_available():
         cuda_name = torch.cuda.get_device_name(device)
         print(f"GPU: {cuda_name}")
@@ -99,21 +98,12 @@ def _train_real_nvp(conf: Dict[str, Any] = {}):
             log_returns, bootstraps, bootstrap_samples, L=config["seq_len"]
         )
 
-        # get distribution
-        real_static_stats = static_stats.static_stats(log_returns)
-        # mean = real_static_stats["mean"]
-        # std = real_static_stats["std"]
-        # var = real_static_stats["variance"]
-        # skewness = real_static_stats["skewness"]
-        # kurtosis = real_static_stats["kurtosis"]
-
         # determine shift and scale
         # data_config = {"scale": 1, "shift": 0}
 
         # log wandb if wandb logging is active
         if wandb.run is not None:
             wandb.config.update(config)
-            wandb.config["data_stats"] = real_static_stats
             wandb.config["train_config.cpu"] = cpu_name
             wandb.config["train_config.gpu"] = cuda_name
             wandb.config["train_config.device"] = device
@@ -232,8 +222,6 @@ def _train_real_nvp(conf: Dict[str, Any] = {}):
                 print(f"Expeption occured on coputing stylized statistics: {str(e)}.")
             sampled_data = sampler(bootstraps)
             stf = stylized_score.compute_mean_stylized_fact(sampled_data)
-            for key, value in static_stats.static_stats(sampled_data).items():
-                logs[f"stats/{key}"] = value
 
             # log eopch loss if wandb is activated
             if wandb.run is not None:
@@ -324,11 +312,11 @@ def laod_real_nvp(file: str) -> RealNVP:
     return model
 
 
-def sample_fourierflow(model: RealNVP, batch_size: int = 24) -> npt.NDArray:
+def sample_real_nvp(model: RealNVP, batch_size: int = 24) -> npt.NDArray:
     """Generate data from the trained model
 
     Args:
-        file (FourierFlow): Initialized model
+        file (RealNVP): Initialized model
         batch_size (int): number of seqences to sample from model
 
     Returns:

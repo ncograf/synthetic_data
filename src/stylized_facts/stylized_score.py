@@ -120,13 +120,18 @@ def boostrap_stylized_facts(
 
 
 def stylied_facts_from_model(sample_func, B: int, S: int) -> List[npt.NDArray]:
-    out_data = []
-    for fact, arg in zip(_stylized_fact_list, _stylized_fact_arg_list):
-        b_strap = []
-        for _ in range(B):
-            data = sample_func(S)
+    b_straps = [[] for _ in _stylized_fact_list]
+
+    for _ in range(B):
+        data = sample_func(S)
+        for fact, arg, b_strap in zip(
+            _stylized_fact_list, _stylized_fact_arg_list, b_straps
+        ):
             t_data = np.asarray(np.mean(fact(data, **arg), axis=1)).T
             b_strap.append(t_data)
+
+    out_data = []
+    for b_strap in b_straps:
         out_data.append(np.sort(np.asarray(b_strap).T, axis=1))
 
     data = sample_func(B)

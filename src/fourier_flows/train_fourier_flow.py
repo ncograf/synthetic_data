@@ -94,7 +94,7 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
 
     with wandb.init(tags=["FourierFlow", config["dist"]] + config["stylized_losses"]):
         # process data
-        bootstraps = 382
+        bootstraps = 256
         bootstrap_samples = 24
         real_stf = stylized_score.boostrap_stylized_facts(
             log_returns, bootstraps, bootstrap_samples, L=config["seq_len"]
@@ -104,9 +104,6 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
         real_static_stats = static_stats.static_stats(log_returns)
         mean = real_static_stats["mean"]
         std = real_static_stats["std"]
-        # var = real_static_stats["variance"]
-        # skewness = real_static_stats["skewness"]
-        # kurtosis = real_static_stats["kurtosis"]
 
         # determine shift and scale
         # data_config = {"scale": 1, "shift": 0}
@@ -114,7 +111,6 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
         # log wandb if wandb logging is active
         if wandb.run is not None:
             wandb.config.update(config)
-            wandb.config["data_stats"] = real_static_stats
             wandb.config["train_config.cpu"] = cpu_name
             wandb.config["train_config.gpu"] = cuda_name
             wandb.config["train_config.device"] = device
@@ -231,8 +227,6 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
                 print(f"Expeption occured on coputing stylized statistics: {str(e)}.")
             sampled_data = sampler(bootstraps)
             stf = stylized_score.compute_mean_stylized_fact(sampled_data)
-            for key, value in static_stats.static_stats(sampled_data).items():
-                logs[f"stats/{key}"] = value
 
             # log eopch loss if wandb is activated
             if wandb.run is not None:
