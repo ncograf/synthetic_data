@@ -27,6 +27,27 @@ class SP500DataSet(Dataset):
         )
 
 
+class BatchedDataset(Dataset):
+    def __init__(self, log_returns: npt.NDArray, batch_size: int, seq_len: int):
+        self.seq_len = seq_len
+        self.log_returns = log_returns
+        self.log_returns[~np.isnan(log_returns)] = 1
+        self.batch_size = batch_size
+
+    def set_batch_size(self, batch_size):
+        self.batch_size = batch_size
+
+    def __len__(self):
+        return 1
+
+    def __getitem__(self, idx):
+        idx = np.random.choice(range(self.log_returns.shape[1]), size=self.batch_size)
+        start_idx = np.random.randint(0, self.log_returns.shape[0] - self.seq_len)
+        end_idx = start_idx + self.seq_len
+        log_returns = self.log_returns[start_idx:end_idx, idx]
+        return torch.tensor(log_returns).T
+
+
 class MixedDataSet(Dataset):
     def __init__(
         self,

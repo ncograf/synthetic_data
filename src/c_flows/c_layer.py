@@ -1,35 +1,34 @@
-from typing import Any, Dict, Tuple
+from typing import Tuple
 
-import networks
 import torch
 import torch.nn as nn
 
 
 class ConditionalLayer(nn.Module):
-    def __init__(self, model_config: Dict[str, Any]):
+    def __init__(
+        self,
+        seq_len: int,
+        hidden_dim: int,
+        context_dim: int,
+        dtype: torch.dtype = torch.float32,
+    ):
         """Spectral filtering layer for seqences
 
         Args:
-            model_config (Dict[str, Any]): configuration for models
-                arch : model architecture
-                num_model_layer : number of model layers
-                hidden_dim : size of hidden layer
-                dtype : torch dtype
-                output_dim : output dimension (note different behaviours of MLP and RNN)
-                input_dim : input dimension (note different behaviours of RNN)
-                drop_out : float in [0,1) rate
-                activation : (str) activation functions 'sigmoid', 'tanh', 'relu', 'softplus'
-                norm : (optional) choice 'layer', 'batch', 'None' Default: 'None' only used in MLP
-                reduction : (int | Literal['mean', 'sum', 'max', 'min', 'none']) reduction used for for rnn.
-                bidirect : (optional) only used for rnn models. Defaults to True
+            seq_len (int): individual series lenght.
+            hidden_dim (int): size of the hidden layers in neural network.
+            context_dim (int): size of the context.
+            dtype (torch.dtype): type used for the layer. Defaults to 'float32'
         """
 
         nn.Module.__init__(self)
 
-        self.output_dim = model_config["output_dim"]
+        assert seq_len % 2 == 0
 
-        self.s = networks.model_factory(model_config)
-        self.t = networks.model_factory(model_config)
+        self.seq_len = seq_len
+
+        self.s = SNet(seq_len // 2 + context_dim, hidden_dim, seq_len // 2).to(dtype)
+        self.t = SNet(seq_len // 2 + context_dim, hidden_dim, seq_len // 2).to(dtype)
 
         self.pos_f = torch.nn.Softplus(beta=1, threshold=30)
 
@@ -47,7 +46,7 @@ class ConditionalLayer(nn.Module):
             Tuple[torch.Tensor, torch.Tensor]: latent variable Z and det(J(f))
         """
 
-        z0, z1 = z[:, : self.output_dim], z[:, self.output_dim :]
+        z0, z1 = z[:, : self.seq_len // 2], z[:, self.seq_len // 2 :]
         if flip:
             z0, z1 = z1, z0
 
@@ -81,7 +80,7 @@ class ConditionalLayer(nn.Module):
             torch.Tensor: input tensor of original sequence
         """
 
-        y0, y1 = y[:, : self.output_dim], y[:, self.output_dim :]
+        y0, y1 = y[:, : self.seq_len // 2], y[:, self.seq_len // 2 :]
 
         if flip:
             y1, y0 = y0, y1
@@ -91,7 +90,7 @@ class ConditionalLayer(nn.Module):
         M = self.t(z1_x)
 
         z0 = (y0 - M) / H
-        z1 = z1_x[:, : self.output_dim]
+        z1 = z1_x[:, : self.seq_len // 2]
 
         if flip:
             z1, z0 = z0, z1
@@ -99,3 +98,20 @@ class ConditionalLayer(nn.Module):
         z = torch.cat([z0, z1], dim=-1)
 
         return z
+
+
+class SNet(nn.Module):
+    def __init__(self, in_len: int, hidden: int, out_len: int):
+        nn.Module.__init__(self)
+
+        self.lin = nn.Linear(in_len, hidden)
+        self.nmid = nn.Linear(hidden, hidden)
+        self.lout = nn.Linear(hidden, out_len)
+
+    def forward(self, x: torch.Tensor):
+        # original network form
+        x = torch.tanh(self.lin(x))
+        x = torch.tanh(self.nmid(x))
+        x = self.lout(x)
+
+        return x
