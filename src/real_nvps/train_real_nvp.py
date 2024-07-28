@@ -46,7 +46,7 @@ def _train_real_nvp(conf: Dict[str, Any] = {}):
         "dtype": "float32",
         "seq_len": 4096,
         "real_nvp_config": {
-            "hidden_dim": 1024,
+            "hidden_dim": 2048,
             "num_layer": 10,
         },
         "epochs": 1000,

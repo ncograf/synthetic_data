@@ -46,9 +46,9 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
     config = {
         "train_seed": 99,
         "dtype": "float32",
-        "seq_len": 8192,
+        "seq_len": 4096,
         "fourier_flow_config": {
-            "hidden_dim": 1024,
+            "hidden_dim": 2048,
             "num_layer": 10,
         },
         "epochs": 1000,

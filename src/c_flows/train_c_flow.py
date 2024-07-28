@@ -43,14 +43,14 @@ def _train_cflow(conf: Dict[str, Any] = {}):
     config = {
         "train_seed": 99,
         "dtype": "float32",
-        "seq_len": 128,
+        "seq_len": 2048,
         "c_flow_config": {
-            "hidden_dim": 128,
+            "hidden_dim": 1024,
             "preview": 2,
             "n_layer": 3,
         },
         "epochs": 200,
-        "batch_size": 256,
+        "batch_size": 512,
         # "stylized_losses": ['lu', 'le', 'cf', 'vc'],
         "stylized_losses": [],
         "optim_gen_config": {
@@ -197,7 +197,7 @@ def _train_cflow(conf: Dict[str, Any] = {}):
                 wandb.log(logs)
 
             # log experiments every n epochs
-            n = 100
+            n = 10
             if epoch % n == n - 1 or epoch == epochs - 1 or old_best_score > best_score:
                 # create pseudo identifier
                 epoch_name = f"epoch_{epoch + 1}" if epoch < epochs - 1 else "final"
@@ -305,5 +305,5 @@ def train_cflow():
 
 
 if __name__ == "__main__":
-    os.environ["WANDB_MODE"] = "disabled"
+    # os.environ["WANDB_MODE"] = "disabled"
     train_cflow()
