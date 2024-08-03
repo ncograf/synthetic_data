@@ -82,7 +82,7 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
     symbols = config["symbols"]
     if len(symbols) > 0:
         prices = prices.loc[:, symbols]
-    log_returns = load_data.get_log_returns(prices, N_TICKS)
+    log_returns, _ = load_data.get_log_returns(prices, N_TICKS)
 
     # accelerator is used to efficiently use resources
     set_seed(config["train_seed"])

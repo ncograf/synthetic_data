@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import List, Literal
+from typing import List, Literal, Tuple
 
 import numpy as np
 import numpy.typing as npt
@@ -67,7 +67,9 @@ def _load_prices(symbols: List[str], path: Path) -> pd.DataFrame:
     return data
 
 
-def get_log_returns(price_data: pd.DataFrame, min_len: int) -> npt.NDArray:
+def get_log_returns(
+    price_data: pd.DataFrame, min_len: int
+) -> Tuple[npt.NDArray, pd.Index]:
     """Compute log return data and filter data based for sufficient data
 
     Args:
