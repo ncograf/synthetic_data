@@ -48,6 +48,7 @@ def _train_fingan(config: Dict[str, Any] = {}):
         "train_seed": 99,
         "dtype": "float32",
         "epochs": 1000,
+        "symbols": [],
         "batch_size": 24,
         # dist in studentt, normal, cauchy, laplace
         "dist": "studentt",
@@ -80,7 +81,11 @@ def _train_fingan(config: Dict[str, Any] = {}):
     cache.mkdir(parents=True, exist_ok=True)
 
     # load real data
-    log_returns = load_data.load_log_returns("sp500", N_TICKS)
+    prices = load_data.load_prices("sp500")
+    symbols = config["symbols"]
+    if len(symbols) > 0:
+        prices = prices.loc[:, symbols]
+    log_returns = load_data.get_log_returns(prices, N_TICKS)
 
     # accelerator is used to efficiently use resources
     set_seed(conf["train_seed"])
@@ -99,6 +104,7 @@ def _train_fingan(config: Dict[str, Any] = {}):
         tags=["FinGanTakahashi", conf["dist"]]
         + conf["moment_losses"]
         + conf["stylized_losses"]
+        + symbols
     ):
         # process data
         bootstraps = 382
@@ -446,11 +452,21 @@ def sample_fingan(model: FinGan, batch_size: int = 24) -> npt.NDArray:
     # default=["lu", "le", "cf", "vc"],
     help='Stylized losses to use ["lu", "le", "cf", "vc"]',
 )
-def train_fingan(dist: str, moment_loss: List[str], stylized_loss: List[str]):
+@click.option(
+    "--symbols",
+    "-a",
+    multiple=True,
+    default=[],
+    help="Symbols to be included in the training. Leave empty to include all.",
+)
+def train_fingan(
+    dist: str, moment_loss: List[str], stylized_loss: List[str], symobls: List[str]
+):
     config = {
         "dist": dist,
         "moment_losses": list(moment_loss),
         "stylized_losses": list(stylized_loss),
+        "symbols": list(symobls),
     }
     _train_fingan(config)
 

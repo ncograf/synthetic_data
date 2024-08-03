@@ -45,6 +45,7 @@ def _train_real_nvp(conf: Dict[str, Any] = {}):
         "train_seed": 99,
         "dtype": "float32",
         "seq_len": 4096,
+        "symbols": [],
         "real_nvp_config": {
             "hidden_dim": 2048,
             "num_layer": 10,
@@ -75,7 +76,11 @@ def _train_real_nvp(conf: Dict[str, Any] = {}):
     cache.mkdir(parents=True, exist_ok=True)
 
     # load real data
-    log_returns = load_data.load_log_returns("sp500", N_TICKS)
+    prices = load_data.load_prices("sp500")
+    symbols = config["symbols"]
+    if len(symbols) > 0:
+        prices = prices.loc[:, symbols]
+    log_returns = load_data.get_log_returns(prices, N_TICKS)
 
     # accelerator is used to efficiently use resources
     set_seed(config["train_seed"])
@@ -90,7 +95,9 @@ def _train_real_nvp(conf: Dict[str, Any] = {}):
         cuda_name = torch.cuda.get_device_name(device)
         print(f"GPU: {cuda_name}")
 
-    with wandb.init(tags=["RealNVP", config["dist"]] + config["stylized_losses"]):
+    with wandb.init(
+        tags=["RealNVP", config["dist"]] + config["stylized_losses"] + symbols
+    ):
         # process data
         bootstraps = 382
         bootstrap_samples = 24
@@ -347,9 +354,17 @@ def sample_real_nvp(model: RealNVP, batch_size: int = 24) -> npt.NDArray:
     # default=["lu", "le", "cf", "vc"],
     help='Stylized losses to use ["lu", "le", "cf", "vc"]',
 )
-def train_real_nvp(dist: str, stylized_loss: List[str]):
+@click.option(
+    "--symbols",
+    "-a",
+    multiple=True,
+    default=[],
+    help="Symbols to be included in the training. Leave empty to include all.",
+)
+def train_real_nvp(dist: str, stylized_loss: List[str], symbols: List[str]):
     config = {
         "dist": dist,
+        "symbols": list(symbols),
         "stylized_losses": list(stylized_loss),
     }
     _train_real_nvp(config)
