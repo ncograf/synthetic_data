@@ -32,12 +32,17 @@ def leverage_effect(log_returns: torch.Tensor, max_lag: int) -> torch.Tensor:
     # make asolute values
     vol_returns = log_returns**2
 
-    var = torch.nanmean((log_returns - torch.nanmean(log_returns, dim=0)) ** 2, dim=0)
+    std_r2 = torch.sqrt(
+        torch.nanmean((vol_returns - torch.nanmean(vol_returns, dim=0)) ** 2, dim=0)
+    )
+    std_r = torch.sqrt(
+        torch.nanmean((log_returns - torch.nanmean(log_returns, dim=0)) ** 2, dim=0)
+    )
     cov = lagged_correlation.lagged_corr(
         log_returns, vol_returns, max_lag=max_lag, dim=0
     )[1:]
 
-    lev_eff = cov / torch.pow(var, 3 / 2)
+    lev_eff = cov / (std_r * std_r2)
 
     if numpy:
         lev_eff = np.asarray(lev_eff)
