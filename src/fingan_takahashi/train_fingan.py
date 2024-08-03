@@ -460,13 +460,13 @@ def sample_fingan(model: FinGan, batch_size: int = 24) -> npt.NDArray:
     help="Symbols to be included in the training. Leave empty to include all.",
 )
 def train_fingan(
-    dist: str, moment_loss: List[str], stylized_loss: List[str], symobls: List[str]
+    dist: str, moment_loss: List[str], stylized_loss: List[str], symbols: List[str]
 ):
     config = {
         "dist": dist,
         "moment_losses": list(moment_loss),
         "stylized_losses": list(stylized_loss),
-        "symbols": list(symobls),
+        "symbols": list(symbols),
     }
     _train_fingan(config)
 
