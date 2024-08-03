@@ -211,12 +211,14 @@ def _train_fingan(config: Dict[str, Any] = {}):
                 #######################
                 disc_optim.zero_grad()
                 disc_y_real = model.disc(real_batch).flatten()
+                y_real = y_real.to(disc_y_real.dtype)
                 disc_err_real = bce_criterion(disc_y_real, y_real)
                 accelerator.backward(disc_err_real)  # compute gradients
 
                 disc_y_fake = model.disc(
                     fake_batch.detach()
                 ).flatten()  # detach because generator gradients are not needed
+                y_fake = y_fake.to(disc_y_fake.dtype)
                 disc_err_fake = bce_criterion(disc_y_fake, y_fake)
                 accelerator.backward(disc_err_fake)  # compute gradients
 
