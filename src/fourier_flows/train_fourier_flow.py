@@ -58,7 +58,7 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
         "stylized_losses": [],
         "stylized_lambda": 1,
         "optim_gen_config": {
-            "lr": 1e-3,
+            "lr": 1e-4,
             # "betas": (0.5, 0.999),
         },
         "lr_config": {
@@ -193,6 +193,8 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
                 optim.step()
 
                 epoch_loss += loss.item()
+
+            scheduler.step()
 
             logs = {
                 "loss": epoch_loss / len(loader),
