@@ -37,8 +37,8 @@ def boostrap_distribution(
         data_b = []
         for _ in range(S):
             ind = np.random.randint(0, data.shape[1])
-            # start = np.random.randint(0, data.shape[0] - L)
-            start = data.shape[0] - L
+            start = np.random.randint(0, data.shape[0] - L)
+            # start = data.shape[0] - L
             data_b.append(data[start : start + L, ind])
 
         data_b = np.asarray(data_b).T
