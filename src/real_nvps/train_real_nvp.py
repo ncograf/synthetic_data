@@ -189,6 +189,8 @@ def _train_real_nvp(conf: Dict[str, Any] = {}):
 
                 epoch_loss += loss.item()
 
+            scheduler.step()
+
             logs = {
                 "loss": epoch_loss / len(loader),
                 "epoch_time": time.time() - epoch_time,

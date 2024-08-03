@@ -109,6 +109,7 @@ class HNet(nn.Module):
     def __init__(self, in_len: int, hidden: int):
         nn.Module.__init__(self)
 
+        self.scale_layer = nn.Parameter(torch.ones((in_len)))
         self.lin = nn.Linear(in_len, hidden)
         self.nmid = nn.Linear(hidden, hidden)
         self.lout = nn.Linear(hidden, in_len)
@@ -117,7 +118,8 @@ class HNet(nn.Module):
         # original network form
         x = torch.sigmoid(self.lin(x))
         x = torch.sigmoid(self.nmid(x))
-        x = self.lout(x)
+        x = torch.tanh(self.lout(x))
+        x = x * self.scale_layer
 
         return x
 
@@ -126,6 +128,7 @@ class MNet(nn.Module):
     def __init__(self, in_len: int, hidden: int):
         nn.Module.__init__(self)
 
+        self.scale_layer = nn.Parameter(torch.ones((in_len)))
         self.lin = nn.Linear(in_len, hidden)
         self.nmid = nn.Linear(hidden, hidden)
         self.lout = nn.Linear(hidden, in_len)
@@ -134,6 +137,7 @@ class MNet(nn.Module):
         # original network form
         x = torch.sigmoid(self.lin(x))
         x = torch.sigmoid(self.nmid(x))
-        x = self.lout(x)
+        x = torch.tanh(self.lout(x))
+        x = x * self.scale_layer
 
         return x
