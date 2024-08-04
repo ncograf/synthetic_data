@@ -29,19 +29,26 @@ def _stf_cf(data, tau, max_lag):
     return dll
 
 
+def _stf_gl(data, max_lag, theta):
+    gains, losses = gain_loss_asymetry.gain_loss_asymmetry(
+        np.cumsum(data, axis=0), max_lag, theta
+    )
+    return np.concatenate([gains, losses], axis=0)
+
+
 _stf_lu = linear_unpredictability.linear_unpredictability
 _stf_vc = volatility_clustering.volatility_clustering
 _stf_le = leverage_effect.leverage_effect
 
-_stylized_fact_list = [_stf_lu, _stf_ht, _stf_vc, _stf_le, _stf_cf]
+_stylized_fact_list = [_stf_lu, _stf_ht, _stf_vc, _stf_le, _stf_cf, _stf_gl]
 _stylized_fact_arg_list = [
     {"max_lag": 1000},
     {"tq": 0.1},
     {"max_lag": 1000},
     {"max_lag": 100},
     {"max_lag": 120, "tau": 5},
+    {"max_lag": 1000, "theta": 0.1},
 ]
-_glarg = {"max_lag": 1000, "theta": 0.1}
 
 
 def compute_mean_stylized_fact(data: npt.ArrayLike):
@@ -90,10 +97,12 @@ def compute_mean_stylized_fact(data: npt.ArrayLike):
 
     # gain loss asym
     gains, loss = np.nanmean(
-        gain_loss_asymetry.gain_loss_asymmetry(np.cumsum(data, axis=0), **_glarg),
+        gain_loss_asymetry.gain_loss_asymmetry(
+            np.cumsum(data, axis=0), **(_stylized_fact_arg_list[5])
+        ),
         axis=2,
     )
-    out_data.append((gains, loss))
+    out_data.append(np.concatenate([gains, loss], axis=0))
 
     return out_data
 
@@ -108,13 +117,6 @@ def boostrap_stylized_facts(
     for fact, arg in zip(_stylized_fact_list, _stylized_fact_arg_list):
         t_data, _ = bootstrap.boostrap_distribution(data, fact, B, S, L, **arg)
         out_data.append(t_data)
-
-    gains, loss = np.nanmean(
-        gain_loss_asymetry.gain_loss_asymmetry(np.cumsum(data, axis=0), **_glarg),
-        axis=2,
-    )
-
-    out_data.append((gains, loss))
 
     return out_data
 
@@ -134,15 +136,6 @@ def stylied_facts_from_model(sample_func, B: int, S: int) -> List[npt.NDArray]:
     for b_strap in b_straps:
         out_data.append(np.sort(np.asarray(b_strap).T, axis=1))
 
-    data = sample_func(B)
-    log_price = np.cumsum(data)
-    gains, loss = np.nanmean(
-        gain_loss_asymetry.gain_loss_asymmetry(log_price, max_lag=1000, theta=0.1),
-        axis=2,
-    )
-
-    out_data.append((gains, loss))
-
     return out_data
 
 
@@ -153,61 +146,25 @@ def stylized_score(
     out_data = []
 
     # dont consider all data for the score as some data seems to make scores worse
-    #                         lu       ht      vc       le      cf     gl
-    score_lag_intervals = [(0, 1000), (0, 2), (0, 150), (0, 60), (1, 30), (0, 60)]
-
-    # last fact is gain loss
-    real_data_stf = real_data_stf.copy()
-    real_gain, real_loss = real_data_stf.pop()
-    syn_data_stf = syn_data_stf.copy()
-    syn_gain, syn_loss = syn_data_stf.pop()
-    gli = score_lag_intervals.pop()
-
-    for real, syn, lagi in zip(real_data_stf, syn_data_stf, score_lag_intervals):
+    #                         lu              ht               vc          le           cf                      gl
+    score_lag_intervals = [
+        range(0, 1000),
+        range(0, 2),
+        range(0, 150),
+        range(0, 60),
+        range(1, 40),
+        list(range(0, 100)) + list(range(1000, 1100)),
+    ]
+    for real, syn, lags in zip(real_data_stf, syn_data_stf, score_lag_intervals):
         n = real.shape[0]
         assert syn.shape[0] == n
 
         w_dist = []
-        for i in range(lagi[0], lagi[1]):
+        for i in lags:
             std = np.nanstd(real)
             w_dist.append(wasserstein_distance(real[i, :] / std, syn[i, :] / std))
 
         out_data.append((np.asarray(w_dist), np.mean(w_dist)))
-
-    #######################
-    # gain loss asymmetry
-    #######################
-
-    # comptue stds
-    real_gain = real_gain[gli[0] : gli[1]]
-    syn_gain = syn_gain[gli[0] : gli[1]]
-    n_gains = np.sum(real_gain)
-    mu_gains = np.dot(real_gain, np.arange(1, real_gain.size + 1)) / n_gains
-    std_gains = np.sqrt(
-        np.dot((np.arange(1, real_gain.size + 1) - mu_gains) ** 2, real_gain) / n_gains
-    )
-
-    real_loss = real_loss[gli[0] : gli[1]] + 1e-10
-    syn_loss = syn_loss[gli[0] : gli[1]] + 1e-10
-    n_loss = np.sum(real_loss)
-    mu_loss = np.dot(real_loss, np.arange(1, real_loss.size + 1)) / n_loss
-    std_loss = np.sqrt(
-        np.dot((np.arange(1, real_loss.size + 1) - mu_loss) ** 2, real_loss) / n_loss
-    )
-
-    values = np.arange(1, real_gain.size + 1)
-    values_g = values / std_gains
-    values_l = values / std_loss
-
-    gain_score = wasserstein_distance(values_g, values_g, real_gain, syn_gain)
-    loss_score = wasserstein_distance(values_l, values_l, real_loss, syn_loss)
-    gl_socres = np.asarray([gain_score, loss_score])
-    gls = np.mean(gl_socres)
-    out_data.append((gl_socres, gls))
-
-    ##################
-    # collect results
-    ##################
 
     scores_lists, scores = zip(*out_data)
 
@@ -220,49 +177,51 @@ if __name__ == "__main__":
     sp500 = load_data.load_log_returns("sp500")
     smi = load_data.load_log_returns("smi")
 
-    B = 512
-    S = 24
-    L = 8192
+    B = 10
+    S = 2
+    L = 1024
 
-    fingan_ = True
-    fourierflow_ = True
-    garch_ = False
-
-    fingan = train_fingan.load_fingan(
-        "/home/nico/thesis/code/data/cache/results/epoch_43/model.pt"
-    )
-
-    def fingan_sampler(S):
-        return train_fingan.sample_fingan(model=fingan, batch_size=S)
-
-    fourierflow = train_fourier_flow.load_fourierflow(
-        "/home/nico/thesis/code/data/cache/results/FourierFlow_2024_07_26-14_03_38/epoch_1/model.pt"
-    )
-
-    def ff_sampler(S):
-        return train_fourier_flow.sample_fourierflow(model=fourierflow, batch_size=S)
-
-    garch_models = train_garch.load_garch(
-        "/home/nico/thesis/code/data/cache/garch_experiments/GARCH_ged_2024_07_14-03_28_28/garch_models.pt"
-    )
-
-    def garch_sampler(S):
-        with warnings.catch_warnings(action="ignore"):
-            return train_garch.sample_garch(garch_models, S, L)
+    fingan_ = False
+    fourierflow_ = False
+    garch_ = True
 
     real_stf = boostrap_stylized_facts(sp500, B, S, L)
 
     if fingan_:
+        fingan = train_fingan.load_fingan(
+            "/home/nico/thesis/code/data/cache/results/epoch_43/model.pt"
+        )
+
+        def fingan_sampler(S):
+            return train_fingan.sample_fingan(model=fingan, batch_size=S)
+
         syn_stf = stylied_facts_from_model(fingan_sampler, B, S)
         mu_score, scores, _ = stylized_score(real_stf, syn_stf)
         print(f"fingan scores {scores} {mu_score}")
 
     if garch_:
+        garch_models = train_garch.load_garch(
+            "/home/nico/thesis/code/data/cache/garch_experiments/GARCH_ged_2024_07_14-03_28_28/garch_models.pt"
+        )
+
+        def garch_sampler(S):
+            with warnings.catch_warnings(action="ignore"):
+                return train_garch.sample_garch(garch_models, S, L)
+
         syn_stf = stylied_facts_from_model(garch_sampler, B, S)
         mu_score, scores, _ = stylized_score(real_stf, syn_stf)
         print(f"garch scores {scores} {mu_score}")
 
     if fourierflow_:
+        fourierflow = train_fourier_flow.load_fourierflow(
+            "/home/nico/thesis/code/data/cache/results/FourierFlow_2024_07_26-14_03_38/epoch_1/model.pt"
+        )
+
+        def ff_sampler(S):
+            return train_fourier_flow.sample_fourierflow(
+                model=fourierflow, batch_size=S
+            )
+
         syn_stf = stylied_facts_from_model(ff_sampler, B, S)
         mu_score, scores, _ = stylized_score(real_stf, syn_stf)
         print(f"fourier flow scores {scores} {mu_score}")

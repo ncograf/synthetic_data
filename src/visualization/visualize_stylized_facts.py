@@ -260,7 +260,6 @@ def visualize_stylized_facts(
     B = cf_bstrap.shape[1]
     interval = np.array([B * low, B * high]).astype(int)
     interval = cf_bstrap[:, interval]
-    x = np.arange(1, le_mean.shape[0] + 1)
 
     plot.set(
         title="coarse-fine volatility",
@@ -289,10 +288,17 @@ def visualize_stylized_facts(
     plot.fill_between(dll_x, interval[:, 0], interval[:, 1], fc=line_color2, alpha=0.3)
     plot.axhline(y=0, linestyle="--", c="black", alpha=0.4)
 
-    ##########################
-    # COARSE FINE VOLATILITY #
-    ##########################
-    gain_mean, loss_mean = stf[5]
+    #######################
+    # GAIN LOSS ASYMMETRY #
+    #######################
+    plot = axes[1, 2]
+    gl_bstrap = stf_dist[5]
+    gl_mean = stf[5]
+    n = gl_mean.size // 2
+    x = np.arange(1, n + 1)
+    B = gl_bstrap.shape[1]
+    interval = np.array([B * low, B * high]).astype(int)
+    interval = gl_bstrap[:, interval]
 
     plot = axes[1, 2]
     plot.set(
@@ -304,7 +310,8 @@ def visualize_stylized_facts(
     )
 
     plot.plot(
-        gain_mean,
+        x,
+        gl_mean[:n],
         alpha=1,
         marker=".",
         color=line_color2,
@@ -312,13 +319,16 @@ def visualize_stylized_facts(
         linestyle="None",
     )
     plot.plot(
-        loss_mean,
+        x,
+        gl_mean[n:],
         alpha=1,
         marker=".",
         color=line_color,
         markersize=2 * line_size,
         linestyle="None",
     )
+    plot.fill_between(x, interval[:n, 0], interval[:n, 1], fc=line_color2, alpha=0.2)
+    plot.fill_between(x, interval[n:, 0], interval[n:, 1], fc=line_color, alpha=0.2)
 
     return fig
 
@@ -330,16 +340,16 @@ if __name__ == "__main__":
     import train_fingan
     import train_garch
 
-    B = 200
+    B = 100
     S = 24
-    L = 8192
+    L = 4096
 
-    real = False
-    fingan = True
+    real = True
+    fingan = False
     garch = False
 
     if real:
-        data = load_data.load_log_returns("sp500")
+        data = load_data.load_log_returns("sp500", min_len=9216, symbols=["MSFT"])
         stf_dist = stylized_score.boostrap_stylized_facts(data, B, S, L)
         stf = stylized_score.compute_mean_stylized_fact(data)
         visualize_stylized_facts(stf, stf_dist)

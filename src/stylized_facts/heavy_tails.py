@@ -13,7 +13,7 @@ def discrete_pdf(
     log_returns: torch.Tensor, n_bins: int | None = None
 ) -> torch.Tensor | npt.NDArray:
     if n_bins is None:
-        n_bins = np.maximum(np.minimum(2000, np.asarray(log_returns).size // 400), 10)
+        n_bins = np.maximum(np.minimum(2000, np.asarray(log_returns).size // 400), 200)
 
     numpy = False
     if not torch.is_tensor(log_returns):
