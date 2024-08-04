@@ -203,7 +203,7 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
             logs = {
                 "loss": epoch_loss / len(loader),
                 "epoch_time": time.time() - epoch_time,
-                "lr": scheduler.get_last_lr(),
+                "lr": scheduler.get_last_lr()[0],
                 "epoch": epoch,
             }
 
