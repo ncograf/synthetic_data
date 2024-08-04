@@ -11,6 +11,7 @@ import load_data
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
+import scipy
 import stylized_loss
 import stylized_score
 import torch
@@ -76,11 +77,8 @@ def _train_real_nvp(conf: Dict[str, Any] = {}):
     cache.mkdir(parents=True, exist_ok=True)
 
     # load real data
-    prices = load_data.load_prices("sp500")
     symbols = config["symbols"]
-    if len(symbols) > 0:
-        prices = prices.loc[:, symbols]
-    log_returns, _ = load_data.get_log_returns(prices, N_TICKS)
+    log_returns = load_data.load_log_returns("sp500", N_TICKS, symbols)
 
     # accelerator is used to efficiently use resources
     set_seed(config["train_seed"])
@@ -119,14 +117,15 @@ def _train_real_nvp(conf: Dict[str, Any] = {}):
         # set distribution note that we scale the data
         match config["dist"]:
             case "studentt":
-                # df, loc, scale = scipy.stats.t.fit(log_returns.flatten())
-                fit = {"df": 3, "loc": 0, "scale": 1}
+                df, loc, scale = scipy.stats.t.fit(log_returns.flatten())
+                fit = {"df": df, "loc": loc, "scale": scale}
             case "normal":
-                # fit = {"loc": mean, "scale": std}
-                fit = {"loc": 0, "scale": 1}
+                loc = np.nanmean(log_returns)
+                scale = np.nanstd(log_returns)
+                fit = {"loc": loc, "scale": scale}
             case "cauchy":
-                # loc, scale = scipy.stats.cauchy.fit(log_returns.flatten())
-                fit = {"loc": 0, "scale": 1}
+                loc, scale = scipy.stats.cauchy.fit(log_returns.flatten())
+                fit = {"loc": loc, "scale": scale}
             case "stdnormal":
                 config["dist"] = "normal"
                 fit = {"loc": 0, "scale": 1}
@@ -201,6 +200,7 @@ def _train_real_nvp(conf: Dict[str, Any] = {}):
             logs = {
                 "loss": epoch_loss / len(loader),
                 "epoch_time": time.time() - epoch_time,
+                "lr": scheduler.get_last_lr(),
                 "epoch": epoch,
             }
 

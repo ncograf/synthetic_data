@@ -44,7 +44,7 @@ def _train_fingan(config: Dict[str, Any] = {}):
 
     # define training config and train model
     conf = {
-        "seq_len": 8192,
+        "seq_len": 4096,
         "train_seed": 99,
         "dtype": "float32",
         "epochs": 1000,
@@ -81,11 +81,8 @@ def _train_fingan(config: Dict[str, Any] = {}):
     cache.mkdir(parents=True, exist_ok=True)
 
     # load real data
-    prices = load_data.load_prices("sp500")
     symbols = config["symbols"]
-    if len(symbols) > 0:
-        prices = prices.loc[:, symbols]
-    log_returns, _ = load_data.get_log_returns(prices, N_TICKS)
+    log_returns = load_data.load_log_returns("sp500", N_TICKS, symbols)
 
     # accelerator is used to efficiently use resources
     set_seed(conf["train_seed"])

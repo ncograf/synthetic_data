@@ -78,11 +78,8 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
     cache.mkdir(parents=True, exist_ok=True)
 
     # load real data
-    prices = load_data.load_prices("sp500")
     symbols = config["symbols"]
-    if len(symbols) > 0:
-        prices = prices.loc[:, symbols]
-    log_returns, _ = load_data.get_log_returns(prices, N_TICKS)
+    log_returns = load_data.load_log_returns("sp500", N_TICKS, symbols)
 
     # accelerator is used to efficiently use resources
     set_seed(config["train_seed"])
@@ -206,6 +203,7 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
             logs = {
                 "loss": epoch_loss / len(loader),
                 "epoch_time": time.time() - epoch_time,
+                "lr": scheduler.get_last_lr(),
                 "epoch": epoch,
             }
 
