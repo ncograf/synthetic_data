@@ -113,7 +113,9 @@ def load_prices(index: Literal["dax", "smi", "sp500"]) -> pd.DataFrame:
 
 
 def load_log_returns(
-    index: Literal["dax", "smi", "sp500"], min_len: int = 4096
+    index: Literal["dax", "smi", "sp500"],
+    min_len: int = 4096,
+    symbols: List[str] = [],
 ) -> npt.NDArray:
     """loads log return data for the given index and
     filters all symbols with less than min_len datapoints
@@ -121,11 +123,15 @@ def load_log_returns(
     Args:
         index ("dax" | "smi" | "sp500"): Index to be loaded
         min_len (int, optional): Minimial required datapoints for filtering. Defaults to 4096.
+        symobls (list): List of symbols to be considered, if emptly all symobls are considered. Defautls to [].
 
     Returns:
         npt.NDArray: log returns for the index (min_len x #stocks)
     """
 
     prices = load_prices(index)
+    if len(symbols) > 0:
+        prices = prices.loc[:, symbols]
+
     log_ret, _ = get_log_returns(prices, min_len)
     return log_ret
