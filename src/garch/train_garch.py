@@ -8,11 +8,10 @@ import click
 import load_data
 import numpy as np
 import numpy.typing as npt
-import pandas as pd
 import torch
 
 
-def _train_garch(config, price_data: pd.DataFrame | None = None) -> Path:
+def _train_garch(config) -> Path:
     """Fit Garch model with the given stock market prices
 
     For each price a Garch model is fitted and for the sampling
