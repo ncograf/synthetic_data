@@ -349,10 +349,11 @@ if __name__ == "__main__":
     garch = False
 
     if real:
-        data = load_data.load_log_returns("sp500", min_len=9216, symbols=["MSFT"])
+        data = load_data.load_log_returns("sp500", min_len=9216)
         stf_dist = stylized_score.boostrap_stylized_facts(data, B, S, L)
         stf = stylized_score.compute_mean_stylized_fact(data)
-        visualize_stylized_facts(stf, stf_dist)
+        fig = visualize_stylized_facts(stf, stf_dist)
+        fig.savefig("/home/nico/thesis/presentations/week22/figures/stf_sp500.png")
         plt.show()
 
     if fingan:

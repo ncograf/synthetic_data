@@ -65,9 +65,6 @@ def _train_fingan(config: Dict[str, Any] = {}):
             "lr": 1e-5,
             "betas": (0.1, 0.999),
         },
-        "lr_config": {
-            "gamma": 0.999,
-        },
     }
 
     conf.update(config)
@@ -173,11 +170,13 @@ def _train_fingan(config: Dict[str, Any] = {}):
         disc_optim = torch.optim.Adam(
             model.disc.parameters(), **conf["optim_disc_config"]
         )
+        gen_sch = torch.optim.lr_scheduler.CosineAnnealingLR(gen_optim, epochs)
+        disc_sch = torch.optim.lr_scheduler.CosineAnnealingLR(gen_optim, epochs)
         bce_criterion = torch.nn.BCELoss()
 
         # wrap model, loader ... to get them to the right device
-        loader, model, gen_optim, disc_optim = accelerator.prepare(
-            loader, model, gen_optim, disc_optim
+        loader, model, gen_optim, disc_optim, gen_sch, disc_sch = accelerator.prepare(
+            loader, model, gen_optim, disc_optim, gen_sch, disc_sch
         )
 
         best_score = sys.float_info.max
@@ -279,9 +278,14 @@ def _train_fingan(config: Dict[str, Any] = {}):
                     (disc_err_fake.item() + disc_err_real.item()) / len(loader) / 2
                 )
 
+            gen_sch.step()
+            disc_sch.step()
+
             logs = {
                 "gen_loss": gen_epoch_loss,
                 "disc_loss": disc_epoch_loss,
+                "disc_lr": disc_sch.get_last_lr()[0],
+                "gen_lr": gen_sch.get_last_lr()[0],
                 "epoch_time": time.time() - epoch_time,
                 "epoch": epoch,
             }
