@@ -27,7 +27,7 @@ from type_converter import TypeConverter
 import wandb
 
 
-def _train_fingan(config: Dict[str, Any] = {}):
+def _train_fingan(conf: Dict[str, Any] = {}):
     """Fit a FinGan Neural Network. I.e. Train the network on the given data.
 
     The method logs intermediate results every few epochs
@@ -43,7 +43,7 @@ def _train_fingan(config: Dict[str, Any] = {}):
             raise EnvironmentError("WANDB_PROJECT is not set!")
 
     # define training config and train model
-    conf = {
+    config = {
         "seq_len": 4096,
         "train_seed": 99,
         "dtype": "float32",
@@ -70,7 +70,7 @@ def _train_fingan(config: Dict[str, Any] = {}):
         "n_samples_per_bstrap": 12,
     }
 
-    conf.update(config)
+    config.update(conf)
 
     N_TICKS = 9216
 
@@ -81,11 +81,11 @@ def _train_fingan(config: Dict[str, Any] = {}):
     cache.mkdir(parents=True, exist_ok=True)
 
     # load real data
-    symbols = config["symbols"]
+    symbols = conf["symbols"]
     log_returns = load_data.load_log_returns("sp500", N_TICKS, symbols)
 
     # accelerator is used to efficiently use resources
-    set_seed(conf["train_seed"])
+    set_seed(config["train_seed"])
     accelerator = Accelerator()
     device = accelerator.device
 
@@ -98,16 +98,16 @@ def _train_fingan(config: Dict[str, Any] = {}):
         print(f"GPU: {cuda_name}")
 
     with wandb.init(
-        tags=["FinGanTakahashi", conf["dist"]]
-        + conf["moment_losses"]
-        + conf["stylized_losses"]
+        tags=["FinGanTakahashi", config["dist"]]
+        + config["moment_losses"]
+        + config["stylized_losses"]
         + symbols
     ):
         # process data
         bootstrap_samples = config["n_samples_per_bstrap"]
         bootstraps = config["n_bootstraps"]
         real_stf = stylized_score.boostrap_stylized_facts(
-            log_returns, bootstraps, bootstrap_samples, L=conf["seq_len"]
+            log_returns, bootstraps, bootstrap_samples, L=config["seq_len"]
         )
 
         # determine shift and scale
@@ -123,7 +123,7 @@ def _train_fingan(config: Dict[str, Any] = {}):
 
         # log wandb if wandb logging is active
         if wandb.run is not None:
-            wandb.config.update(conf)
+            wandb.config.update(config)
             wandb.config["data_stats"] = real_static_stats
             wandb.config["train_config.cpu"] = cpu_name
             wandb.config["train_config.gpu"] = cuda_name
@@ -131,7 +131,7 @@ def _train_fingan(config: Dict[str, Any] = {}):
             wandb.define_metric("*", step_metric="epoch")
 
         # set distribution
-        match conf["dist"]:
+        match config["dist"]:
             case "studentt":
                 df, loc, scale = scipy.stats.t.fit(log_returns.flatten())
                 fit = {"df": df, "loc": loc, "scale": scale}
@@ -141,7 +141,7 @@ def _train_fingan(config: Dict[str, Any] = {}):
                 loc, scale = scipy.stats.cauchy.fit(log_returns.flatten())
                 fit = {"loc": loc, "scale": scale}
             case "stdnormal":
-                conf["dist"] = "normal"
+                config["dist"] = "normal"
                 fit = {"loc": 0, "scale": 1}
             case "laplace":
                 loc, scale = scipy.stats.laplace.fit(log_returns.flatten())
@@ -149,29 +149,31 @@ def _train_fingan(config: Dict[str, Any] = {}):
 
         # read config
         gen_config = {
-            "seq_len": conf["seq_len"],
-            "dtype": conf["dtype"],
+            "seq_len": config["seq_len"],
+            "dtype": config["dtype"],
             "model": "mlp",
         }
-        disc_config = {"input_dim": conf["seq_len"], "dtype": conf["dtype"]}
-        dist_config = {"dist": conf["dist"], **fit}
-        batch_size = conf["batch_size"]
+        disc_config = {"input_dim": config["seq_len"], "dtype": config["dtype"]}
+        dist_config = {"dist": config["dist"], **fit}
+        batch_size = config["batch_size"]
         num_batches = config["num_batches"]
-        stl = conf["stylized_lambda"]
-        epochs = conf["epochs"]
-        dtype = TypeConverter.str_to_numpy(conf["dtype"])
+        stl = config["stylized_lambda"]
+        epochs = config["epochs"]
+        dtype = TypeConverter.str_to_numpy(config["dtype"])
 
         # create dataset (note that the dataset will sample randomly during training (see source for more information))
         dataset = SP500DataSet(
-            log_returns.astype(dtype), batch_size * num_batches, conf["seq_len"]
+            log_returns.astype(dtype), batch_size * num_batches, config["seq_len"]
         )
         loader = DataLoader(dataset, batch_size, pin_memory=True)
 
         # initialize model and optimiers
         model = FinGan(gen_config, disc_config, data_config, dist_config)
-        gen_optim = torch.optim.Adam(model.gen.parameters(), **conf["optim_gen_config"])
+        gen_optim = torch.optim.Adam(
+            model.gen.parameters(), **config["optim_gen_config"]
+        )
         disc_optim = torch.optim.Adam(
-            model.disc.parameters(), **conf["optim_disc_config"]
+            model.disc.parameters(), **config["optim_disc_config"]
         )
         gen_sch = torch.optim.lr_scheduler.CosineAnnealingLR(gen_optim, epochs)
         disc_sch = torch.optim.lr_scheduler.CosineAnnealingLR(gen_optim, epochs)
@@ -238,18 +240,18 @@ def _train_fingan(config: Dict[str, Any] = {}):
                 gen_std = torch.std(flat_fake_batch)
 
                 # Compute and add momemt losses if configured
-                if "mean" in conf["moment_losses"]:
+                if "mean" in config["moment_losses"]:
                     mean_loss = ((gen_mean - mean) / (abs(mean) + 0.1)) ** 2
                     gen_err += mean_loss
-                if "variance" in conf["moment_losses"]:
+                if "variance" in config["moment_losses"]:
                     gen_var = torch.var(flat_fake_batch)
                     gen_err += ((gen_var - var) / (var + 0.1)) ** 2
-                if "skewness" in conf["moment_losses"]:
+                if "skewness" in config["moment_losses"]:
                     gen_skewness = torch.mean((flat_fake_batch - gen_mean) ** 3) / (
                         gen_std**3
                     )
                     gen_err += ((gen_skewness - skewness) / (abs(skewness) + 0.1)) ** 2
-                if "kurtosis" in conf["moment_losses"]:
+                if "kurtosis" in config["moment_losses"]:
                     gen_kurtosis = torch.mean((flat_fake_batch - gen_mean) ** 4) / (
                         gen_std**4
                     )
@@ -257,16 +259,16 @@ def _train_fingan(config: Dict[str, Any] = {}):
 
                 fbt = fake_batch.transpose(0, 2).squeeze(1)
                 rbt = real_batch.transpose(0, 2).squeeze(1)
-                if "lu" in conf["stylized_losses"]:
+                if "lu" in config["stylized_losses"]:
                     lu_loss = stylized_loss.lu_loss(fbt)
                     gen_err += stl * lu_loss
-                if "le" in conf["stylized_losses"]:
+                if "le" in config["stylized_losses"]:
                     le_loss = stylized_loss.le_loss(fbt, rbt)
                     gen_err += stl * le_loss
-                if "cf" in conf["stylized_losses"]:
+                if "cf" in config["stylized_losses"]:
                     cf_loss = stylized_loss.cf_loss(fbt, rbt)
                     gen_err += stl * cf_loss
-                if "vc" in conf["stylized_losses"]:
+                if "vc" in config["stylized_losses"]:
                     vc_loss = stylized_loss.vc_loss(fbt, rbt)
                     gen_err += stl * vc_loss
 
