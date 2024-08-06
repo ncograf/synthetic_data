@@ -49,21 +49,21 @@ def _train_real_nvp(conf: Dict[str, Any] = {}):
         "symbols": [],
         "real_nvp_config": {
             "hidden_dim": 2048,
-            "num_layer": 10,
+            "num_layer": 5,
         },
-        "epochs": 1000,
+        "epochs": 200,
         "batch_size": 24,
+        "num_batches": 512,
         "dist": "normal",
         # "stylized_losses": ['lu', 'le', 'cf', 'vc'],
         "stylized_losses": [],
         "stylized_lambda": 5,
         "optim_gen_config": {
-            "lr": 1e-3,
+            "lr": 1e-5,
             # "betas": (0.5, 0.999),
         },
-        "lr_config": {
-            "gamma": 0.999,
-        },
+        "n_bootstraps": 256,
+        "n_samples_per_bstrap": 12,
     }
 
     config.update(conf)
@@ -97,8 +97,8 @@ def _train_real_nvp(conf: Dict[str, Any] = {}):
         tags=["RealNVP", config["dist"]] + config["stylized_losses"] + symbols
     ):
         # process data
-        bootstraps = 382
-        bootstrap_samples = 24
+        bootstrap_samples = config["n_samples_per_bstrap"]
+        bootstraps = config["n_bootstraps"]
         real_stf = stylized_score.boostrap_stylized_facts(
             log_returns, bootstraps, bootstrap_samples, L=config["seq_len"]
         )
@@ -138,12 +138,12 @@ def _train_real_nvp(conf: Dict[str, Any] = {}):
         real_nvp_config = config["real_nvp_config"]
         real_nvp_config["seq_len"] = config["seq_len"]
         batch_size = config["batch_size"]
+        num_batches = config["num_batches"]
         stl = config["stylized_lambda"]
         epochs = config["epochs"]
         dtype = TypeConverter.str_to_numpy(config["dtype"])
 
         # create dataset (note that the dataset will sample randomly during training (see source for more information))
-        num_batches = 1024
         dataset = SP500DataSet(
             log_returns.astype(dtype), batch_size * num_batches, config["seq_len"]
         )
@@ -237,7 +237,7 @@ def _train_real_nvp(conf: Dict[str, Any] = {}):
                 wandb.log(logs)
 
             # log experiments every n epochs
-            n = 100
+            n = epochs // 10
             if epoch % n == n - 1 or epoch == epochs - 1 or old_best_score > best_score:
                 # create pseudo identifier
                 epoch_name = f"epoch_{epoch + 1}" if epoch < epochs - 1 else "final"

@@ -47,9 +47,10 @@ def _train_fingan(config: Dict[str, Any] = {}):
         "seq_len": 4096,
         "train_seed": 99,
         "dtype": "float32",
-        "epochs": 1000,
+        "epochs": 300,
         "symbols": [],
         "batch_size": 24,
+        "num_batches": 512,
         # dist in studentt, normal, cauchy, laplace
         "dist": "studentt",
         # "moment_losses" : ['mean', 'variance', 'skewness', 'kurtosis'],
@@ -58,13 +59,15 @@ def _train_fingan(config: Dict[str, Any] = {}):
         "stylized_losses": [],
         "stylized_lambda": 5,
         "optim_gen_config": {
-            "lr": 2e-4,
+            "lr": 2e-5,
             "betas": (0.5, 0.999),
         },
         "optim_disc_config": {
             "lr": 1e-5,
             "betas": (0.1, 0.999),
         },
+        "n_bootstraps": 256,
+        "n_samples_per_bstrap": 12,
     }
 
     conf.update(config)
@@ -101,8 +104,8 @@ def _train_fingan(config: Dict[str, Any] = {}):
         + symbols
     ):
         # process data
-        bootstraps = 382
-        bootstrap_samples = 24
+        bootstrap_samples = config["n_samples_per_bstrap"]
+        bootstraps = config["n_bootstraps"]
         real_stf = stylized_score.boostrap_stylized_facts(
             log_returns, bootstraps, bootstrap_samples, L=conf["seq_len"]
         )
@@ -153,12 +156,12 @@ def _train_fingan(config: Dict[str, Any] = {}):
         disc_config = {"input_dim": conf["seq_len"], "dtype": conf["dtype"]}
         dist_config = {"dist": conf["dist"], **fit}
         batch_size = conf["batch_size"]
+        num_batches = config["num_batches"]
         stl = conf["stylized_lambda"]
         epochs = conf["epochs"]
         dtype = TypeConverter.str_to_numpy(conf["dtype"])
 
         # create dataset (note that the dataset will sample randomly during training (see source for more information))
-        num_batches = 1024
         dataset = SP500DataSet(
             log_returns.astype(dtype), batch_size * num_batches, conf["seq_len"]
         )
@@ -331,7 +334,7 @@ def _train_fingan(config: Dict[str, Any] = {}):
                 wandb.log(logs)
 
             # log experiments every n epochs
-            n = 100
+            n = epochs // 10
             if epoch % n == n - 1 or epoch == epochs - 1 or old_best_score > best_score:
                 # create pseudo identifier
                 epoch_name = f"epoch_{epoch + 1}" if epoch < epochs - 1 else "final"

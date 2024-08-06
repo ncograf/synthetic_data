@@ -50,21 +50,20 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
         "symbols": [],
         "fourier_flow_config": {
             "hidden_dim": 2048,
-            "num_layer": 10,
+            "num_layer": 5,
         },
-        "epochs": 1000,
-        "batch_size": 128,
+        "epochs": 100,
+        "batch_size": 24,
+        "num_batches": 512,
         "dist": "normal",
         # "stylized_losses": ['lu', 'le', 'cf', 'vc'],
         "stylized_losses": [],
-        "stylized_lambda": 1,
+        "stylized_lambda": 5,
         "optim_gen_config": {
-            "lr": 1e-4,
-            # "betas": (0.5, 0.999),
+            "lr": 1e-5,
         },
-        "lr_config": {
-            "gamma": 0.999,
-        },
+        "n_bootstraps": 256,
+        "n_samples_per_bstrap": 12,
     }
 
     config.update(conf)
@@ -98,8 +97,8 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
         tags=["FourierFlow", config["dist"]] + config["stylized_losses"] + symbols
     ):
         # process data
-        bootstraps = 256
-        bootstrap_samples = 24
+        bootstrap_samples = config["n_samples_per_bstrap"]
+        bootstraps = config["n_bootstraps"]
         real_stf = stylized_score.boostrap_stylized_facts(
             log_returns, bootstraps, bootstrap_samples, L=config["seq_len"]
         )
@@ -142,12 +141,12 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
         fourier_flow_config = config["fourier_flow_config"]
         fourier_flow_config["seq_len"] = config["seq_len"]
         batch_size = config["batch_size"]
+        num_batches = config["num_batches"]
         stl = config["stylized_lambda"]
         epochs = config["epochs"]
         dtype = TypeConverter.str_to_numpy(config["dtype"])
 
         # create dataset (note that the dataset will sample randomly during training (see source for more information))
-        num_batches = 1024
         dataset = SP500DataSet(
             log_returns.astype(dtype), batch_size * num_batches, config["seq_len"]
         )
@@ -179,7 +178,7 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
                 fbt = fake_batch.transpose(0, 1)
                 rbt = real_batch.transpose(0, 1)
                 if "lu" in conf["stylized_losses"]:
-                    lu_loss = stylized_loss.lu_loss(fbt)
+                    lu_loss = stylized_loss.lu_loss(fbt, rbt)
                     loss += stl * lu_loss
                 if "le" in conf["stylized_losses"]:
                     le_loss = stylized_loss.le_loss(fbt, rbt)
@@ -240,7 +239,7 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
                 wandb.log(logs)
 
             # log experiments every n epochs
-            n = 100
+            n = epochs // 10
             if epoch % n == n - 1 or epoch == epochs - 1 or old_best_score > best_score:
                 # create pseudo identifier
                 epoch_name = f"epoch_{epoch + 1}" if epoch < epochs - 1 else "final"
