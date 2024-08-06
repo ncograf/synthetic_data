@@ -341,10 +341,12 @@ if __name__ == "__main__":
     import train_garch
 
     B = 100
-    S = 24
-    L = 4096
+    S = 12
+    L = 2048
 
     real = True
+    smi = True
+    dax = True
     fingan = False
     garch = False
 
@@ -354,6 +356,22 @@ if __name__ == "__main__":
         stf = stylized_score.compute_mean_stylized_fact(data)
         fig = visualize_stylized_facts(stf, stf_dist)
         fig.savefig("/home/nico/thesis/presentations/week22/figures/stf_sp500.png")
+        plt.show()
+
+    if smi:
+        data = load_data.load_log_returns("smi", min_len=4096)
+        stf_dist = stylized_score.boostrap_stylized_facts(data, B, S, L)
+        stf = stylized_score.compute_mean_stylized_fact(data)
+        fig = visualize_stylized_facts(stf, stf_dist)
+        fig.savefig("/home/nico/thesis/presentations/week22/figures/stf_smi.png")
+        plt.show()
+
+    if dax:
+        data = load_data.load_log_returns("dax", min_len=4096)
+        stf_dist = stylized_score.boostrap_stylized_facts(data, B, S, L)
+        stf = stylized_score.compute_mean_stylized_fact(data)
+        fig = visualize_stylized_facts(stf, stf_dist)
+        fig.savefig("/home/nico/thesis/presentations/week22/figures/stf_dax.png")
         plt.show()
 
     if fingan:
