@@ -146,25 +146,32 @@ def stylized_score(
     out_data = []
 
     # dont consider all data for the score as some data seems to make scores worse
-    #                         lu              ht               vc          le           cf                      gl
     score_lag_intervals = [
-        range(0, 1000),
-        range(0, 2),
-        range(0, 150),
-        range(0, 60),
-        range(1, 40),
-        list(range(0, 100)) + list(range(1000, 1100)),
+        range(0, 50),  # lu
+        range(0, 2),  # ht
+        range(0, 50),  # vc
+        range(0, 50),  # le
+        range(1, 50),  # cf
+        list(range(0, 100)) + list(range(1000, 1100)),  # gl
     ]
-    for real, syn, lags in zip(real_data_stf, syn_data_stf, score_lag_intervals):
-        n = real.shape[0]
-        assert syn.shape[0] == n
+    exp_weight = [True, False, True, True, True, True]
+    for real, syn, lags, exp in zip(
+        real_data_stf, syn_data_stf, score_lag_intervals, exp_weight
+    ):
+        n = len(lags)
+        weights = np.linspace(1, 4, n)
+        if exp:
+            weights = np.exp(-weights)
+            weights = weights / np.sum(weights)
+        else:
+            weights = np.ones(n) / n
 
         w_dist = []
         for i in lags:
             std = np.nanstd(real)
             w_dist.append(wasserstein_distance(real[i, :] / std, syn[i, :] / std))
 
-        out_data.append((np.asarray(w_dist), np.mean(w_dist)))
+        out_data.append((np.asarray(w_dist), np.average(w_dist, weights=weights)))
 
     scores_lists, scores = zip(*out_data)
 
@@ -174,22 +181,31 @@ def stylized_score(
 if __name__ == "__main__":
     import load_data
 
-    sp500 = load_data.load_log_returns("sp500")
+    sp500 = load_data.load_log_returns("sp500", 9216)
     smi = load_data.load_log_returns("smi")
+    dax = load_data.load_log_returns("dax")
 
-    B = 10
-    S = 2
-    L = 1024
+    B = 512
+    S = 24
+    L = 2048
 
+    dax_ = False
+    smi_ = False
     fingan_ = False
     fourierflow_ = False
-    garch_ = True
+    garch_ = False
+    real_ = True
 
-    real_stf = boostrap_stylized_facts(sp500, B, S, L)
+    real_stf = boostrap_stylized_facts(smi, B, S, L)
+
+    if real_:
+        syn_stf = boostrap_stylized_facts(smi, B, S, L)
+        mu_score, scores, _ = stylized_score(real_stf, syn_stf)
+        print(f"real scores {scores} {mu_score}")
 
     if fingan_:
         fingan = train_fingan.load_fingan(
-            "/home/nico/thesis/code/data/cache/results/epoch_43/model.pt"
+            "/home/nico/thesis/code/data/cache/fingan_experiments/fingan_laplace/model.pt"
         )
 
         def fingan_sampler(S):
@@ -225,3 +241,21 @@ if __name__ == "__main__":
         syn_stf = stylied_facts_from_model(ff_sampler, B, S)
         mu_score, scores, _ = stylized_score(real_stf, syn_stf)
         print(f"fourier flow scores {scores} {mu_score}")
+
+    if smi_:
+        syn_stf_smi = boostrap_stylized_facts(smi, B, S, L)
+        mu_score, scores, _ = stylized_score(real_stf, syn_stf_smi)
+        print(f"smi scores {scores} {mu_score}")
+        mu_score, scores, _ = stylized_score(syn_stf_smi, real_stf)
+        print(f"smi scores reversed {scores} {mu_score}")
+
+    if dax_:
+        syn_stf_dax = boostrap_stylized_facts(dax, B, S, L)
+        mu_score, scores, _ = stylized_score(real_stf, syn_stf_dax)
+        print(f"dax scores {scores} {mu_score}")
+        mu_score, scores, _ = stylized_score(syn_stf_dax, real_stf)
+        print(f"dax scores reversed {scores} {mu_score}")
+
+    if dax_ and smi_:
+        mu_score, scores, _ = stylized_score(syn_stf_dax, syn_stf_smi)
+        print(f"dax - smi scores {scores} {mu_score}")

@@ -5,34 +5,57 @@ import torch
 import volatility_clustering
 
 
-def lu_loss(syn: torch.Tensor):
-    lin_upred = linear_unpredictability.linear_unpredictability(syn, 100)
-    return torch.mean(lin_upred**2)
+def lu_loss(syn: torch.Tensor, real: torch.Tensor):
+    n = 100
+    w = torch.exp(-torch.linspace(1, 4, n))
+    w = w / torch.sum(w)
+    w = w.to(syn.device)
+
+    syn_lu = torch.mean(linear_unpredictability.linear_unpredictability(syn, n), dim=1)
+    real_lu = torch.mean(
+        linear_unpredictability.linear_unpredictability(real, n), dim=1
+    )
+    return torch.sum((syn_lu - real_lu) ** 2 * w)
 
 
 def vc_loss(syn: torch.Tensor, real: torch.Tensor):
-    syn_vc = torch.mean(volatility_clustering.volatility_clustering(syn, 150), dim=1)
-    real_vc = torch.mean(volatility_clustering.volatility_clustering(real, 150), dim=1)
+    n = 150
+    w = torch.exp(-torch.linspace(1, 4, n))
+    w = w / torch.sum(w)
+    w = w.to(syn.device)
 
-    return torch.mean((syn_vc - real_vc) ** 2)
+    syn_vc = torch.mean(volatility_clustering.volatility_clustering(syn, n), dim=1)
+    real_vc = torch.mean(volatility_clustering.volatility_clustering(real, n), dim=1)
+
+    return torch.sum((syn_vc - real_vc) ** 2 * w)
 
 
 def le_loss(syn: torch.Tensor, real: torch.Tensor):
-    syn_le = torch.mean(leverage_effect.leverage_effect(syn, max_lag=80), dim=1)
-    real_le = torch.mean(leverage_effect.leverage_effect(real, max_lag=80), dim=1)
+    n = 100
+    w = torch.exp(-torch.linspace(1, 4, n))
+    w = w / torch.sum(w)
+    w = w.to(syn.device)
 
-    return torch.mean((syn_le - real_le) ** 2)
+    syn_le = torch.mean(leverage_effect.leverage_effect(syn, max_lag=n), dim=1)
+    real_le = torch.mean(leverage_effect.leverage_effect(real, max_lag=n), dim=1)
+
+    return torch.sum((syn_le - real_le) ** 2 * w)
 
 
 def cf_loss(syn: torch.Tensor, real: torch.Tensor):
-    syn_le = torch.mean(
-        coarse_fine_volatility.coarse_fine_volatility(syn, max_lag=50, tau=5)[0], dim=1
+    n = 50
+    w = torch.exp(-torch.linspace(1, 4, n))
+    w = w / torch.sum(w)
+    w = w.to(syn.device)
+
+    syn_cf = torch.mean(
+        coarse_fine_volatility.coarse_fine_volatility(syn, max_lag=n, tau=5)[0], dim=1
     )
-    real_le = torch.mean(
-        coarse_fine_volatility.coarse_fine_volatility(real, max_lag=50, tau=5)[0], dim=1
+    real_cf = torch.mean(
+        coarse_fine_volatility.coarse_fine_volatility(real, max_lag=n, tau=5)[0], dim=1
     )
 
-    return torch.mean((syn_le - real_le) ** 2)
+    return torch.sum((syn_cf - real_cf) ** 2 * w)
 
 
 if __name__ == "__main__":
