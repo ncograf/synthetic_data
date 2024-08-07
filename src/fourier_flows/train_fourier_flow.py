@@ -197,7 +197,7 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
 
                 epoch_loss += loss.item()
 
-            scheduler.step()
+            # scheduler.step()
 
             logs = {
                 "loss": epoch_loss / len(loader),
@@ -363,11 +363,22 @@ def sample_fourierflow(model: FourierFlow, batch_size: int = 24) -> npt.NDArray:
     default=[],
     help="Symbols to be included in the training. Leave empty to include all.",
 )
-def train_fourierflow(dist: str, stylized_loss: List[str], symbols: List[str]):
+@click.option(
+    "--learning-rate",
+    "-l",
+    default=1e-5,
+    help="",
+)
+def train_fourierflow(
+    dist: str, stylized_loss: List[str], symbols: List[str], learning_rate: float
+):
     config = {
         "dist": dist,
         "symbols": list(symbols),
         "stylized_losses": list(stylized_loss),
+        "optim_gen_config": {
+            "lr": learning_rate,
+        },
     }
     _train_fourierflow(config)
 

@@ -283,8 +283,8 @@ def _train_fingan(conf: Dict[str, Any] = {}):
                     (disc_err_fake.item() + disc_err_real.item()) / len(loader) / 2
                 )
 
-            gen_sch.step()
-            disc_sch.step()
+            # gen_sch.step()
+            # disc_sch.step()
 
             logs = {
                 "gen_loss": gen_epoch_loss,
