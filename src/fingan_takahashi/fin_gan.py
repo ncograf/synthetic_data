@@ -180,9 +180,9 @@ class FinGanMLP(nn.Sequential):
         input_dim = 100
         nn.Sequential.__init__(
             self,
-            nn.Linear(input_dim, 128, dtype=dtype),
+            nn.Linear(input_dim, 2048, dtype=dtype),
             nn.Tanh(),
-            nn.Linear(128, 2048, dtype=dtype),
+            nn.Linear(2048, 2048, dtype=dtype),
             nn.Tanh(),
             nn.Linear(2048, seq_len, dtype=dtype),
             nn.Tanh(),
