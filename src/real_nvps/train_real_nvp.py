@@ -176,7 +176,7 @@ def _train_real_nvp(conf: Dict[str, Any] = {}):
                 fbt = fake_batch.transpose(0, 1)
                 rbt = real_batch.transpose(0, 1)
                 if "lu" in conf["stylized_losses"]:
-                    lu_loss = stylized_loss.lu_loss(fbt)
+                    lu_loss = stylized_loss.lu_loss(fbt, rbt)
                     loss += stl * lu_loss
                 if "le" in conf["stylized_losses"]:
                     le_loss = stylized_loss.le_loss(fbt, rbt)

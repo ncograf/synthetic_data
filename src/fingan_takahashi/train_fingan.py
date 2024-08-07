@@ -47,7 +47,7 @@ def _train_fingan(conf: Dict[str, Any] = {}):
         "seq_len": 4096,
         "train_seed": 99,
         "dtype": "float32",
-        "epochs": 300,
+        "epochs": 200,
         "symbols": [],
         "batch_size": 24,
         "num_batches": 512,
@@ -59,7 +59,7 @@ def _train_fingan(conf: Dict[str, Any] = {}):
         "stylized_losses": [],
         "stylized_lambda": 5,
         "optim_gen_config": {
-            "lr": 2e-5,
+            "lr": 2e-4,
             "betas": (0.5, 0.999),
         },
         "optim_disc_config": {
@@ -260,7 +260,7 @@ def _train_fingan(conf: Dict[str, Any] = {}):
                 fbt = fake_batch.transpose(0, 2).squeeze(1)
                 rbt = real_batch.transpose(0, 2).squeeze(1)
                 if "lu" in config["stylized_losses"]:
-                    lu_loss = stylized_loss.lu_loss(fbt)
+                    lu_loss = stylized_loss.lu_loss(fbt, rbt)
                     gen_err += stl * lu_loss
                 if "le" in config["stylized_losses"]:
                     le_loss = stylized_loss.le_loss(fbt, rbt)

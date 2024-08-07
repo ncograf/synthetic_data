@@ -162,9 +162,8 @@ def stylized_score(
         weights = np.linspace(1, 4, n)
         if exp:
             weights = np.exp(-weights)
-            weights = weights / np.sum(weights)
         else:
-            weights = np.ones(n) / n
+            weights = np.ones(n)
 
         w_dist = []
         for i in lags:
@@ -191,7 +190,7 @@ if __name__ == "__main__":
 
     dax_ = False
     smi_ = False
-    fingan_ = False
+    fingan_ = True
     fourierflow_ = False
     garch_ = False
     real_ = True

@@ -52,7 +52,7 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
             "hidden_dim": 2048,
             "num_layer": 5,
         },
-        "epochs": 100,
+        "epochs": 200,
         "batch_size": 24,
         "num_batches": 512,
         "dist": "normal",
