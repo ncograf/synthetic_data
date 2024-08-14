@@ -116,8 +116,8 @@ class HNet(nn.Module):
 
     def forward(self, x: torch.Tensor):
         # original network form
-        x = torch.sigmoid(self.lin(x))
-        x = torch.sigmoid(self.nmid(x))
+        x = torch.tanh(self.lin(x))
+        x = torch.tanh(self.nmid(x))
         x = torch.tanh(self.lout(x))
         x = x * self.scale_layer
 
@@ -135,8 +135,8 @@ class MNet(nn.Module):
 
     def forward(self, x: torch.Tensor):
         # original network form
-        x = torch.sigmoid(self.lin(x))
-        x = torch.sigmoid(self.nmid(x))
+        x = torch.tanh(self.lin(x))
+        x = torch.tanh(self.nmid(x))
         x = torch.tanh(self.lout(x))
         x = x * self.scale_layer
 

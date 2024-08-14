@@ -1,6 +1,5 @@
 from typing import Any, Dict, Tuple
 
-import numpy as np
 import torch
 import torch.nn as nn
 from fourier_transform_layer import FourierTransformLayer
@@ -17,8 +16,6 @@ class FourierFlow(nn.Module):
         dist_config: Dict[str, Any],
         dtype: str | torch.dtype = "float32",
         use_dft: bool = True,
-        dft_scale: float = 1,
-        dft_shift: float = 0,
     ):
         """Fourier Flow network for one dimensional time series
 
@@ -74,8 +71,6 @@ class FourierFlow(nn.Module):
         self.flips = [True if i % 2 else False for i in range(self.n_layer)]
 
         self.dft = FourierTransformLayer(seq_len=self.seq_len, use_dft=use_dft)
-        self.dft_scale = dft_scale  # float
-        self.dft_shift = dft_shift  # float
 
         self.apply(self._init_weights)
 
@@ -91,7 +86,7 @@ class FourierFlow(nn.Module):
         if isinstance(module, nn.Linear):
             with torch.no_grad():
                 nn.init.xavier_normal_(
-                    module.weight, gain=nn.init.calculate_gain("relu")
+                    module.weight, gain=nn.init.calculate_gain("tanh")
                 )
                 if module.bias is not None:
                     nn.init.constant_(module.bias, 0)
@@ -109,17 +104,10 @@ class FourierFlow(nn.Module):
             "seq_len": self.seq_len,
             "dist_config": self.dist_config,
             "dtype": self.dtype_str,
-            "dft_shift": self.dft_shift,
-            "dft_scale": self.dft_scale,
             "use_dft": self.use_dft,
         }
 
         return dict_
-
-    def set_normilizing(self, X: torch.Tensor):
-        x_fft = self.dft(X)
-        self.dft_shift = torch.mean(x_fft)
-        self.dft_scale = torch.std(x_fft)
 
     def forward(
         self, x: torch.Tensor
@@ -146,18 +134,19 @@ class FourierFlow(nn.Module):
         # if use_dft false, then this will just resize x to have the right size
         x_fft: torch.Tensor = self.dft(x)
 
-        x_fft = (x_fft - self.dft_shift) / self.dft_scale
-
         log_jac_dets = []
         for layer, f in zip(self.layers, self.flips):
             x_fft, log_jac_det = layer(x_fft, flip=f)
 
             log_jac_dets.append(log_jac_det)
 
+        # inverse dft
+        z = self.dft.inverse(x_fft)
+
         # compute 'log likelyhood' of last ouput
-        d = np.prod(x_fft.shape[:-1])
-        z = torch.cat([x_fft[:, :, 0], x_fft[:, :, 1]], dim=1)
+        d = self.seq_len * self.n_layer
         z = torch.nan_to_num(z, 0, 0, 0)  # gradients won't propagate here
+
         log_prob_z = torch.sum(dist.log_prob(z), dim=-1)  # batchwise likelyhood
 
         log_jac_dets = torch.stack(log_jac_dets, dim=0)
@@ -172,19 +161,15 @@ class FourierFlow(nn.Module):
         """Compute the signal from a latent space variable
 
         Args:
-            z (torch.Tensor): Dx(T // 2 + 1)x2 latent space variable
+            z (torch.Tensor): DxT latent space variable
 
         Returns:
             torch.Tensor:
         """
-
-        z_real, z_imag = z[:, :, 0], z[:, :, 1]
-        z_complex = torch.stack([z_real, z_imag], dim=-1)
+        z_complex: torch.Tensor = self.dft(z)
 
         for layer, f in zip(reversed(self.layers), reversed(self.flips)):
             z_complex = layer.inverse(z_complex, flip=f)
-
-        z_complex = z_complex * self.dft_scale + self.dft_shift
 
         x = self.dft.inverse(z_complex)
 
@@ -213,14 +198,10 @@ class FourierFlow(nn.Module):
                 dist = torch.distributions.Laplace(self.loc, self.scale)
 
         with torch.no_grad():
-            z = dist.rsample((batch_size, self.latent_size * 2)).reshape(
-                (batch_size, self.latent_size * 2)
+            z = dist.rsample((batch_size, self.seq_len)).reshape(
+                (batch_size, self.seq_len)
             )
 
-            z_real = z[:, : self.latent_size]
-            z_imag = z[:, self.latent_size :]
-            z_complex = torch.stack([z_real, z_imag], dim=-1)
-
-            signals = self.inverse(z_complex)
+            signals = self.inverse(z)
 
         return signals
