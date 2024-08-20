@@ -24,7 +24,7 @@ def _load_prices(symbols: List[str], path: Path) -> pd.DataFrame:
     index_path = path / "all_index.csv"
 
     if index_path.exists():
-        temp_df = pd.read_csv(index_path)
+        temp_df = pd.read_csv(index_path, index_col="Date")
         if set(symbols) <= set(temp_df.columns):
             return temp_df.loc[:, symbols]
 
@@ -68,19 +68,23 @@ def _load_prices(symbols: List[str], path: Path) -> pd.DataFrame:
 
 
 def get_log_returns(
-    price_data: pd.DataFrame, min_len: int
+    price_data: pd.DataFrame, min_len: int, verbose: bool = False
 ) -> Tuple[npt.NDArray, pd.Index]:
     """Compute log return data and filter data based for sufficient data
 
     Args:
         price_data (pd.DataFrame): price data
         min_len (int): minimal number of prices listed to pass filter
+        verbose (bool, optional): print information of data
 
     Returns:
         npt.NDArray, list: log returns for stocks (T x #stocks), stock_symbols
     """
 
     symbols = price_data.columns
+
+    if verbose:
+        print(f"Timespan {price_data.index[-min_len]} -- {price_data.index[-1]}")
 
     price_data = np.asarray(price_data, dtype=np.float64)
     nan_mask = ~np.isnan(price_data)  # returns pd.dataframe
@@ -91,6 +95,9 @@ def get_log_returns(
     log_return_data[np.isnan(log_return_data)] = 0
 
     symbols = list(symbols[num_non_nans >= min_len])
+
+    if verbose:
+        print(f"Number of symbols {len(symbols)}")
 
     return log_return_data, symbols
 
