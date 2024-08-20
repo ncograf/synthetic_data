@@ -49,11 +49,11 @@ def _train_real_nvp(conf: Dict[str, Any] = {}):
         "symbols": [],
         "real_nvp_config": {
             "hidden_dim": 2048,
-            "num_layer": 5,
+            "num_layer": 2,
         },
-        "epochs": 200,
-        "batch_size": 24,
-        "num_batches": 512,
+        "epochs": 500,
+        "batch_size": 64,
+        "num_batches": 128,
         "dist": "normal",
         # "stylized_losses": ['lu', 'le', 'cf', 'vc'],
         "stylized_losses": [],
@@ -63,7 +63,7 @@ def _train_real_nvp(conf: Dict[str, Any] = {}):
             # "betas": (0.5, 0.999),
         },
         "n_bootstraps": 256,
-        "n_samples_per_bstrap": 12,
+        "n_samples_per_bstrap": 8,
     }
 
     config.update(conf)

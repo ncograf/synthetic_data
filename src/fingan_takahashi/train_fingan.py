@@ -47,10 +47,10 @@ def _train_fingan(conf: Dict[str, Any] = {}):
         "seq_len": 4096,
         "train_seed": 99,
         "dtype": "float32",
-        "epochs": 200,
+        "epochs": 500,
         "symbols": [],
-        "batch_size": 24,
-        "num_batches": 512,
+        "batch_size": 64,
+        "num_batches": 128,
         # dist in studentt, normal, cauchy, laplace
         "dist": "studentt",
         # "moment_losses" : ['mean', 'variance', 'skewness', 'kurtosis'],
@@ -67,7 +67,7 @@ def _train_fingan(conf: Dict[str, Any] = {}):
             "betas": (0.1, 0.999),
         },
         "n_bootstraps": 256,
-        "n_samples_per_bstrap": 12,
+        "n_samples_per_bstrap": 8,
     }
 
     config.update(conf)

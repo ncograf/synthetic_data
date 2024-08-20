@@ -49,12 +49,12 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
         "seq_len": 4096,
         "symbols": [],
         "fourier_flow_config": {
-            "hidden_dim": 512,
-            "num_layer": 8,
+            "hidden_dim": 2048,
+            "num_layer": 2,
         },
-        "epochs": 200,
-        "batch_size": 128,
-        "num_batches": 512,
+        "epochs": 500,
+        "batch_size": 64,
+        "num_batches": 128,
         "dist": "normal",
         # "stylized_losses": ['lu', 'le', 'cf', 'vc'],
         "stylized_losses": [],
@@ -63,7 +63,7 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
             "lr": 1e-5,
         },
         "n_bootstraps": 256,
-        "n_samples_per_bstrap": 12,
+        "n_samples_per_bstrap": 8,
     }
 
     config.update(conf)
