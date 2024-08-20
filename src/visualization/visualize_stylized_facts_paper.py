@@ -49,11 +49,11 @@ def visualize_stylized_facts_paper(
         **subplot_layout, constrained_layout=True, figsize=(width, height), dpi=600
     )
 
-    line_size = 2
+    line_size = 0.6
     line_color = "cornflowerblue"
     line_color2 = "violet"
 
-    emph_size = 2
+    emph_size = 0.6
     emph_color = "navy"
     emph_color2 = "red"
 
@@ -84,7 +84,7 @@ def visualize_stylized_facts_paper(
         lu_mean,
         marker=".",
         color=line_color,
-        markersize=line_size,
+        markersize=2 * line_size,
         linestyle="None",
     )
     plot.fill_between(x, interval[:, 0], interval[:, 1], fc=line_color, alpha=0.2)
@@ -121,7 +121,7 @@ def visualize_stylized_facts_paper(
         alpha=0.7,
         marker=".",
         color=line_color2,
-        markersize=line_size,
+        markersize=2 * line_size,
         linestyle="None",
     )
     plot.plot(
@@ -130,7 +130,7 @@ def visualize_stylized_facts_paper(
         alpha=0.7,
         marker=".",
         color=line_color,
-        markersize=line_size,
+        markersize=2 * line_size,
         linestyle="None",
     )
 
@@ -155,7 +155,7 @@ def visualize_stylized_facts_paper(
     plot.plot(
         pos_x_lin,
         pos_y_lin,
-        label=f"pos. $c_p \\, \\tilde{{r}}_t^{{\\, {pos_beta:.2f}}}$",
+        # label=f"pos. $\\tilde{{r}}_t^{{\\, {pos_beta:.2f}}}$",
         linewidth=line_size,
         linestyle="--",
         alpha=1,
@@ -164,7 +164,7 @@ def visualize_stylized_facts_paper(
     plot.plot(
         neg_x_lin,
         neg_y_lin,
-        label=f"neg. $c_n \\, \\tilde{{r}}_t^{{\\, {neg_beta:.2f}}}$",
+        # label=f"neg. $\\tilde{{r}}_t^{{\\, {neg_beta:.2f}}}$",
         linewidth=line_size,
         linestyle="--",
         alpha=1,
@@ -212,7 +212,7 @@ def visualize_stylized_facts_paper(
         alpha=1,
         marker=".",
         color=line_color,
-        markersize=line_size,
+        markersize=2 * line_size,
         linestyle="None",
     )
     plot.fill_between(x, interval[:, 0], interval[:, 1], fc=line_color, alpha=0.2)
@@ -241,7 +241,7 @@ def visualize_stylized_facts_paper(
         alpha=1,
         marker=".",
         color=line_color,
-        markersize=line_size,
+        markersize=2 * line_size,
         linestyle="None",
     )
     plot.fill_between(x, interval[:, 0], interval[:, 1], fc=line_color, alpha=0.2)
@@ -269,7 +269,7 @@ def visualize_stylized_facts_paper(
         ll_mean,
         marker=".",
         color=line_color,
-        markersize=line_size,
+        markersize=2 * line_size,
         linestyle="none",
     )
     plot.plot(
