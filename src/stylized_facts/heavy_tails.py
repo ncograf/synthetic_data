@@ -33,14 +33,14 @@ def discrete_pdf(
     exp = 4
     pos_bin_end = torch.pow(
         torch.linspace(
-            1e-3 ** (1 / exp), torch.pow(max - mu, 1 / exp), n_bins // 2 + 1
+            1e-2 ** (1 / exp), torch.pow(max - mu, 1 / exp), n_bins // 2 + 1
         ),
         exp,
     )[int(n_bins * exp / 100) :]
     pos_diffs = torch.diff(pos_bin_end)
     neg_bin_end = torch.pow(
         torch.linspace(
-            1e-3 ** (1 / exp), torch.pow(mu - min, 1 / exp), n_bins // 2 + 1
+            1e-2 ** (1 / exp), torch.pow(mu - min, 1 / exp), n_bins // 2 + 1
         ),
         exp,
     )[int(n_bins * exp / 100) :]

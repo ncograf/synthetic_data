@@ -142,7 +142,7 @@ def stylied_facts_from_model(sample_func, B: int, S: int) -> List[npt.NDArray]:
 def stylized_score(
     real_data_stf: List[npt.ArrayLike],
     syn_data_stf: List[npt.ArrayLike],
-) -> List[Tuple[npt.ArrayLike, float]]:
+) -> Tuple[float, List[float], npt.ArrayLike]:
     out_data = []
 
     # dont consider all data for the score as some data seems to make scores worse
@@ -159,9 +159,9 @@ def stylized_score(
         real_data_stf, syn_data_stf, score_lag_intervals, exp_weight
     ):
         n = len(lags)
-        weights = np.linspace(1, 4, n)
+        weights = np.linspace(np.log(1), np.log(0.1), n)
         if exp:
-            weights = np.exp(-weights)
+            weights = np.exp(weights)
         else:
             weights = np.ones(n)
 
