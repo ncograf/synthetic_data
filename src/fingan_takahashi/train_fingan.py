@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 import time
@@ -344,6 +345,10 @@ def _train_fingan(conf: Dict[str, Any] = {}):
                 # comptue local path for logggin
                 loc_path = Path(cache) / epoch_name
                 loc_path.mkdir(parents=True, exist_ok=True)
+
+                if epoch_name == "final":
+                    with (loc_path / "model_info.json").open("w") as file:
+                        json.dump(config, file)
 
                 # read out model state (NOTE THE DICT KEYS ARE READ FROM THE SAMPLE FUNCTION DON'T CHANGE)
                 model_dict = {

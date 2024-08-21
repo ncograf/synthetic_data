@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 import time
@@ -257,6 +258,10 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
                     if ("total_score" in logs)
                     else np.nan,
                 }
+
+                if epoch_name == "final":
+                    with (loc_path / "model_info.json").open("w") as file:
+                        json.dump(config, file)
 
                 # log model and stats (note that the methods ALWAYS log locally)
                 wandb_logging.log_model(
