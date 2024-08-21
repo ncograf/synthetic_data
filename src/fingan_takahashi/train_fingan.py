@@ -472,13 +472,19 @@ def sample_fingan(model: FinGan, batch_size: int = 24) -> npt.NDArray:
     default=[],
     help="Symbols to be included in the training. Leave empty to include all.",
 )
+@click.option("--stylized-lambda", "-y", default=1, help="Factor for stylized loss")
 def train_fingan(
-    dist: str, moment_loss: List[str], stylized_loss: List[str], symbols: List[str]
+    dist: str,
+    moment_loss: List[str],
+    stylized_loss: List[str],
+    symbols: List[str],
+    stylized_lambda: float,
 ):
     config = {
         "dist": dist,
         "moment_losses": list(moment_loss),
         "stylized_losses": list(stylized_loss),
+        "stylized_lambda": stylized_lambda,
         "symbols": list(symbols),
     }
     _train_fingan(config)

@@ -372,15 +372,21 @@ def sample_fourierflow(model: FourierFlow, batch_size: int = 24) -> npt.NDArray:
     "--learning-rate",
     "-l",
     default=1e-5,
-    help="",
+    help="Learning rate for Adam optimizer",
 )
+@click.option("--stylized-lambda", "-y", default=1, help="Factor for stylized loss")
 def train_fourierflow(
-    dist: str, stylized_loss: List[str], symbols: List[str], learning_rate: float
+    dist: str,
+    stylized_loss: List[str],
+    symbols: List[str],
+    learning_rate: float,
+    stylized_lambda: float,
 ):
     config = {
         "dist": dist,
         "symbols": list(symbols),
         "stylized_losses": list(stylized_loss),
+        "stylized_lambda": stylized_lambda,
         "optim_gen_config": {
             "lr": learning_rate,
         },
