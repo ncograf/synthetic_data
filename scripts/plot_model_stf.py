@@ -1,6 +1,7 @@
 import json
 import os
 import random
+import time
 import warnings
 from pathlib import Path
 
@@ -13,6 +14,7 @@ import scienceplots
 import stylized_score
 import train_fingan
 import train_fourier_flow
+import train_garch
 import train_real_nvp
 import visualize_scores
 import wasserstein_distance
@@ -20,6 +22,63 @@ from matplotlib.legend_handler import HandlerTuple
 
 # keep this in the file
 scienceplots.__name__
+
+
+def compute_garch_scores(run_dir: Path, B, S, L):
+    exp_path = run_dir / "exp.json"
+    if exp_path.exists():
+        with (run_dir / "exp.json").open() as file:
+            exp_file = json.load(file)
+            exp = exp_file["exp"]
+    else:
+        # laod data
+        min_len = 9216
+        log_ret = load_data.load_log_returns("sp500", min_len)
+        stf = stylized_score.boostrap_stylized_facts(log_ret, B, S, L)
+
+        exp = []
+
+        for i, path in enumerate(run_dir.iterdir()):
+            start = time.time()
+            if (path / "garch_models.pt").exists():
+                print(f"Working on {str(path)}, nr {i}", end="")
+
+                model = train_garch.load_garch(path / "garch_models.pt")
+                with (path / "meta_data.json").open() as file:
+                    info = json.load(file)
+                config = info["config"]
+
+                name = config["vol"]
+                p = config["p"]
+                dist = config["dist"]
+
+                try:
+
+                    def sampler(S):
+                        with warnings.catch_warnings(action="ignore"):
+                            return train_garch.sample_garch(model, S, L)
+
+                    m_stf = stylized_score.stylied_facts_from_model(sampler, B, S)
+                    tot, ind, _ = stylized_score.stylized_score(stf, m_stf)
+
+                    w = [
+                        wasserstein_distance.compute_wasserstein_correlation(
+                            log_ret, sampler(20), 1, S=40000
+                        )
+                    ]
+                except:  # noqa E722
+                    pass
+
+                exp.append((tot, ind, w, f"{name}({p}) ~ {dist}"))
+
+                print(f" took {time.time() - start} seconds")
+
+            with exp_path.open("w") as file:
+                json.dump({"exp": exp}, file)
+
+    exp.sort(key=lambda x: x[0])
+
+    return exp
 
 
 def compute_scores(run_dir: Path, model_load, model_sample, B, S, L):
@@ -89,22 +148,8 @@ S = 8
 L = 4096
 
 # compute garch
-garch_path = data_dir / "garch_runs/garch_experiments.json"
-if garch_path.exists():
-    with garch_path.open() as file:
-        experiments = json.load(file)
-
-garch_exp = []
-for exp in experiments:
-    if np.isnan(exp["score"]):
-        continue
-    name = exp["name"]
-    tot = exp["score"]
-    sc = exp["ind_scores"]
-    p = exp["config"]["p"]
-    dist = exp["config"]["dist"]
-    garch_exp.append((tot, sc, [np.nan], f"{name}({p}) ~ {dist}"))
-garch_exp = sorted(garch_exp, key=lambda x: x[0])
+run_dir = data_dir / "garch_runs"
+garch_exp = compute_garch_scores(run_dir, B, S, L)
 
 # fourier flow
 run_dir = data_dir / "fourierflow_runs"
