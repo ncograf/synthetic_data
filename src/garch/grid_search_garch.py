@@ -53,16 +53,6 @@ grid = [
         },
     ),
     (
-        "FIGARCH",
-        {
-            "model": "FIGARCH",
-            "max": 1,
-            "par": ["p", "q"],
-            "power": 2,
-            "dist": ["normal", "t", "skewt", "ged"],
-        },
-    ),
-    (
         "EGARCH",
         {
             "model": "EGARCH",
@@ -103,10 +93,10 @@ N = 50
 for model, pg in grid:
     config = {"vol": pg["model"], "power": pg["power"], "mean": "Constant"}
     for dist in pg["dist"]:
-        if model == 'FIGARCH':
-            par_grid = [{'p' : 1, 'q' : 0},{'p' : 1, 'q' : 1},{'p' : 0, 'q' : 0}]
+        if model == "FIGARCH":
+            par_grid = [{"p": 1, "q": 0}, {"p": 1, "q": 1}, {"p": 0, "q": 0}]
         else:
-            par_grid = [{s: p for s in pg['par']} for p in range(1, pg['max'] + 1)]
+            par_grid = [{s: p for s in pg["par"]} for p in range(1, pg["max"] + 1)]
 
         for par_dict in par_grid:
             config = config.copy()
