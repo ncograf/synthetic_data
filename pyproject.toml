@@ -21,6 +21,7 @@ packages = [
     {include = "*", from = "src/fitting_utils"},
     {include = "*", from = "src/visualization"},
     {include = "*", from = "src/wandb_tools"},
+    {include = "*", from = "src/scores"},
     {include = "*.so", from = "boosted/boost_modules", format = "wheel"},
 ]
 
@@ -58,6 +59,7 @@ pyarrow = "^16.0.0"
 pytest-cov = "^5.0.0"
 memory-profiler = "^0.61.0"
 scienceplots = "^2.1.1"
+inflect = "^7.3.1"
 
 
 [tool.ruff]
