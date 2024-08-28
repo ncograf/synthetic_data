@@ -147,8 +147,8 @@ def stylized_score(
 
     # dont consider all data for the score as some data seems to make scores worse
     gl_range = np.arange(200)
-    gl_range[::2] = np.arange(100)
-    gl_range[1::2] = np.arange(1000, 1100)
+    gl_range[::2] = np.arange(3, 103)
+    gl_range[1::2] = np.arange(1003, 1103)
     score_lag_intervals = [
         range(0, 50),  # lu
         range(0, 2),  # ht
@@ -162,7 +162,7 @@ def stylized_score(
         real_data_stf, syn_data_stf, score_lag_intervals, exp_weight
     ):
         n = len(lags)
-        weights = np.linspace(np.log(1), np.log(0.1), n)
+        weights = np.linspace(0, np.log(0.1), n)
         if exp:
             weights = np.exp(weights)
         else:
@@ -170,14 +170,43 @@ def stylized_score(
 
         w_dist = []
         for i in lags:
-            std = np.nanstd(real)
-            w_dist.append(wasserstein_distance(real[i, :] / std, syn[i, :] / std))
+            std = np.nanstd(real[i, :])
+            w_dist.append(
+                wasserstein_distance(
+                    real[i, :] / (std + 1e-8), syn[i, :] / (std + 1e-8)
+                )
+            )
 
         out_data.append((np.asarray(w_dist), np.average(w_dist, weights=weights)))
 
     scores_lists, scores = zip(*out_data)
 
     return np.mean(scores), scores, scores_lists
+
+
+def stylized_variance(
+    real_data_stf: List[npt.ArrayLike],
+) -> Tuple[float, List[float], npt.ArrayLike]:
+    out_data = []
+
+    # dont consider all data for the score as some data seems to make scores worse
+    gl_range = np.arange(200)
+    gl_range[::2] = np.arange(3, 103)
+    gl_range[1::2] = np.arange(1003, 1103)
+    score_lag_intervals = [
+        range(0, 50),  # lu
+        range(0, 2),  # ht
+        range(0, 50),  # vc
+        range(0, 50),  # le
+        range(1, 50),  # cf
+        gl_range,  # gl
+    ]
+    for real, lags in zip(real_data_stf, score_lag_intervals):
+        stds = []
+        for i in lags:
+            stds.append(np.nanstd(real[i, :]))
+        out_data.append((np.mean(stds), np.max(stds), np.min(stds), np.asarray(stds)))
+    return out_data
 
 
 if __name__ == "__main__":
