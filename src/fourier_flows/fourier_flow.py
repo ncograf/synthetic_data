@@ -85,11 +85,9 @@ class FourierFlow(nn.Module):
 
         if isinstance(module, nn.Linear):
             with torch.no_grad():
-                nn.init.xavier_normal_(
-                    module.weight, gain=nn.init.calculate_gain("tanh")
-                )
+                nn.init.normal_(module.weight.data, 0, 0.00001)
                 if module.bias is not None:
-                    nn.init.constant_(module.bias, 0)
+                    nn.init.constant_(module.bias.data, 0)
 
     def get_model_info(self) -> Dict[str, Any]:
         """Model initialization parameters

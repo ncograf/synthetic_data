@@ -51,11 +51,11 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
         "symbols": [],
         "fourier_flow_config": {
             "hidden_dim": 2048,
-            "num_layer": 2,
+            "num_layer": 4,
         },
-        "epochs": 500,
-        "batch_size": 64,
-        "num_batches": 128,
+        "epochs": 1000,
+        "batch_size": 24,
+        "num_batches": 1024,
         "dist": "normal",
         # "stylized_losses": ['lu', 'le', 'cf', 'vc'],
         "stylized_losses": [],
@@ -198,7 +198,7 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
 
                 epoch_loss += loss.item()
 
-            # scheduler.step()
+            scheduler.step()
 
             logs = {
                 "loss": epoch_loss / len(loader),
