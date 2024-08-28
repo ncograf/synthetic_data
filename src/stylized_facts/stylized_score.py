@@ -146,13 +146,16 @@ def stylized_score(
     out_data = []
 
     # dont consider all data for the score as some data seems to make scores worse
+    gl_range = np.arange(200)
+    gl_range[::2] = np.arange(100)
+    gl_range[1::2] = np.arange(1000, 1100)
     score_lag_intervals = [
         range(0, 50),  # lu
         range(0, 2),  # ht
         range(0, 50),  # vc
         range(0, 50),  # le
         range(1, 50),  # cf
-        list(range(0, 100)) + list(range(1000, 1100)),  # gl
+        gl_range,  # gl
     ]
     exp_weight = [True, False, True, True, True, True]
     for real, syn, lags, exp in zip(
