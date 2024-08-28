@@ -45,13 +45,13 @@ def _train_fingan(conf: Dict[str, Any] = {}):
 
     # define training config and train model
     config = {
-        "seq_len": 4096,
+        "seq_len": 8192,
         "train_seed": 99,
         "dtype": "float32",
-        "epochs": 500,
+        "epochs": 1000,
         "symbols": [],
-        "batch_size": 64,
-        "num_batches": 128,
+        "batch_size": 24,
+        "num_batches": 1024,
         # dist in studentt, normal, cauchy, laplace
         "dist": "studentt",
         # "moment_losses" : ['mean', 'variance', 'skewness', 'kurtosis'],
