@@ -66,7 +66,7 @@ def _train_garch(config) -> Path:
 
         models_dict[sym] = out_dict
 
-    torch.save(models_dict, cache / "garch_models.pt")
+    torch.save(models_dict, cache / "models.pt")
 
     return cache
 
