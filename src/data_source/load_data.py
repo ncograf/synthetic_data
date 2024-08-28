@@ -1,6 +1,7 @@
 import os
+from datetime import datetime
 from pathlib import Path
-from typing import List, Literal, Tuple
+from typing import Any, Dict, List, Literal, Tuple
 
 import numpy as np
 import numpy.typing as npt
@@ -68,14 +69,18 @@ def _load_prices(symbols: List[str], path: Path) -> pd.DataFrame:
 
 
 def get_log_returns(
-    price_data: pd.DataFrame, min_len: int, verbose: bool = False
-) -> Tuple[npt.NDArray, pd.Index]:
+    price_data: pd.DataFrame,
+    min_len: int,
+    verbose: bool = False,
+    info_arr: Dict[str, Any] | None = None,
+) -> Tuple[npt.NDArray, List[str]]:
     """Compute log return data and filter data based for sufficient data
 
     Args:
         price_data (pd.DataFrame): price data
         min_len (int): minimal number of prices listed to pass filter
-        verbose (bool, optional): print information of data
+        verbose (bool, optional): print information of data. Defaults to False.
+        info_arr (dict, optional): array containing information: start : str, end : str, num_dates : int
 
     Returns:
         npt.NDArray, list: log returns for stocks (T x #stocks), stock_symbols
@@ -85,6 +90,14 @@ def get_log_returns(
 
     if verbose:
         print(f"Timespan {price_data.index[-min_len]} -- {price_data.index[-1]}")
+
+    if info_arr is not None:
+        info_arr["start"] = datetime.strptime(
+            str(price_data.index[-min_len]), "%Y-%m-%d"
+        ).strftime("%d %B %Y")
+        info_arr["end"] = datetime.strptime(
+            str(price_data.index[-1]), "%Y-%m-%d"
+        ).strftime("%d %B %Y")
 
     price_data = np.asarray(price_data, dtype=np.float64)
     nan_mask = ~np.isnan(price_data)  # returns pd.dataframe
@@ -98,6 +111,10 @@ def get_log_returns(
 
     if verbose:
         print(f"Number of symbols {len(symbols)}")
+
+    if info_arr is not None:
+        info_arr["num_dates"] = log_return_data.shape[0]
+        info_arr["num_sym"] = log_return_data.shape[1]
 
     return log_return_data, symbols
 
