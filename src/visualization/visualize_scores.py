@@ -85,7 +85,7 @@ def plot_axes(plot_data, plot: plt.Axes, plot_: plt.Axes, title, alt=False, scal
     vline_stf = vline_stf["bodies"][0]
 
     # draw experiemtns distributions
-    wd_data = np.asarray(list(zip(*plot_data))[2])
+    wd_data = 1000 * np.asarray(list(zip(*plot_data))[2])
     vline_wd = plot_.violinplot(
         wd_data,
         num_plot + np.arange(wd_data.shape[1]),
@@ -115,7 +115,7 @@ def plot_axes(plot_data, plot: plt.Axes, plot_: plt.Axes, title, alt=False, scal
     )
     (art_,) = plot_.plot(
         num_plot + np.arange(num_plot_),
-        min[2],
+        1000 * np.asarray(min[2]),
         marker=marker,
         color=alt_colors[0],
         markersize=marker_size,
@@ -133,7 +133,7 @@ def plot_axes(plot_data, plot: plt.Axes, plot_: plt.Axes, title, alt=False, scal
     )
     (art_,) = plot_.plot(
         num_plot + np.arange(num_plot_),
-        med[2],
+        1000 * np.asarray(med[2]),
         marker=marker,
         color=alt_colors[1],
         markersize=marker_size,
@@ -151,7 +151,7 @@ def plot_axes(plot_data, plot: plt.Axes, plot_: plt.Axes, title, alt=False, scal
     )
     (art_,) = plot_.plot(
         num_plot + np.arange(num_plot_),
-        max[2],
+        1000 * np.asarray(max[2]),
         marker=marker,
         color=alt_colors[2],
         markersize=marker_size,
