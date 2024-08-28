@@ -222,7 +222,7 @@ all_ = list(
         r"max $\mathcal{S}$",
         r"med $\mathcal{S}$",
         r"min $\mathcal{S}$",
-        r"range ($\mathcal{S}^{\Theta}, W_1$)",
+        r"dist ($\mathcal{S}^{\Theta}, W_1$)",
     ]
 )
 

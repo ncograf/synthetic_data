@@ -1,15 +1,10 @@
+import matplotlib.pyplot as plt
 import numpy as np
 
 
-def plot_axes(plot_data, plot, plot_, title, alt=False, scale=1):
+def plot_axes(plot_data, plot: plt.Axes, plot_: plt.Axes, title, alt=False, scale=1):
     plot_data = sorted(plot_data, key=lambda x: x[0])
     plot_data = list(reversed(list(reversed(plot_data))))
-
-    stf_mins = np.min(list(zip(*plot_data))[1], axis=0)
-    stf_maxs = np.max(list(zip(*plot_data))[1], axis=0)
-
-    wd_mins = np.min(list(zip(*plot_data))[2], axis=0)
-    wd_maxs = np.max(list(zip(*plot_data))[2], axis=0)
 
     min = plot_data[0]
     med = plot_data[len(plot_data) // 2]
@@ -30,8 +25,8 @@ def plot_axes(plot_data, plot, plot_, title, alt=False, scale=1):
 
     plot.set(
         title=title,
-        ylabel=r"Stylized Score $\mathcal{S}^{\theta}$",
-        xlabel=r"Stylized Fact $\theta$",
+        ylabel=r"Stylized Score $\mathcal{S}^{\Theta}$",
+        xlabel=r"Stylized Fact $\Theta$",
     )
     plot.minorticks_off()
     plot_.set(ylabel=r"Wasserstein distance $10^3 \times W_1(R, R')$", yscale="symlog")
@@ -70,24 +65,43 @@ def plot_axes(plot_data, plot, plot_, title, alt=False, scale=1):
     num_plot = len(min[1])
     num_plot_ = len(min[2])
 
-    vline_stf = plot.vlines(
-        np.arange(stf_mins.size),
-        stf_mins,
-        stf_maxs,
-        color=colors[1],
-        linewidth=line_size,
-        alpha=0.2,
-        capstyle="round",
+    # draw experiemtns distributions
+    stf_data = np.asarray(list(zip(*plot_data))[1])
+    vline_stf = plot.violinplot(
+        stf_data,
+        np.arange(stf_data.shape[1]),
+        widths=0.6,
+        showextrema=True,
     )
-    vline_wd = plot_.vlines(
-        num_plot + np.arange(wd_mins.size),
-        wd_mins,
-        wd_maxs,
-        color=alt_colors[1],
-        linewidth=line_size,
-        alpha=0.2,
-        capstyle="round",
+    for pc in vline_stf["bodies"]:
+        pc.set_facecolor(colors[1])
+        pc.set_alpha(0.2)
+    vline_stf["cmins"].set_visible(False)
+    vline_stf["cmaxes"].set_visible(False)
+    vline_stf["cbars"].set_linewidth(line_size)
+    vline_stf["cbars"].set_color(colors[1])
+    vline_stf["cbars"].set_alpha(0.15)
+    vline_stf["cbars"].set_capstyle("round")
+    vline_stf = vline_stf["bodies"][0]
+
+    # draw experiemtns distributions
+    wd_data = np.asarray(list(zip(*plot_data))[2])
+    vline_wd = plot_.violinplot(
+        wd_data,
+        num_plot + np.arange(wd_data.shape[1]),
+        widths=0.6,
+        showextrema=True,
     )
+    for pc in vline_wd["bodies"]:
+        pc.set_facecolor(alt_colors[1])
+        pc.set_alpha(0.2)
+    vline_wd["cmins"].set_visible(False)
+    vline_wd["cmaxes"].set_visible(False)
+    vline_wd["cbars"].set_linewidth(line_size)
+    vline_wd["cbars"].set_color(alt_colors[1])
+    vline_wd["cbars"].set_alpha(0.15)
+    vline_wd["cbars"].set_capstyle("round")
+    vline_wd = vline_wd["bodies"][0]
 
     artists_wd = []
     artists_stf = []

@@ -217,13 +217,13 @@ for tax, ax in zip(twin_axes[:-1], axes[1:]):
 art = list(reversed(list(zip(avg_lin, art_stf, art_wd))))
 art_ = list(reversed(list(zip(avg_lin_, art_stf_, art_wd_))))
 all_ = [
-    r"model with max $\mathcal{S}$",
-    r"model ($\mathcal{S}$-loss) with max $\mathcal{S}$",
-    r"range of scores ($\mathcal{S}, W_1$)",
-    r"model with med $\mathcal{S}$",
-    r"model ($\mathcal{S}$-loss) with med $\mathcal{S}$",
-    r"model with min $\mathcal{S}$",
-    r"model ($\mathcal{S}^{\Theta}$-loss) with min $\mathcal{S}$",
+    r"max $\mathcal{S}$",
+    r"max $\mathcal{S}$ with ($\mathcal{S}$-loss)",
+    r"dist over experiments ($\mathcal{S}, W_1$)",
+    r"med $\mathcal{S}$",
+    r"med $\mathcal{S}$ with ($\mathcal{S}$-loss)",
+    r"min $\mathcal{S}$",
+    r"min $\mathcal{S}$ with ($\mathcal{S}$-loss)",
 ]
 
 all_art = [art_[0], art[0], (v_stf, v_wd), art_[1], art[1], art_[2], art[2]]
