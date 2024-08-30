@@ -18,7 +18,6 @@ import stylized_loss
 import stylized_score
 import torch
 import wandb_logging
-from accelerate import Accelerator
 from accelerate.utils import set_seed
 from datasets import SP500DataSet
 from fourier_flow import FourierFlow
@@ -47,15 +46,15 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
     config = {
         "train_seed": 99,
         "dtype": "float32",
-        "seq_len": 1024,
+        "seq_len": 2048,
         "symbols": [],
         "fourier_flow_config": {
-            "hidden_dim": 512,
+            "hidden_dim": 1024,
             "num_layer": 2,
         },
         "epochs": 10,
         "batch_size": 24,
-        "num_batches": 256,
+        "num_batches": 512,
         "dist": "normal",
         # "stylized_losses": ['lu', 'le', 'cf', 'vc'],
         "stylized_losses": [],
@@ -83,8 +82,7 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
 
     # accelerator is used to efficiently use resources
     set_seed(config["train_seed"])
-    accelerator = Accelerator()
-    device = accelerator.device
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # read available hardware
     cuda_name = None
@@ -154,21 +152,15 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
         loader = DataLoader(dataset, batch_size, pin_memory=True)
 
         # initialize model and optimiers
-        model = FourierFlow(**fourier_flow_config, dist_config=dist_config)
+        model = FourierFlow(**fourier_flow_config, dist_config=dist_config).to(device)
         optim = torch.optim.LBFGS(model.parameters(), **config["optim_gen_config"])
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optim, epochs)
-
-        # wrap model, loader ... to get them to the right device
-        loader, model, optim, scheduler = accelerator.prepare(
-            loader, model, optim, scheduler
-        )
 
         best_score = sys.float_info.max
 
         def closure(loss_: List[float]):
             optim.zero_grad()
 
-            fake_batch, log_prob_z, log_jac_det = model(real_batch)
+            fake_batch, log_prob_z, log_jac_det = model(real_batch.to(device))
             loss = torch.mean(-log_prob_z - log_jac_det)
 
             fbt = fake_batch.transpose(0, 1)
@@ -186,7 +178,7 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
                 vc_loss = stylized_loss.vc_loss(fbt, rbt)
                 loss += stl * vc_loss
 
-            accelerator.backward(loss)  # compute gradients
+            loss.backward()  # compute gradients
 
             loss_.append(loss.item())
 
@@ -202,12 +194,9 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
                 optim.step(lambda: closure(loss))
                 epoch_loss += np.mean(loss)
 
-            scheduler.step()
-
             logs = {
                 "loss": epoch_loss / len(loader),
                 "epoch_time": time.time() - epoch_time,
-                "lr": scheduler.get_last_lr()[0],
                 "epoch": epoch,
             }
 
@@ -307,7 +296,6 @@ def _train_fourierflow(conf: Dict[str, Any] = {}):
                 )
 
         # after the last epoch free memory
-        accelerator.free_memory()
         print("Finished training Fourier Flow!")
 
 
@@ -322,12 +310,9 @@ def load_fourierflow(file: str) -> FourierFlow:
     """
     file = Path(file)
 
-    accelerator = Accelerator()
-
     model_dict = torch.load(file, map_location=torch.device("cpu"))
     model = FourierFlow(**model_dict["init_params"])
     model.load_state_dict(model_dict["state_dict"])
-    model = accelerator.prepare(model)
 
     return model
 
@@ -399,5 +384,5 @@ def train_fourierflow(
 
 
 if __name__ == "__main__":
-    os.environ["WANDB_MODE"] = "disabled"
+    # os.environ["WANDB_MODE"] = "disabled"
     train_fourierflow()
