@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "synthetic-data"
-version = "0.1.0"
-description = "Synthetic data generation"
+version = "1.0.0"
+description = "Synthetic data generation master thesis"
 authors = ["Nico Graf <ncograf@gmail.com>"]
 readme = "README.md"
 packages = [
