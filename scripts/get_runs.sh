@@ -1,4 +1,9 @@
 #!/bin/sh
+
+############################################
+# Fetch data from cluster result directory #
+#   Make sure to adapt paths as needed!!!  #
+############################################
 echo GOT ARGUEMNT $1
 if [ $1 == "fingan" ]
 then
