@@ -38,7 +38,11 @@ def _train_garch(config) -> Path:
 
     TIME_FORMAT = "%Y_%m_%d-%H_%M_%S"
     time = datetime.now().strftime(TIME_FORMAT)
-    cache = Path(os.environ["RESULT_DIR"]) / f"{config['vol']}_{config['dist']}_{time}"
+    cache = (
+        Path(os.environ["RESULT_DIR"])
+        / "garch_runs"
+        / f"{config['vol']}_{config['dist']}_{time}"
+    )
     cache.mkdir(parents=True, exist_ok=True)
 
     # store model info data
@@ -200,7 +204,7 @@ def train_garch(mean, vol, p, o, q, power, dist):
 
     Returns
     -------
-        None : Models are stored in the RESULT_DIR (env variable) directory
+        None : Models are stored in the RESULT_DIR / garch_runs (env variable) directory
 
     Examples
     --------
