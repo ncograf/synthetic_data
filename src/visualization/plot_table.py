@@ -83,10 +83,52 @@ def create_table(
         else:
             mu, scs, wd, run = dat
             ind_scores_str = " & ".join([f"${d:.2f}$" for d in scs])
-            wd_scores_str = " & ".join([f"${d:.2f}$" for d in wd])
+            wd_scores_str = " & ".join([f"${d:.2e}$" for d in wd])
             table += r"                \hline" + "\n"
             table += f"                {run} & {mu:.2f}\n"
             table += f"                & {ind_scores_str} & {wd_scores_str}\\\\\n"
     table += table_end
     with (out_dir / f"{name}.tex").open("w") as file:
         file.write(table)
+
+
+def std_table(first_sentence: str, stvars):
+    text = f"""{first_sentence}
+    To obtain the stylized score,
+    these standard deviations scale the estimators before
+    comparing them with a wasserstein distance.
+    The statistics are computed over the variance estimations
+    for the different lag values~$k$, where the
+    the range of the relevant~$k$ depends on the stylized fact.
+    """
+    table_start = """\\begin{table}
+    \\centering
+    \\begin{threeparttable}
+        \\caption{MSFT stylized scaling parameters}
+        \\label{tab:stf_mstf_vars}
+            \\begin{tabular}{c|l|l|l|l|l|l}
+                \\toprule
+                statistic over $k$
+                & $\\sigma^{lu}$ & $\\sigma^{ht}$
+                & $\\sigma^{vc}$ & $\\sigma^{le}$
+                & $\\sigma^{cf}$ & $\\sigma^{gl}$\\\\"""
+    table_end = f"""            \\bottomrule
+            \\end{{tabular}}
+            \\begin{{tablenotes}}[flushleft]
+                \\footnotesize
+                \\item {text}
+            \\end{{tablenotes}}
+    \\end{{threeparttable}}
+    \\end{{table}}"""
+
+    table = table_start + "\n"
+
+    data = list(zip(*stvars))[:3]
+    for vals, run in zip(data, ["AVG", "MAX", "MIN"]):
+        ind_scores_str = " & ".join([f"${d:.4f}$" for d in vals])
+        table += r"                \hline" + "\n"
+        table += f"                {run}\n"
+        table += f"                & {ind_scores_str}\\\\\n"
+    table += table_end
+
+    return table

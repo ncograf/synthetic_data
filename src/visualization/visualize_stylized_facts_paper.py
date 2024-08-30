@@ -2,7 +2,11 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
+import scienceplots
 import stylized_score
+
+# hack to keep the module
+scienceplots.__name__
 
 
 def visualize_stylized_facts_paper(
@@ -155,7 +159,7 @@ def visualize_stylized_facts_paper(
     plot.plot(
         pos_x_lin,
         pos_y_lin,
-        # label=f"pos. $\\tilde{{r}}_t^{{\\, {pos_beta:.2f}}}$",
+        label=f"$\\alpha_+ \\approx {pos_beta:.2f}$",
         linewidth=line_size,
         linestyle="--",
         alpha=1,
@@ -164,7 +168,7 @@ def visualize_stylized_facts_paper(
     plot.plot(
         neg_x_lin,
         neg_y_lin,
-        # label=f"neg. $\\tilde{{r}}_t^{{\\, {neg_beta:.2f}}}$",
+        label=f"$\\alpha_- \\approx {neg_beta:.2f}$",
         linewidth=line_size,
         linestyle="--",
         alpha=1,
@@ -186,7 +190,7 @@ def visualize_stylized_facts_paper(
     neg_y_high = np.exp(interval[3, 0]) * np.power(x_bstrap, interval[1, 0])
     neg_y_low = np.exp(interval[3, 1]) * np.power(x_bstrap, interval[1, 1])
     plot.fill_between(x_bstrap, neg_y_high, neg_y_low, fc=emph_color, alpha=0.1)
-    plot.legend(loc="lower left")
+    plot.legend(loc="lower left", handlelength=1)
 
     #########################
     # VOLATILITY CLUSTERING #
@@ -348,8 +352,8 @@ if __name__ == "__main__":
         data = load_data.load_log_returns("sp500", min_len=9216, symbols=["MSFT"])
         stf_dist = stylized_score.boostrap_stylized_facts(data, B, S, L)
         stf = stylized_score.compute_mean_stylized_fact(data)
-        fig = visualize_stylized_facts_paper(stf, stf_dist, textwidth=0.4 * 5.106)
-        fig.savefig("/home/nico/thesis/presentations/week22/figures/stf_sp500.pgf")
+        fig = visualize_stylized_facts_paper(stf, stf_dist, textwidth=1.15 * 5.106)
+        fig.savefig("/home/nico/thesis/thesis/figure/stf_mstf.pgf")
 
     if fingan:
         fingan = train_fingan.load_fingan(
