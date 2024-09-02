@@ -8,6 +8,7 @@ eigen*
 wandb
 wandb_keys.json
 last_train_run
+log*
 
 
 .environment
