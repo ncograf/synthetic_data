@@ -1,49 +1,50 @@
-# Specify minimal cmake version for this project
+# Specify minimal cmake version for the synthetic data project
 cmake_minimum_required(VERSION 3.24)
 
+# Build boost_python and boost_numpy as shared libs (does not work otherwise)
+option(HUNTER_BUILD_SHARED_LIBS "Build Boost libraries as shared libs" ON)
+
+# Get hunter as "Package Manager" MUST BE BEFORE project
+include("cmake/HunterGate.cmake")
+HunterGate(
+    URL "https://github.com/cpp-pm/hunter/archive/v0.25.6.tar.gz"
+    SHA1 "69e4a05bd514bb05cb2c5aa02ce8ac420516aaf7"
+)
+
 # Project name and version
-project(boosted_stats VERSION 1.0.0 LANGUAGES CXX)
+project(boosted_stats VERSION 2.0.0)
 
-# include the eigen library
-find_package(Python3 COMPONENTS Interpreter Development NumPy REQUIRED)
-find_package(Boost COMPONENTS python numpy3 REQUIRED)
+########################
+# Install dependencies #
+########################
+hunter_add_package(Eigen)
+find_package(Eigen3 CONFIG REQUIRED)
 
-if (${Python3_FOUND})
-    message ("Found Python " ${Python3_VERSION} " in " ${Python3_EXECUTABLE})
-else()
-    message ("Couldn’t find Python3!")
-endif()
+# include python
+find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 
-if (${Python3_Development_FOUND})
-    message ("Found Python3 include dirs: " ${Python3_INCLUDE_DIRS})
-else()
-    message ("Couldn’t find Python3 Development!")
-endif()
+# include the boost library
+hunter_add_package(Boost COMPONENTS python)
+find_package(Boost CONFIG REQUIRED python311 numpy311)
+set_target_properties(Boost::python311 Boost::numpy311 PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+
+####################################
+# Configure output and compilation #
+####################################
 
 # Without this, any build libraries automatically have names "lib{x}.so"
 set(CMAKE_SHARED_MODULE_PREFIX "")
 set(CMAKE_STATIC_LIBRARY_PREFIX "")
 
-include_directories(SYSTEM eigen-3.4.0)
-include_directories(${PYTHON3_INCLUDE_DIRS})
-
-# GoogleTests
-set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-include(FetchContent)
-FetchContent_Declare(
-  googletest
-  URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
-)
-
-# create file for LSP (make sure vscode finds eigen)
+# create file for LSP
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
+# make fast compilation
 set(CMAKE_CXX_FLAGS "-Wall -Wextra")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-Ofast")

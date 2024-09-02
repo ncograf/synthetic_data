@@ -1,0 +1,8 @@
+# config.cmake
+hunter_config(
+  Boost
+  VERSION ${HUNTER_Boost_VERSION}
+  CMAKE_ARGS
+  PYTHON_VERSION=${PYTHON_VERSION}
+  HUNTER_ENABLE_BOOST_PYTHON_NUMPY=True
+)
