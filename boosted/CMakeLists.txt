@@ -20,8 +20,11 @@ project(boosted_stats VERSION 2.0.0)
 hunter_add_package(Eigen)
 find_package(Eigen3 CONFIG REQUIRED)
 
-# include python
-find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
+# include python and python header files
+find_package(Python3 COMPONENTS Interpreter Development NumPy REQUIRED)
+include_directories(${Python3_INCLUDE_DIRS})
+# Hack to make sure Hunter installs Boostlib Python with correct headers
+set(ENV{CPLUS_INCLUDE_PATH} ${Python3_INCLUDE_DIRS})
 
 # include the boost library
 hunter_add_package(Boost COMPONENTS python)
