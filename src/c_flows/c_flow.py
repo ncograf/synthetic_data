@@ -302,7 +302,6 @@ class CFlow(nn.Module):
             Tensor: signals in the signal space
         """
         assert seq_len % self.preview == 0
-        self.eval()
 
         dist_z = MultivariateNormal(self.zero, self.eye)
         z = dist_z.rsample(sample_shape=(n, seq_len // self.preview + n_burn)).reshape(
