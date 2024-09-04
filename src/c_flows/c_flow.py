@@ -12,7 +12,6 @@ class CFlow(nn.Module):
     def __init__(
         self,
         hidden_dim: int,
-        seq_len: int,
         preview: int,
         n_layer: int,
         dtype: str | torch.dtype = "float32",
@@ -23,11 +22,8 @@ class CFlow(nn.Module):
 
         Args:
             hidden_dim (int): dimension of the hidden layers needs to be even
-            seq_len (int): lenght of the input sequence
             preview (int): number of previewed elements must be even
-            conditional_dim (int): size of the conditional latent representation.
             n_layer (int): number of spectral layers to be used
-            init_context (array_like): initial data to sample from
             dtype (torch.dtype, optional): type of data. Defaults to torch.float64.
             scale (flaot): data scaling
             shift (float): data shift
@@ -50,12 +46,11 @@ class CFlow(nn.Module):
         self.preview = preview
         assert preview % 2 == 0
         self.n_layer = n_layer
-        self.seq_len = seq_len
 
         self.data_scale = scale  # float
         self.data_shift = shift  # float
 
-        self.g = ContextNet(seq_len, hidden_dim, self.context_dim)
+        self.g = ContextNet(1, hidden_dim, self.context_dim)
 
         self.mu = MomentNet(self.context_dim, hidden_dim // 2, preview)
         self.sigma = MomentNet(self.context_dim, hidden_dim, preview)
@@ -93,11 +88,9 @@ class CFlow(nn.Module):
 
         if isinstance(module, nn.Linear):
             with torch.no_grad():
-                nn.init.xavier_normal_(
-                    module.weight, gain=nn.init.calculate_gain("sigmoid")
-                )
+                nn.init.normal_(module.weight.data, 0, 1)
                 if module.bias is not None:
-                    nn.init.constant_(module.bias, 0)
+                    nn.init.constant_(module.bias.data, 0)
 
     def get_model_info(self) -> Dict[str, Any]:
         """Model initialization parameters
@@ -108,7 +101,6 @@ class CFlow(nn.Module):
 
         dict_ = {
             "hidden_dim": self.hidden_dim,
-            "seq_len": self.seq_len,
             "preview": self.preview,
             "n_layer": self.n_layer,
             "dtype": self.dtype_str,
@@ -122,13 +114,141 @@ class CFlow(nn.Module):
         self.data_shift = np.nanmean(X)
         self.data_scale = np.nanstd(X)
 
+    def inverse_step(self, z: torch.Tensor, x_cond: torch.Tensor) -> torch.Tensor:
+        assert z.shape[-1] == self.preview
+
+        # transform z to x
+        y = z
+        for layer, f in zip(self.layers, self.flips):
+            y = layer.inverse(y, x_cond, flip=f)
+        x = y
+
+        # compute 'log likelyhood' of last ouput
+        x = x * self.data_scale + self.data_shift
+
+        return x
+
+    def forward_step(
+        self, x: torch.Tensor, x_cond: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        assert x.shape[-1] == self.preview
+
+        x = (x - self.data_shift) / self.data_scale
+
+        # transform x to z
+        y = x
+        log_jac_dets = []
+        for layer, f in zip(self.layers, self.flips):
+            y, log_jac_det = layer(y, x_cond, flip=f)
+
+            log_jac_dets.append(log_jac_det)
+        z = y
+
+        # compute 'log likelyhood' of last ouput
+        mu, sigma = self.mu(x_cond), torch.abs(self.sigma(x_cond))
+        z = (z - mu) / sigma
+
+        log_jac_dets = torch.stack(log_jac_dets, dim=0)
+        log_jac_det_sum = torch.sum(log_jac_dets, dim=0)
+
+        return z, log_jac_det_sum
+
+    def f_(
+        self, x: torch.Tensor, x_cond: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Compute the forward pass for a seqence of time series data and start context
+
+        Args:
+            x (torch.Tensor): batch_size x seq_len, with seq_len | self.preview
+            x_cond torch.Tensor: batch_size x seq_len x hidden_dim context for rnn
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: z latent variables, log_likelyhood, log_jac_det
+        """
+        assert x.ndim == 2
+        assert x.shape[1] % self.preview == 0
+
+        # iterate create independent steps
+        x_ = x.reshape((-1, self.preview))
+        x_cond_ = x_cond[:, self.preview - 1 :: self.preview, :].reshape(
+            (-1, x_cond.shape[-1])
+        )
+        assert x_.shape[0] == x_cond_.shape[0]
+        z_, log_det_jac_ = self.forward_step(x_, x_cond_)
+
+        # compute 'log likelyhood' of last ouput
+        dist_z = MultivariateNormal(self.zero, self.eye)
+        log_prob_z_ = dist_z.log_prob(z_)
+
+        z = z_.reshape(x.shape)
+        log_det_jac = log_det_jac_.reshape((x.shape[0], -1))
+        log_prob_z = log_prob_z_.reshape((x.shape[0], -1))
+
+        log_det_jac = torch.mean(
+            log_det_jac, dim=-1
+        )  # compute average within each batch
+        log_prob_z = torch.mean(log_prob_z, dim=-1)  # compute average within each batch
+
+        return z, log_prob_z, log_det_jac
+
+    def if_(
+        self,
+        z: torch.Tensor,
+        x_cond: torch.Tensor,
+        hc: Tuple[torch.Tensor, torch.Tensor] | None,
+    ) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+        """_summary_
+
+        Args:
+            z (torch.Tensor): batch_size x seq_len
+            x_cond (torch.Tensor): batch_size x ? x hidden_dim
+            hc (Tuple[torch.Tensor, torch.Tensor]): hidden_state of last x_cond computation
+
+        Returns:
+            Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]: batch_size x seq_len (x), out going hidden state
+        """
+        assert z.ndim == 2
+        assert z.shape[1] % self.preview == 0
+
+        assert x_cond.ndim == 3
+        assert x_cond.shape[1] % self.preview == 0
+
+        n_cond = x_cond.shape[1]
+        n_seq = z.shape[1]
+
+        # compute all outputs with available x_cond
+        z_ = z[:, :n_cond].reshape((-1, self.preview))
+        x_cond_ = x_cond[:, self.preview - 1 :: self.preview, :].reshape(
+            (-1, x_cond.shape[-1])
+        )
+        assert z_.shape[0] == x_cond_.shape[0]
+        x_ = self.inverse_step(z_, x_cond_)
+        x_ = x_.reshape((z.shape[0], n_cond))
+
+        # compute the remaining outputs
+        x_out = []
+        last_x = x_[:, -self.preview :]
+        for i in range((n_seq - n_cond) // self.preview):
+            start = i + n_cond
+            end = i + n_cond + self.preview
+            x_cond_, hc = self.g.forward(last_x.reshape(*last_x.shape, 1), hc)
+            last_x = self.inverse_step(z[:, start:end], x_cond_[:, -1, :])
+            x_out.append(last_x)
+
+        # glue everything together
+        x = torch.cat([x_] + x_out, dim=-1)
+
+        return x
+
     def forward(
-        self, x: torch.Tensor
+        self, x: torch.Tensor, hc=None
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Compute one forward pass of the network
 
+        Input x and output z distributions of x are shifted, i.e. x[:,i + 1] <-> z[:,i]
+
         Args:
-            x (torch.Tensor): Nx(seq_len + preview) signal batch tensor
+            x (torch.Tensor): N x seq_len signal batch tensor
 
         Returns:
             Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: transformed tensor
@@ -137,127 +257,101 @@ class CFlow(nn.Module):
         if x.ndim == 1:
             x = x.reshape((1, -1))
 
-        x = (x - self.data_shift) / self.data_scale
+        x_ = x.reshape(*x.shape, 1)
+        x_cond, hc = self.g(x_, hc)
 
-        assert x.shape[1] == self.seq_len + self.preview
+        x_cond = torch.cat([x_cond[:, :1, :], x_cond[:, :-1, :]], dim=1)
 
-        y = x[:, -self.preview :]
-        x = x[:, : -self.preview]
-        x = (x - self.data_shift) / self.data_scale
+        return self.f_(x, x_cond)
 
-        x_cond = self.g(x)
-        log_jac_dets = []
-        for layer, f in zip(self.layers, self.flips):
-            y, log_jac_det = layer(y, x_cond, flip=f)
-
-            log_jac_dets.append(log_jac_det)
-
-        # compute 'log likelyhood' of last ouput
-        dist_y = MultivariateNormal(self.zero, self.eye)
-        mu, sigma = self.mu(x_cond), torch.pow(self.sigma(x_cond) ** 2, 0.25)
-        y_trans = (y - mu) / sigma
-        log_prob_z = dist_y.log_prob(y_trans)
-
-        log_jac_dets = torch.stack(log_jac_dets, dim=0)
-        log_jac_det_sum = torch.sum(log_jac_dets, dim=0)
-
-        return y, log_prob_z, log_jac_det_sum
-
-    def inverse(self, z: torch.Tensor, x_cond: torch.Tensor) -> torch.Tensor:
+    def inverse(
+        self,
+        z: torch.Tensor,
+        x: torch.Tensor,
+        hc: Tuple[torch.Tensor, torch.Tensor] | None = None,
+    ) -> torch.Tensor:
         """Compute the signal from a latent space variable
 
+        Input x and output distributions of x are shifted, i.e. in_x[:,i + 1] <-> out_x[:, i]
+        the previous elements are regarded as context
+
         Args:
-            z (torch.Tensor): Dxoutput_dim latent space variable
-            x_cond (torch.Tensor): Nxhidden_dim conditional tensor
+            z (torch.Tensor): D x seq_len latent space variable
+            x (torch.Tensor): N x ? previous seqences
+            hc (Tuple[torch.Tensor, torch.Tensor] | None): context. Defaults to None
 
         Returns:
             torch.Tensor: return value D dimensional
         """
 
-        for layer, f in zip(reversed(self.layers), reversed(self.flips)):
-            z = layer.inverse(z, x_cond, flip=f)
+        x = x.reshape(*x.shape, 1)
+        x_cond, hc = self.g(x, hc)
 
-        z = z * self.data_scale + self.data_shift
+        return self.if_(z, x_cond, hc)
 
-        return z
-
-    def sample_single(self, z: torch.Tensor, signal: torch.Tensor) -> torch.Tensor:
-        """Sample for a single signal
-
-        Args:
-            z (torch.Tensor): random sample for one more ouput
-            signal (torch.Tensor): signal to be used as condition
-
-        Returns:
-            torch.Tensor: new sample
-        """
-        x_cond = self.g(signal)
-        sigma = torch.pow(self.sigma(x_cond) ** 2, 0.25)
-        mu = self.mu(x_cond)
-        z_ = z * sigma + mu
-        return self.inverse(z_, x_cond)[:, 0]
-
-    def sample(self, n: int, x: torch.Tensor) -> torch.Tensor:
+    def sample(self, n: int, seq_len: int, n_burn: int = 10) -> torch.Tensor:
         """Sample new series from the learn distribution with
         given initial series x
 
         Args:
             n (int): number of series to sample
-            x (torch.Tensor): Initial series to start sampling
+            seq_len (int): series length to sample
+            n_burn (int): number of samples to burn before sampling
 
         Returns:
             Tensor: signals in the signal space
         """
+        assert seq_len % self.preview == 0
         self.eval()
 
-        with torch.no_grad():
-            if x.ndim == 1:
-                x = x.reshape((1, -1))
+        dist_z = MultivariateNormal(self.zero, self.eye)
+        z = dist_z.rsample(sample_shape=(n, seq_len // self.preview + n_burn)).reshape(
+            (n, -1)
+        )
+        x = torch.zeros((n, self.preview)).to(self.dtype).to(z.device)
 
-            x = x.to(self.dtype)
-
-            dist_z = MultivariateNormal(self.zero, self.eye)
-            z = dist_z.rsample(sample_shape=(x.shape[0], n))
-
-            signals = torch.zeros((x.shape[0], self.seq_len + n), dtype=self.dtype).to(z.device)
-            signals[:, : self.seq_len] = x
-            for i in range(z.shape[1]):
-                curr_signal = signals[:, i : self.seq_len + i]
-                signals[:, self.seq_len + i] = self.sample_single(z[:, i], curr_signal)
-
-        return signals[:, self.seq_len :]
+        return self.inverse(z, x)[:, n_burn * self.preview :]
 
 
 class ContextNet(nn.Module):
-    def __init__(self, input_len: int, hidden_dim: int, output_len: int):
+    def __init__(self, input_dim: int, hidden_dim: int, output_dim: int):
         nn.Module.__init__(self)
-        self.layer_one = nn.Linear(input_len, hidden_dim)
-        self.layer_two = nn.Linear(hidden_dim, hidden_dim)
-        self.layer_three = nn.Linear(hidden_dim, hidden_dim)
-        self.layer_four = nn.Linear(hidden_dim, output_len)
-        self.norm_one = nn.BatchNorm1d(hidden_dim)
-        self.norm_two = nn.BatchNorm1d(hidden_dim)
-        self.norm_three = nn.BatchNorm1d(hidden_dim)
 
-    def forward(self, x: torch.Tensor):
-        x = torch.tanh(self.norm_one(self.layer_one(x)))
-        x = torch.tanh(self.norm_two(self.layer_two(x)))
-        x = torch.tanh(self.norm_three(self.layer_three(x)))
-        x = self.layer_four(x)
+        self.rnn = nn.LSTM(input_dim, hidden_dim, 3, batch_first=True)
 
-        return x
+        self.linear_one = nn.Linear(hidden_dim, hidden_dim)
+        self.out_layer = nn.Linear(hidden_dim, output_dim)
+
+    def forward(self, x: torch.Tensor, hc=None):
+        if hc is None:
+            x, (h, c) = self.rnn(x)
+        else:
+            x, (h, c) = self.rnn(x, hc)
+
+        x = torch.tanh(self.linear_one(x))
+        x = self.out_layer(x)
+
+        return x, (h, c)
 
 
 class MomentNet(nn.Module):
     def __init__(self, input_len: int, hidden_dim: int, output_len: int):
         nn.Module.__init__(self)
         self.layer_one = nn.Linear(input_len, hidden_dim)
-        self.layer_two = nn.Linear(hidden_dim, hidden_dim)
-        self.layer_three = nn.Linear(hidden_dim, output_len)
+        self.layer_two = nn.Linear(hidden_dim, output_len)
+        self.scale_layer = nn.Parameter(torch.ones((output_len)))
 
     def forward(self, x: torch.Tensor):
         x = torch.tanh(self.layer_one(x))
         x = torch.tanh(self.layer_two(x))
-        x = self.layer_three(x)
+        x = x * self.scale_layer
 
         return x
+
+
+if __name__ == "__main__":
+    flow = CFlow(10, 2, 2)
+    x = flow.sample(5, 10, 3)
+    z = flow.forward(x)
+
+    print(z)

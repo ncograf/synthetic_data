@@ -33,71 +33,74 @@ class ConditionalLayer(nn.Module):
         self.pos_f = torch.nn.Softplus(beta=1, threshold=30)
 
     def forward(
-        self, z: torch.Tensor, x: torch.Tensor, flip: bool
+        self, y: torch.Tensor, x_cond: torch.Tensor, flip: bool
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Compute foward step of method proposed in
         http://arxiv.org/abs/1912.00042
 
         Args:
-            x (torch.Tensor): Dx(T // 2 + 1)x2 input tensor
+            y (torch.Tensor): batch_size x preview_len
+            x_cond (torch.Tensor): batch_size x hidden_dim context tensor
             flip (bool): Whether or not to flip the last dimensions
 
         Returns:
-            Tuple[torch.Tensor, torch.Tensor]: latent variable Z and det(J(f))
+            Tuple[torch.Tensor, torch.Tensor]: latent variable y' and det(J(f))
         """
 
-        z0, z1 = z[:, : self.seq_len // 2], z[:, self.seq_len // 2 :]
+        y0, y1 = y[:, : self.seq_len // 2], y[:, self.seq_len // 2 :]
         if flip:
-            z0, z1 = z1, z0
+            y0, y1 = y1, y0
 
-        z1_x = torch.cat([z1, x], dim=1)
-        H = self.pos_f(self.s(z1_x))
-        M = self.t(z1_x)
+        y1_x = torch.cat([y1, x_cond], dim=1)
+        H = self.pos_f(self.s(y1_x))
+        M = self.t(y1_x)
 
-        Y_0 = H * z0 + M
-        Y_1 = z1
+        yp_0 = H * y0 + M
+        yp_1 = y1
 
         if flip:
-            Y_1, Y_0 = Y_0, Y_1
+            yp_1, yp_0 = yp_0, yp_1
 
-        Y = torch.cat([Y_0, Y_1], dim=-1)
+        yp = torch.cat([yp_0, yp_1], dim=-1)
 
         # The jacobian is a diagonal matrix for each time series and hence
         # see https://arxiv.org/abs/1605.08803
         log_jac_det = torch.sum(torch.log(H), dim=-1)
 
-        return Y, log_jac_det
+        return yp, log_jac_det
 
-    def inverse(self, y: torch.Tensor, x: torch.Tensor, flip: bool) -> torch.Tensor:
+    def inverse(
+        self, yp: torch.Tensor, x_cond: torch.Tensor, flip: bool
+    ) -> torch.Tensor:
         """Computes the inverse transform of the spectral filter
 
         Args:
-            y (torch.Tensor): Tensor of size output dim
-            x (torch.Tensor): Context tensor of size self.hidden_dim
+            yp (torch.Tensor): batch_size x preview
+            x_cond (torch.Tensor): batch_size x self.hidden_dim
             flip (bool): whether or not to flip the real and imag
 
         Returns:
-            torch.Tensor: input tensor of original sequence
+            torch.Tensor: y the inverse of y'
         """
 
-        y0, y1 = y[:, : self.seq_len // 2], y[:, self.seq_len // 2 :]
+        y0, y1 = yp[:, : self.seq_len // 2], yp[:, self.seq_len // 2 :]
 
         if flip:
             y1, y0 = y0, y1
 
-        z1_x = torch.cat([y1, x], dim=1)
-        H = self.pos_f(self.s(z1_x))
-        M = self.t(z1_x)
+        y1_x = torch.cat([y1, x_cond], dim=1)
+        H = self.pos_f(self.s(y1_x))
+        M = self.t(y1_x)
 
-        z0 = (y0 - M) / H
-        z1 = z1_x[:, : self.seq_len // 2]
+        y0 = (y0 - M) / H
+        y1 = y1_x[:, : self.seq_len // 2]
 
         if flip:
-            z1, z0 = z0, z1
+            y1, y0 = y0, y1
 
-        z = torch.cat([z0, z1], dim=-1)
+        y = torch.cat([y0, y1], dim=-1)
 
-        return z
+        return y
 
 
 class SNet(nn.Module):
