@@ -329,7 +329,13 @@ def sample_c_flow(
     "--seq-len",
     "-L",
     default=2048,
-    help="Learning rate for Adam optimizer",
+    help="Sequence lenght used for sampling and training",
+)
+@click.option(
+    "--epochs",
+    "-e",
+    default=200,
+    help="Number of epochs",
 )
 @click.option("--stylized-lambda", "-y", default=1, help="Factor for stylized loss")
 def train_cflow(
@@ -338,12 +344,14 @@ def train_cflow(
     learning_rate: float,
     seq_len: int,
     stylized_lambda: float,
+    epochs: int,
 ):
     config = {
         "symbols": list(symbols),
         "stylized_losses": list(stylized_loss),
         "stylized_lambda": stylized_lambda,
         "seq_len": seq_len,
+        "epochs": epochs,
         "optim_gen_config": {
             "lr": learning_rate,
         },
