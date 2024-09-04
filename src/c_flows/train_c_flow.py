@@ -45,22 +45,28 @@ def _train_cflow(conf: Dict[str, Any] = {}):
         "train_seed": 99,
         "dtype": "float32",
         "epochs": 200,
-        "batch_size": 2,
-        "num_batches": 2,
+        "batch_size": 128,
+        "num_batches": 512,
         "dist": "normal",
         "symbols": [],
         "stylized_losses": [],
         "stylized_lambda": 5,
         "c_flow_config": {
-            "hidden_dim": 24,
+            "hidden_dim": 48,
             "preview": 2,
-            "n_layer": 2,
+            "n_layer": 4,
         },
         # "stylized_losses": ['lu', 'le', 'cf', 'vc'],
         "optim_gen_config": {
             "lr": 1e-4,
             # "betas": (0.5, 0.999),
         },
+        "optim_disc_config": {
+            "lr": 1e-5,
+            "betas": (0.1, 0.999),
+        },
+        # "losses" : ["gan", "ml"],
+        "losses": ["ml"],
         "n_bootstraps": 24,
         "n_samples_per_bstrap": 8,
     }
@@ -111,6 +117,7 @@ def _train_cflow(conf: Dict[str, Any] = {}):
         # read config
         c_flow_config = config["c_flow_config"]
         seq_len = config["seq_len"]
+        c_flow_config["disc_seq_len"] = seq_len
         batch_size = config["batch_size"]
         num_batches = config["num_batches"]
         # stl = config["stylized_lambda"]
@@ -128,38 +135,93 @@ def _train_cflow(conf: Dict[str, Any] = {}):
         # initialize model and optimiers
         model = CFlow(**c_flow_config)
         # model.set_normilizing(log_returns)
-        optim = torch.optim.Adam(model.parameters(), **config["optim_gen_config"])
+        optim = torch.optim.Adam(model.gen.parameters(), **config["optim_gen_config"])
+        disc_optim = torch.optim.Adam(
+            model.disc.parameters(), **config["optim_disc_config"]
+        )
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optim, epochs)
 
         # wrap model, loader ... to get them to the right device
-        loader, model, optim, scheduler = accelerator.prepare(
-            loader, model, optim, scheduler
+        loader, model, optim, disc_optim, scheduler = accelerator.prepare(
+            loader, model, optim, disc_optim, scheduler
         )
 
+        bce_criterion = torch.nn.BCELoss()
         best_score = sys.float_info.max
 
         for epoch in range(epochs):
-            epoch_loss = 0
+            ml_loss = 0
+            gen_loss = 0
+            disc_loss = 0
             epoch_time = time.time()
 
             # actual training
-            for real_batch, _ in loader:
-                optim.zero_grad()
+            for real_batch, y in loader:
+                if "gan" in config["losses"]:
+                    # get data and labels
+                    b_size = real_batch.shape[0]
+                    y_real, y_fake = y[:, 0], y[:, 1]
+                    fake_batch: torch.Tensor = model.sample(
+                        n=b_size, seq_len=seq_len, n_burn=2
+                    )
+                    fake_batch = torch.reshape(
+                        fake_batch, (b_size, 1, -1)
+                    )  # add channel dimension
+                    real_batch = torch.nan_to_num(real_batch).to(fake_batch.dtype)
+                    real_batch = torch.reshape(
+                        real_batch, (b_size, 1, -1)
+                    )  # add channel dimension
 
-                _, log_prob_z, log_jac_det = model(real_batch)
+                    #######################
+                    # Train discriminator
+                    #######################
+                    disc_optim.zero_grad()
+                    disc_y_real = model.disc(real_batch).flatten()
+                    y_real = y_real.to(disc_y_real.dtype)
+                    disc_err_real = bce_criterion(disc_y_real, y_real)
+                    accelerator.backward(disc_err_real)  # compute gradients
 
-                loss = torch.mean(-log_prob_z - log_jac_det)
-                accelerator.backward(loss)  # compute gradients
+                    disc_y_fake = model.disc(
+                        fake_batch.detach()
+                    ).flatten()  # detach because generator gradients are not needed
+                    y_fake = y_fake.to(disc_y_fake.dtype)
+                    disc_err_fake = bce_criterion(disc_y_fake, y_fake)
+                    accelerator.backward(disc_err_fake)  # compute gradients
 
-                # update model
-                optim.step()
+                    # update discriminator
+                    disc_optim.step()
 
-                epoch_loss += loss.item()
+                    #####################
+                    # Train generator
+                    #####################
+                    optim.zero_grad()
+                    disc_y_fake = model.disc(
+                        fake_batch
+                    ).flatten()  # compute with gen gradients
+                    gen_err = bce_criterion(disc_y_fake, y_real)
+                    accelerator.backward(gen_err)  # compute gradients
+                    optim.step()
+
+                    gen_loss += gen_err.item()
+                    disc_loss += (disc_err_fake.item() + disc_err_real.item()) * 0.5
+
+                elif "ml" in config["losses"]:
+                    _, log_prob_z, log_jac_det = model(real_batch)
+
+                    loss = torch.mean(-log_prob_z - log_jac_det)
+                    accelerator.backward(loss)  # compute gradients
+
+                    # update model
+                    optim.step()
+
+                    ml_loss += loss.item()
 
             # scheduler.step()
 
             logs = {
-                "loss": epoch_loss / len(loader),
+                "gen_loss": gen_loss / len(loader),
+                "disc_loss": disc_loss / len(loader),
+                "loss": ml_loss / len(loader),
                 "epoch_time": time.time() - epoch_time,
                 "lr": scheduler.get_last_lr()[0],
                 "epoch": epoch,
@@ -253,7 +315,7 @@ def _train_cflow(conf: Dict[str, Any] = {}):
                 # print progress every n epochs
                 print(
                     (
-                        f"epoch: {epoch + 1:>6d}/{epochs},\tepoch loss {epoch_loss / len(loader):>6.4f}"
+                        f"epoch: {epoch + 1:>6d}/{epochs},\tepoch loss {ml_loss / len(loader):>6.4f}"
                     )
                 )
 
@@ -305,12 +367,12 @@ def sample_c_flow(
 
 @click.command()
 @click.option(
-    "--stylized-loss",
+    "--losses",
     "-s",
     multiple=True,
-    default=[],
-    # default=["lu", "le", "cf", "vc"],
-    help='Stylized losses to use ["lu", "le", "cf", "vc"]',
+    default=["ml"],
+    # default=["st", "gan", "ml"]
+    help="Which losses should be used for training",
 )
 @click.option(
     "--symbols",
@@ -322,13 +384,13 @@ def sample_c_flow(
 @click.option(
     "--learning-rate",
     "-l",
-    default=1e-5,
+    default=1e-4,
     help="Learning rate for Adam optimizer",
 )
 @click.option(
     "--seq-len",
     "-L",
-    default=2048,
+    default=1024,
     help="Sequence lenght used for sampling and training",
 )
 @click.option(
@@ -337,19 +399,16 @@ def sample_c_flow(
     default=200,
     help="Number of epochs",
 )
-@click.option("--stylized-lambda", "-y", default=1, help="Factor for stylized loss")
 def train_cflow(
-    stylized_loss: List[str],
+    losses: List[str],
     symbols: List[str],
     learning_rate: float,
     seq_len: int,
-    stylized_lambda: float,
     epochs: int,
 ):
     config = {
         "symbols": list(symbols),
-        "stylized_losses": list(stylized_loss),
-        "stylized_lambda": stylized_lambda,
+        "losses": list(losses),
         "seq_len": seq_len,
         "epochs": epochs,
         "optim_gen_config": {

@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from c_layer import ConditionalLayer
-from torch.distributions.multivariate_normal import MultivariateNormal
+from torch.distributions.normal import Normal
 from type_converter import TypeConverter
 
 
@@ -14,6 +14,7 @@ class CFlow(nn.Module):
         hidden_dim: int,
         preview: int,
         n_layer: int,
+        disc_seq_len: int,
         dtype: str | torch.dtype = "float32",
         scale: float = 1,
         shift: float = 0,
@@ -24,6 +25,7 @@ class CFlow(nn.Module):
             hidden_dim (int): dimension of the hidden layers needs to be even
             preview (int): number of previewed elements must be even
             n_layer (int): number of spectral layers to be used
+            disc_seq_len (int): seqence length to train the discriminator
             dtype (torch.dtype, optional): type of data. Defaults to torch.float64.
             scale (flaot): data scaling
             shift (float): data shift
@@ -43,6 +45,7 @@ class CFlow(nn.Module):
 
         self.hidden_dim = hidden_dim
         self.context_dim = hidden_dim
+        self.disc_seq_len = disc_seq_len
         self.preview = preview
         assert preview % 2 == 0
         self.n_layer = n_layer
@@ -68,12 +71,11 @@ class CFlow(nn.Module):
         )
         self.flips = [True if i % 2 else False for i in range(self.n_layer)]
 
-        self.eye = nn.Parameter(
-            torch.eye(preview, dtype=self.dtype), requires_grad=False
-        )
-        self.zero = nn.Parameter(
-            torch.zeros(preview, dtype=self.dtype), requires_grad=False
-        )
+        self.eye = nn.Parameter(torch.ones(1), requires_grad=False)
+        self.zero = nn.Parameter(torch.zeros(1), requires_grad=False)
+
+        self.gen = nn.ModuleList([self.g, self.mu, self.sigma, self.layers])
+        self.disc = FinGanDisc(input_dim=disc_seq_len, dtype=self.dtype)
 
         self.apply(self._init_weights)
 
@@ -88,7 +90,7 @@ class CFlow(nn.Module):
 
         if isinstance(module, nn.Linear):
             with torch.no_grad():
-                nn.init.normal_(module.weight.data, 0, 1)
+                nn.init.normal_(module.weight.data, 0, 0.06)
                 if module.bias is not None:
                     nn.init.constant_(module.bias.data, 0)
 
@@ -103,6 +105,7 @@ class CFlow(nn.Module):
             "hidden_dim": self.hidden_dim,
             "preview": self.preview,
             "n_layer": self.n_layer,
+            "disc_seq_len": self.disc_seq_len,
             "dtype": self.dtype_str,
             "scale": self.data_scale,
             "shift": self.data_shift,
@@ -177,7 +180,7 @@ class CFlow(nn.Module):
         z_, log_det_jac_ = self.forward_step(x_, x_cond_)
 
         # compute 'log likelyhood' of last ouput
-        dist_z = MultivariateNormal(self.zero, self.eye)
+        dist_z = Normal(self.zero, self.eye)
         log_prob_z_ = dist_z.log_prob(z_)
 
         z = z_.reshape(x.shape)
@@ -303,8 +306,8 @@ class CFlow(nn.Module):
         """
         assert seq_len % self.preview == 0
 
-        dist_z = MultivariateNormal(self.zero, self.eye)
-        z = dist_z.rsample(sample_shape=(n, seq_len // self.preview + n_burn)).reshape(
+        dist_z = Normal(self.zero, self.eye)
+        z = dist_z.rsample(sample_shape=(n, seq_len + n_burn * self.preview)).reshape(
             (n, -1)
         )
         x = torch.zeros((n, self.preview)).to(self.dtype).to(z.device)
@@ -346,6 +349,46 @@ class MomentNet(nn.Module):
         x = x * self.scale_layer
 
         return x
+
+
+class FinGanDisc(nn.Sequential):
+    def __init__(self, input_dim: int, dtype: torch.dtype):
+        in_channels = 1
+        input_dim = input_dim
+        kernel_size = 10
+        nn.Sequential.__init__(
+            self,
+            nn.Conv1d(
+                in_channels=in_channels,
+                out_channels=64,
+                padding="same",
+                kernel_size=kernel_size,
+                dtype=dtype,
+            ),
+            nn.LeakyReLU(0.2),
+            nn.Conv1d(
+                in_channels=64,
+                out_channels=128,
+                padding="same",
+                kernel_size=kernel_size,
+                dtype=dtype,
+            ),
+            nn.LeakyReLU(0.2),
+            nn.Conv1d(
+                in_channels=128,
+                out_channels=128,
+                padding="same",
+                kernel_size=kernel_size,
+                dtype=dtype,
+            ),
+            nn.LeakyReLU(0.2),
+            nn.Flatten(),
+            nn.Linear(input_dim * 128, 32, dtype=dtype),
+            nn.LeakyReLU(0.2),
+            nn.Dropout(0.5),
+            nn.Linear(32, 1, dtype=dtype),
+            nn.Sigmoid(),
+        )
 
 
 if __name__ == "__main__":
