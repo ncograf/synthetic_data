@@ -113,7 +113,7 @@ def visualize_stylized_facts(
     # plot data
     plot = axes[0, 1]
     plot.set(
-        title="heavy tails",
+        title="heavy-tails",
         ylabel=r"pdf $P\left(\tilde{r_t}\right)$",
         xlabel=r"$\tilde{r_t} := r_t\, /\, \sigma$",
         xscale="log",

@@ -35,12 +35,12 @@ def plot_axes(plot_data, plot: plt.Axes, plot_: plt.Axes, title, alt=False, scal
         range(7),
         labels=[
             r"Linear unpredictability",
-            r"Heavy tails",
+            r"Heavy-tails",
             r"Volatility clustering",
             r"Leverage effect",
             r"Coarse-fine volatility",
             r"Gain-loss asymmetry",
-            r"Wasserstein Distance",
+            r"Wasserstein distance",
         ],
         rotation=90,
     )
