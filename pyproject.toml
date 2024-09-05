@@ -16,6 +16,7 @@ packages = [
     {include = "*", from = "src/time_gan"},
     {include = "*", from = "src/fingan_takahashi"},
     {include = "*", from = "src/c_flows"},
+    {include = "*", from = "src/cfingan"},
     {include = "*", from = "src/regime_cond_flow"},
     {include = "*", from = "src/utils"},
     {include = "*", from = "src/fitting_utils"},
