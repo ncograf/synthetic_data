@@ -11,6 +11,7 @@ import load_data
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
+import stylized_loss
 import stylized_score
 import torch
 import wandb_logging
@@ -51,7 +52,7 @@ def _train_cfingan(conf: Dict[str, Any] = {}):
         "dist": "normal",
         "symbols": [],
         "stylized_losses": [],
-        "stylized_lambda": 5,
+        "stylized_lambda": 1,
         "cfingan_config": {
             "hidden_dim": 128,
         },
@@ -119,7 +120,7 @@ def _train_cfingan(conf: Dict[str, Any] = {}):
         seq_len = config["seq_len"]
         batch_size = config["batch_size"]
         num_batches = config["num_batches"]
-        # stl = config["stylized_lambda"]
+        stl = config["stylized_lambda"]
         epochs = config["epochs"]
         dtype = TypeConverter.str_to_numpy(config["dtype"])
 
@@ -209,12 +210,25 @@ def _train_cfingan(conf: Dict[str, Any] = {}):
                     fake_batch_teacher
                 ).flatten()  # compute with gen gradients
                 gen_err = bce_criterion(disc_y_fake_teacher, y_real)
-                accelerator.backward(gen_err)  # compute gradients
 
                 disc_y_fake = model.disc(
                     fake_batch
                 ).flatten()  # compute with gen gradients
-                gen_err = bce_criterion(disc_y_fake, y_real)
+                gen_err += bce_criterion(disc_y_fake, y_real)
+
+                if "lu" in config["stylized_losses"]:
+                    lu_loss = stylized_loss.lu_loss(fake_batch, real_batch)
+                    gen_err += stl * lu_loss
+                if "le" in config["stylized_losses"]:
+                    le_loss = stylized_loss.le_loss(fake_batch, real_batch)
+                    gen_err += stl * le_loss
+                if "cf" in config["stylized_losses"]:
+                    cf_loss = stylized_loss.cf_loss(fake_batch, real_batch)
+                    gen_err += stl * cf_loss
+                if "vc" in config["stylized_losses"]:
+                    vc_loss = stylized_loss.vc_loss(fake_batch, real_batch)
+                    gen_err += stl * vc_loss
+
                 accelerator.backward(gen_err)  # compute gradients
 
                 optim.step()
@@ -402,16 +416,29 @@ def sample_cfingan(
     default=200,
     help="Number of epochs",
 )
+@click.option(
+    "--stylized-loss",
+    "-s",
+    multiple=True,
+    default=[],
+    # default=["lu", "le", "cf", "vc"],
+    help='Stylized losses to use ["lu", "le", "cf", "vc"]',
+)
+@click.option("--stylized-lambda", "-y", default=1, help="Factor for stylized loss")
 def train_cfingan(
     dist: str,
     symbols: List[str],
     learning_rate: float,
+    stylized_loss: List[str],
+    stylized_lambda: float,
     seq_len: int,
     epochs: int,
 ):
     config = {
         "dist": dist,
         "symbols": list(symbols),
+        "stylized_losses": list(stylized_loss),
+        "stylized_lambda": stylized_lambda,
         "disc_seq_len": seq_len,
         "epochs": epochs,
         "optim_gen_config": {
