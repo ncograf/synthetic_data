@@ -41,19 +41,19 @@ def _train_cfingan(conf: Dict[str, Any] = {}):
 
     # define training config and train model
     config = {
-        "disc_seq_len": 128,
-        "seq_len": 4096,
+        "disc_seq_len": 256,
+        "seq_len": 2048,
         "train_seed": 99,
         "dtype": "float32",
-        "epochs": 200,
-        "batch_size": 2,
-        "num_batches": 2,
+        "epochs": 100,
+        "batch_size": 512,
+        "num_batches": 128,
         "dist": "normal",
         "symbols": [],
         "stylized_losses": [],
         "stylized_lambda": 5,
         "cfingan_config": {
-            "hidden_dim": 24,
+            "hidden_dim": 128,
         },
         # "stylized_losses": ['lu', 'le', 'cf', 'vc'],
         "optim_gen_config": {
@@ -164,6 +164,12 @@ def _train_cfingan(conf: Dict[str, Any] = {}):
                 fake_batch = torch.reshape(
                     fake_batch, (b_size, 1, -1)
                 )  # add channel dimension
+                fake_batch_teacher: torch.Tensor = model.forward(
+                    real_batch
+                )
+                fake_batch_teacher = torch.reshape(
+                    fake_batch_teacher, (b_size, 1, -1)
+                )  # add channel dimension
                 real_batch = torch.nan_to_num(real_batch).to(fake_batch.dtype)
                 real_batch = torch.reshape(
                     real_batch, (b_size, 1, -1)
@@ -177,6 +183,13 @@ def _train_cfingan(conf: Dict[str, Any] = {}):
                 y_real = y_real.to(disc_y_real.dtype)
                 disc_err_real = bce_criterion(disc_y_real, y_real)
                 accelerator.backward(disc_err_real)  # compute gradients
+
+                disc_y_fake_teacher = model.disc(
+                    fake_batch_teacher.detach()
+                ).flatten()  # detach because generator gradients are not needed
+                y_fake = y_fake.to(disc_y_fake_teacher.dtype)
+                disc_err_fake = bce_criterion(disc_y_fake_teacher, y_fake)
+                accelerator.backward(disc_err_fake)  # compute gradients
 
                 disc_y_fake = model.disc(
                     fake_batch.detach()
@@ -192,11 +205,20 @@ def _train_cfingan(conf: Dict[str, Any] = {}):
                 # Train generator
                 #####################
                 optim.zero_grad()
+
+                # teacher forcing
+                disc_y_fake = model.disc(
+                    fake_batch_teacher
+                ).flatten()  # compute with gen gradients
+                gen_err = bce_criterion(disc_y_fake_teacher, y_real)
+                accelerator.backward(gen_err)  # compute gradients
+
                 disc_y_fake = model.disc(
                     fake_batch
                 ).flatten()  # compute with gen gradients
                 gen_err = bce_criterion(disc_y_fake, y_real)
                 accelerator.backward(gen_err)  # compute gradients
+
                 optim.step()
 
                 gen_loss += gen_err.item()
@@ -300,7 +322,7 @@ def _train_cfingan(conf: Dict[str, Any] = {}):
                 # print progress every n epochs
                 print(
                     (
-                        f"epoch: {epoch + 1:>6d}/{epochs},\tepoch loss {gen_loss.item() / len(loader):>6.4f}"
+                        f"epoch: {epoch + 1:>6d}/{epochs},\tepoch loss {gen_loss / len(loader):>6.4f}"
                     )
                 )
 
@@ -392,7 +414,7 @@ def train_cfingan(
     config = {
         "dist": dist,
         "symbols": list(symbols),
-        "dist_seq_len": seq_len,
+        "disc_seq_len": seq_len,
         "epochs": epochs,
         "optim_gen_config": {
             "lr": learning_rate,

@@ -57,11 +57,12 @@ class CFinGAN(nn.Module):
         self.apply(self._init_weights)
 
     def sample_dist(self, x_cond: torch.Tensor) -> torch.Tensor:
+        eps = 1e-7 # minimal variance
         match self.dist_config["dist"]:
             case "studentt":
                 return (
                     torch.distributions.StudentT(
-                        self.df(x_cond), self.mu(x_cond), torch.abs(self.sigma(x_cond))
+                        self.df(x_cond), self.mu(x_cond), torch.abs(self.sigma(x_cond)) + eps
                     )
                     .rsample()
                     .flatten(-2)
@@ -69,7 +70,7 @@ class CFinGAN(nn.Module):
             case "normal":
                 return (
                     torch.distributions.Normal(
-                        self.mu(x_cond), torch.abs(self.sigma(x_cond))
+                        self.mu(x_cond), torch.abs(self.sigma(x_cond)) + eps
                     )
                     .rsample()
                     .flatten(-2)
@@ -77,7 +78,7 @@ class CFinGAN(nn.Module):
             case "cauchy":
                 return (
                     torch.distributions.Cauchy(
-                        self.mu(x_cond), torch.abs(self.sigma(x_cond))
+                        self.mu(x_cond), torch.abs(self.sigma(x_cond)) + eps
                     )
                     .rsample()
                     .flatten(-2)
@@ -85,7 +86,7 @@ class CFinGAN(nn.Module):
             case "laplace":
                 return (
                     torch.distributions.Laplace(
-                        self.mu(x_cond), torch.abs(self.sigma(x_cond))
+                        self.mu(x_cond), torch.abs(self.sigma(x_cond)) + eps
                     )
                     .rsample()
                     .flatten(-2)
@@ -102,7 +103,7 @@ class CFinGAN(nn.Module):
 
         if isinstance(module, nn.Linear):
             with torch.no_grad():
-                nn.init.normal_(module.weight.data, 0, 0.06)
+                nn.init.normal_(module.weight.data, 0, 0.1)
                 if module.bias is not None:
                     nn.init.constant_(module.bias.data, 0)
 
@@ -204,6 +205,7 @@ class ContextNet(nn.Module):
         self.rnn = nn.LSTM(input_dim, hidden_dim, 3, batch_first=True)
 
         self.linear_one = nn.Linear(hidden_dim, hidden_dim)
+        self.linear_two = nn.Linear(hidden_dim, hidden_dim)
         self.out_layer = nn.Linear(hidden_dim, output_dim)
 
     def forward(self, x: torch.Tensor, hc=None):
