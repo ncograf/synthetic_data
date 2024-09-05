@@ -120,6 +120,10 @@ class CFlow(nn.Module):
     def inverse_step(self, z: torch.Tensor, x_cond: torch.Tensor) -> torch.Tensor:
         assert z.shape[-1] == self.preview
 
+        # transform the stanadard normal variable
+        mu, sigma = self.mu(x_cond), torch.abs(self.sigma(x_cond))
+        z = (z * sigma) + mu
+
         # transform z to x
         y = z
         for layer, f in zip(self.layers, self.flips):
