@@ -46,8 +46,8 @@ def _train_cfingan(conf: Dict[str, Any] = {}):
         "train_seed": 99,
         "dtype": "float32",
         "epochs": 100,
-        "batch_size": 512,
-        "num_batches": 128,
+        "batch_size": 10,
+        "num_batches": 2,
         "dist": "normal",
         "symbols": [],
         "stylized_losses": [],
@@ -164,9 +164,7 @@ def _train_cfingan(conf: Dict[str, Any] = {}):
                 fake_batch = torch.reshape(
                     fake_batch, (b_size, 1, -1)
                 )  # add channel dimension
-                fake_batch_teacher: torch.Tensor = model.forward(
-                    real_batch
-                )
+                fake_batch_teacher: torch.Tensor = model.forward(real_batch)
                 fake_batch_teacher = torch.reshape(
                     fake_batch_teacher, (b_size, 1, -1)
                 )  # add channel dimension
@@ -207,7 +205,7 @@ def _train_cfingan(conf: Dict[str, Any] = {}):
                 optim.zero_grad()
 
                 # teacher forcing
-                disc_y_fake = model.disc(
+                disc_y_fake_teacher = model.disc(
                     fake_batch_teacher
                 ).flatten()  # compute with gen gradients
                 gen_err = bce_criterion(disc_y_fake_teacher, y_real)
@@ -395,7 +393,7 @@ def sample_cfingan(
 @click.option(
     "--seq-len",
     "-L",
-    default=128,
+    default=64,
     help="Sequence lenght used for sampling and training",
 )
 @click.option(
