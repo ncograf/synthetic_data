@@ -216,17 +216,19 @@ def _train_cfingan(conf: Dict[str, Any] = {}):
                 ).flatten()  # compute with gen gradients
                 gen_err += bce_criterion(disc_y_fake, y_real)
 
+                fbt = fake_batch.transpose(0, 2).squeeze(1)
+                rbt = real_batch.transpose(0, 2).squeeze(1)
                 if "lu" in config["stylized_losses"]:
-                    lu_loss = stylized_loss.lu_loss(fake_batch, real_batch)
+                    lu_loss = stylized_loss.lu_loss(fbt, rbt)
                     gen_err += stl * lu_loss
                 if "le" in config["stylized_losses"]:
-                    le_loss = stylized_loss.le_loss(fake_batch, real_batch)
+                    le_loss = stylized_loss.le_loss(fbt, rbt)
                     gen_err += stl * le_loss
                 if "cf" in config["stylized_losses"]:
-                    cf_loss = stylized_loss.cf_loss(fake_batch, real_batch)
+                    cf_loss = stylized_loss.cf_loss(fbt, rbt)
                     gen_err += stl * cf_loss
                 if "vc" in config["stylized_losses"]:
-                    vc_loss = stylized_loss.vc_loss(fake_batch, real_batch)
+                    vc_loss = stylized_loss.vc_loss(fbt, rbt)
                     gen_err += stl * vc_loss
 
                 accelerator.backward(gen_err)  # compute gradients
