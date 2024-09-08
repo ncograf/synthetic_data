@@ -18,7 +18,7 @@ class CausalConv(nn.Module):
 
         in_channels = [1] + channels[:-1]
         out_channels = channels
-        self.layers = []
+        self.layers = nn.ModuleList()
         for in_, out_ in zip(in_channels, out_channels):
             conv = nn.Conv1d(
                 in_,
@@ -55,7 +55,7 @@ class DelatedCausalConv(nn.Module):
             padding=0,
             dilation=1,
         )
-        self.layers = [in_conv]
+        self.layers = nn.ModuleList([in_conv])
         for i in range(1, layer):
             conv = nn.Conv1d(
                 res_channels,
@@ -139,7 +139,7 @@ class WaveNet(nn.Module):
         self.scale = 1
         self.sample_data = sample_data
 
-        self.stacks = []
+        self.stacks = nn.ModuleList()
         for stack in stacks:
             stack["channels"].append(classes)
             self.stacks.append(StackedGates(**stack))

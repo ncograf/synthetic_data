@@ -45,18 +45,16 @@ def _train_wavenet(conf: Dict[str, Any] = {}):
         "train_seed": 99,
         "dtype": "float32",
         "epochs": 100,
-        "batch_size": 64,
-        "num_batches": 2,
+        "batch_size": 128,
+        "num_batches": 512,
         "symbols": [],
-        "stylized_losses": [],
-        "stylized_lambda": 1,
         "wavenet_config": {
             "stacks": [
                 {
-                    "channels": [1, 4, 16],
-                    "res_channels": 32,
-                    "dil_layer": 4,
-                    "num_blocks": 1,
+                    "channels": [1, 4, 16, 64],
+                    "res_channels": 128,
+                    "dil_layer": 5,
+                    "num_blocks": 3,
                 }
             ],
             "classes": 256,
@@ -65,10 +63,6 @@ def _train_wavenet(conf: Dict[str, Any] = {}):
         "optim_gen_config": {
             "lr": 1e-4,
             # "betas": (0.5, 0.999),
-        },
-        "optim_disc_config": {
-            "lr": 1e-5,
-            "betas": (0.1, 0.999),
         },
         "n_bootstraps": 16,
         "n_samples_per_bstrap": 8,
@@ -347,15 +341,11 @@ def sample_wavenet(
 def train_wavenet(
     symbols: List[str],
     learning_rate: float,
-    stylized_loss: List[str],
-    stylized_lambda: float,
     seq_len: int,
     epochs: int,
 ):
     config = {
         "symbols": list(symbols),
-        "stylized_losses": list(stylized_loss),
-        "stylized_lambda": stylized_lambda,
         "seq_len": seq_len,
         "epochs": epochs,
         "optim_gen_config": {
@@ -366,5 +356,5 @@ def train_wavenet(
 
 
 if __name__ == "__main__":
-    os.environ["WANDB_MODE"] = "disabled"
+    # os.environ["WANDB_MODE"] = "disabled"
     train_wavenet()
