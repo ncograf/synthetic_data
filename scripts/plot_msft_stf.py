@@ -301,7 +301,7 @@ def main(png, sym):
             f"rvsm_{sym}_stf_data",
             f"{sym}_stf_data",
             "(a)",
-            f"Real {sym.upper()} vs Model data",
+            f"Real {sym.upper()} vs {sym.upper()} Model data",
             plot_table.prepare_data(rvsm_exp, rvsm_exp_),
             out_dir.parent / "tables",
         )
@@ -309,7 +309,7 @@ def main(png, sym):
             f"model_{sym}_stf_data",
             f"{sym}_stf_data",
             "(b)",
-            "S\\&P 500 vs Model data",
+            f"S\\&P 500 vs {sym.upper()} Model data",
             plot_table.prepare_data(model_exp, model_exp_),
             out_dir.parent / "tables",
         )

@@ -39,7 +39,7 @@ def main(exp):
     L = 4096
 
     real = "real" in exp
-    mstf = "mstf" in exp
+    msft = "msft" in exp
 
     out_dir = Path(os.getenv("THESIS_DIR")) / "tables"
 
@@ -47,16 +47,16 @@ def main(exp):
         stf_dist = stylized_score.boostrap_stylized_facts(log_ret, B, S, L)
         stvars = stylized_score.stylized_variance(stf_dist)
         text = "Standard deviations of the S\&P 500 stylized facts estimators."
-        table = plot_table.std_table(text, stvars)
+        table = plot_table.std_table(text, stvars, "S\&P 500", "stf_vars")
         with (out_dir / "stf_vars.tex").open("w") as file:
             file.write(table)
 
-    if mstf:
+    if msft:
         data = load_data.load_log_returns("sp500", min_len=9216, symbols=["MSFT"])
         stf_dist = stylized_score.boostrap_stylized_facts(data, B, S, L)
         stvars = stylized_score.stylized_variance(stf_dist)
         text = "Standard deviations of the MSFT stylized facts estimators."
-        table = plot_table.std_table(text, stvars)
+        table = plot_table.std_table(text, stvars, "MSFT", "stf_msft_vars")
         with (out_dir / "stf_msft_vars.tex").open("w") as file:
             file.write(table)
 

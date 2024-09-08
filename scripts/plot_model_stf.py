@@ -40,7 +40,7 @@ def main(png):
     - ${DATA_DIR}/fourierflow_runs
     - ${DATA_DIR}/realnvp_runs
 
-    exists and contains experiemnts, as copied by the script `get_runs.sh`.
+    exists and contains experiment, as copied by the script `get_runs.sh`.
     """
 
     # Set seeds.
@@ -202,7 +202,7 @@ def main(png):
             "garch_model_stf_data",
             "model_stf_data",
             "(a)",
-            "GARCH experiemnt data",
+            "GARCH experiment data",
             plot_table.prepare_data(garch_exp),
             out_dir.parent / "tables",
         )
@@ -210,7 +210,7 @@ def main(png):
             "fingan_model_stf_data",
             "model_stf_data",
             "(b)",
-            "FinGAN experiemnt data",
+            "FinGAN experiment data",
             plot_table.prepare_data(fingan_exp, fingan_exp_),
             out_dir.parent / "tables",
         )
@@ -218,7 +218,7 @@ def main(png):
             "fourierflow_model_stf_data",
             "model_stf_data",
             "(c)",
-            "Fourier Flow experiemnt data",
+            "Fourier Flow experiment data",
             plot_table.prepare_data(ff_exp, ff_exp_),
             out_dir.parent / "tables",
         )
@@ -226,7 +226,7 @@ def main(png):
             "realnvp_model_stf_data",
             "model_stf_data",
             "(d)",
-            "Real NVP experiemnt data",
+            "Real NVP experiment data",
             plot_table.prepare_data(realnvp_exp, realnvp_exp_),
             out_dir.parent / "tables",
         )
@@ -333,7 +333,9 @@ def compute_scores(run_dir: Path, model_load, model_sample, B, S, L):
                 if len(info["stylized_losses"]) == 0:
                     exp_.append((tot, ind, w, f'~{info["dist"]}'))
                 else:
-                    exp.append((tot, ind, w, f'~{info["dist"]} + stylized loss'))
+                    exp.append(
+                        (tot, ind, w, f'~{info["dist"]} + $\\mathcal{{S}}$-loss')
+                    )
 
         with exp_path.open("w") as file:
             json.dump({"exp": exp, "exp_": exp_}, file)
