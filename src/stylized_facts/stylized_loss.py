@@ -1,6 +1,7 @@
 import coarse_fine_volatility
 import leverage_effect
 import linear_unpredictability
+import numpy as np
 import torch
 import volatility_clustering
 
@@ -13,7 +14,7 @@ def lu_loss(syn: torch.Tensor, real: torch.Tensor):
     real_lu = torch.mean(real_lu_data, dim=1)
     real_std = torch.std(real_lu_data, dim=1)
 
-    w = torch.exp(-torch.linspace(1, 4, real_lu.shape[0]))
+    w = torch.exp(-torch.linspace(0, np.log(0.1), real_lu.shape[0]))
     w = w / torch.sum(w)
     w = w.to(syn.device)
     return torch.sum(((syn_lu - real_lu) / real_std) ** 2 * w)
@@ -27,7 +28,7 @@ def vc_loss(syn: torch.Tensor, real: torch.Tensor):
     real_vc = torch.mean(real_vc_data, dim=1)
     real_std = torch.std(real_vc_data, dim=1)
 
-    w = torch.exp(-torch.linspace(1, 4, real_vc.shape[0]))
+    w = torch.exp(-torch.linspace(0, np.log(0.1), real_vc.shape[0]))
     w = w / torch.sum(w)
     w = w.to(syn.device)
 
@@ -42,7 +43,7 @@ def le_loss(syn: torch.Tensor, real: torch.Tensor):
     real_le = torch.mean(real_le_data, dim=1)
     real_std = torch.std(real_le_data, dim=1)
 
-    w = torch.exp(-torch.linspace(1, 4, real_le.shape[0]))
+    w = torch.exp(-torch.linspace(0, np.log(0.1), real_le.shape[0]))
     w = w / torch.sum(w)
     w = w.to(syn.device)
 
@@ -61,7 +62,7 @@ def cf_loss(syn: torch.Tensor, real: torch.Tensor):
     real_cf = torch.mean(real_cf_data, dim=1)
     real_std = torch.std(real_cf_data, dim=1)
 
-    w = torch.exp(-torch.linspace(1, 4, real_cf.shape[0]))
+    w = torch.exp(-torch.linspace(0, np.log(0.1), real_cf.shape[0]))
     w = w / torch.sum(w)
     w = w.to(syn.device)
 
