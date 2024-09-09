@@ -146,6 +146,8 @@ class WaveNet(nn.Module):
             stack["channels"].append(classes)
             self.stacks.append(StackedGates(**stack))
 
+        self.dev_param = nn.Parameter(torch.tensor([1]))
+
         self.conv_one = nn.Conv1d(classes, classes, 1)
         self.conv_two = nn.Conv1d(classes, classes, 1)
 
@@ -214,9 +216,11 @@ class WaveNet(nn.Module):
         """
 
         self.dataset.set_batch_size(n)
-        data = torch.as_tensor(self.dataset[0], dtype=torch.float32)
+        data = torch.as_tensor(self.dataset[0], dtype=torch.float32).to(
+            self.dev_param.device
+        )
 
-        space = torch.linspace(self.scale[0], self.scale[1], self.classes)
+        space = torch.linspace(-1, 1, self.classes)
         space = self.inv_transform(space)
 
         seq = []

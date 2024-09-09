@@ -95,7 +95,7 @@ def _train_wavenet(conf: Dict[str, Any] = {}):
         cuda_name = torch.cuda.get_device_name(device)
         print(f"GPU: {cuda_name}")
 
-    with wandb.init(tags=["WaveNet"] + config["stylized_losses"] + symbols):
+    with wandb.init(tags=["WaveNet"] + symbols):
         # process data
         bootstrap_samples = config["n_samples_per_bstrap"]
         bootstraps = config["n_bootstraps"]
