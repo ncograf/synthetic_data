@@ -152,10 +152,9 @@ def _train_wavenet(conf: Dict[str, Any] = {}):
             for real_batch, y in loader:
                 # get data and labels
                 predictions: torch.Tensor = model(real_batch)
-                low, high = model.scale[0], model.scale[1]
                 ground_truth = model.transform(real_batch)
                 ground_truth = (
-                    torch.floor((ground_truth - low) * classes / (high - low))
+                    torch.floor((ground_truth - 1) * classes / 2)
                     .clamp(0, classes - 1)
                     .to(torch.long)
                 )

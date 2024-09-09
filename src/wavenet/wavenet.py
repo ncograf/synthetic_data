@@ -105,10 +105,12 @@ class StackedGates(nn.Module):
     ):
         nn.Module.__init__(self)
 
-        self.gates = [
-            GatedResidualBlock(channels[-1], res_channels, dil_layer)
-            for _ in range(num_blocks)
-        ]
+        self.gates = nn.ModuleList(
+            [
+                GatedResidualBlock(channels[-1], res_channels, dil_layer)
+                for _ in range(num_blocks)
+            ]
+        )
         self.conv = CausalConv(channels)
 
     def forward(self, x: torch.Tensor):
@@ -149,22 +151,22 @@ class WaveNet(nn.Module):
 
     def transform(self, x: torch.Tensor) -> torch.Tensor:
         x = x / self.scale
-        x = x.clamp(-1, 1)
         x = (
             torch.sign(x)
             * torch.log(1 + self.classes * torch.abs(x))
             / np.log(1.0 + self.classes)
         )
+        x = x.clamp(-1, 1)
 
         return x
 
     def inv_transform(self, x: torch.Tensor) -> torch.Tensor:
+        x = x.clamp(-1, 1)
         x = (
             torch.sign(x)
             * (torch.exp(np.log(1.0 + self.classes) * torch.abs(x)) - 1.0)
             / self.classes
         )
-        x = x.clamp(-1, 1)
         x = x * self.scale
 
         return x
